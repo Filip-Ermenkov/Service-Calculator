@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login — BULBAU</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body class="grid-bg" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;">
+
+<div style="width:100%;max-width:420px;">
+
+  <!-- Logo -->
+  <div class="flex items-center gap-2" style="margin-bottom:2.5rem;justify-content:center;">
+    <div class="logo-mark">B</div>
+    <span class="logo-name">Bulbau</span>
+  </div>
+
+  <!-- LOGIN STEP -->
+  <div id="stepLogin">
+    <div class="login-card">
+      <div class="login-title">Admin Login</div>
+      <div class="login-subtitle">Enter your credentials to access the admin panel.</div>
+
+      <div class="login-form">
+        <div class="form-field">
+          <label class="form-label" style="color:var(--g600);">Email Address</label>
+          <input type="email" class="form-input" value="admin@bulbau.lu" autocomplete="email">
+        </div>
+        <div class="form-field">
+          <label class="form-label" style="color:var(--g600);">Password</label>
+          <input type="password" class="form-input" value="••••••••" autocomplete="current-password">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:0.25rem;">
+          <span></span>
+          <a href="#" style="font-size:0.8rem;color:var(--orange);font-weight:600;" onclick="showForgot()">Forgot password?</a>
+        </div>
+        <button class="btn btn-primary w-full" style="justify-content:center;margin-top:0.5rem;" onclick="showTwoFactor()">
+          Continue
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:0.75rem;color:var(--g600);margin-top:1.5rem;">
+      <a href="../index.html" style="color:var(--g500);">← Back to website</a>
+    </p>
+  </div>
+
+  <!-- TWO-FACTOR STEP -->
+  <div id="step2FA" style="display:none;">
+    <div class="login-card">
+      <div style="margin-bottom:1.25rem;">
+        <div style="width:48px;height:48px;background:var(--orange-bg);display:flex;align-items:center;justify-content:center;margin-bottom:1rem;">
+          <svg width="24" height="24" fill="none" stroke="var(--orange)" stroke-width="2" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+        </div>
+        <div class="login-title">Two-Factor Authentication</div>
+        <div class="login-subtitle">Open Google Authenticator and enter the 6-digit code for Bulbau Admin.</div>
+      </div>
+
+      <div class="login-form">
+        <!-- OTP boxes -->
+        <div style="display:flex;gap:0.5rem;justify-content:center;">
+          <input type="text" maxlength="1" class="form-input" style="width:48px;text-align:center;font-size:1.25rem;font-weight:700;padding:0.75rem 0.5rem;" id="otp1" oninput="otpNext(this,'otp2')">
+          <input type="text" maxlength="1" class="form-input" style="width:48px;text-align:center;font-size:1.25rem;font-weight:700;padding:0.75rem 0.5rem;" id="otp2" oninput="otpNext(this,'otp3')">
+          <input type="text" maxlength="1" class="form-input" style="width:48px;text-align:center;font-size:1.25rem;font-weight:700;padding:0.75rem 0.5rem;" id="otp3" oninput="otpNext(this,'otp4')">
+          <input type="text" maxlength="1" class="form-input" style="width:48px;text-align:center;font-size:1.25rem;font-weight:700;padding:0.75rem 0.5rem;" id="otp4" oninput="otpNext(this,'otp5')">
+          <input type="text" maxlength="1" class="form-input" style="width:48px;text-align:center;font-size:1.25rem;font-weight:700;padding:0.75rem 0.5rem;" id="otp5" oninput="otpNext(this,'otp6')">
+          <input type="text" maxlength="1" class="form-input" style="width:48px;text-align:center;font-size:1.25rem;font-weight:700;padding:0.75rem 0.5rem;" id="otp6">
+        </div>
+        <button class="btn btn-primary w-full" style="justify-content:center;" onclick="window.location='./dashboard.html'">
+          Verify & Sign In
+        </button>
+        <button style="background:none;border:none;color:var(--g500);font-size:0.8rem;cursor:pointer;text-align:center;" onclick="showLogin()">
+          ← Use a different account
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORGOT PASSWORD STEP -->
+  <div id="stepForgot" style="display:none;">
+    <div class="login-card">
+      <div class="login-title">Reset Password</div>
+      <div class="login-subtitle">Enter your email and we'll send you a reset link. The link expires after 1 hour.</div>
+
+      <div class="login-form">
+        <div class="form-field">
+          <label class="form-label" style="color:var(--g600);">Email Address</label>
+          <input type="email" class="form-input" value="admin@bulbau.lu">
+        </div>
+        <div id="resetSuccess" style="display:none;background:#DCFCE7;border-left:4px solid #16A34A;padding:0.85rem 1rem;font-size:0.8125rem;color:#166534;">
+          ✓ Reset link sent. Check your inbox.
+        </div>
+        <button class="btn btn-primary w-full" style="justify-content:center;" onclick="sendReset()">
+          Send Reset Link
+        </button>
+        <button style="background:none;border:none;color:var(--g500);font-size:0.8rem;cursor:pointer;text-align:center;" onclick="showLogin()">
+          ← Back to login
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function showTwoFactor() {
+    document.getElementById('stepLogin').style.display = 'none';
+    document.getElementById('step2FA').style.display   = '';
+    document.getElementById('stepForgot').style.display = 'none';
+    document.getElementById('otp1').focus();
+  }
+  function showLogin() {
+    document.getElementById('stepLogin').style.display  = '';
+    document.getElementById('step2FA').style.display    = 'none';
+    document.getElementById('stepForgot').style.display = 'none';
+  }
+  function showForgot() {
+    document.getElementById('stepLogin').style.display  = 'none';
+    document.getElementById('step2FA').style.display    = 'none';
+    document.getElementById('stepForgot').style.display = '';
+  }
+  function sendReset() {
+    document.getElementById('resetSuccess').style.display = 'block';
+    setTimeout(() => showLogin(), 2500);
+  }
+  function otpNext(current, nextId) {
+    if (current.value.length >= 1 && nextId) {
+      const next = document.getElementById(nextId);
+      if (next) next.focus();
+    }
+  }
+</script>
+</body>
+</html>

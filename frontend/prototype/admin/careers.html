@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Careers — BULBAU Admin</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="admin-root">
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar-logo"><div class="logo-mark">B</div><div><div class="logo-name" style="font-size:1.1rem;">Bulbau</div><div style="font-size:0.65rem;color:var(--g600);font-weight:500;letter-spacing:0.06em;margin-top:0.1rem;">Admin Panel</div></div></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Overview</div><a href="./dashboard.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Content</div><a href="./services.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2"/></svg>Services</a><a href="./projects.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Projects</a><a href="./careers.html" class="admin-nav-item active"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Careers</a><a href="./about.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>About & Company Info</a></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Localisation</div><a href="./translations.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>Translations</a></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Account</div><a href="#" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Account Settings</a><a href="./login.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign Out</a></div>
+    <div style="padding:1.5rem;margin-top:auto;border-top:1px solid rgba(255,255,255,0.06);"><div style="font-size:0.7rem;color:var(--g600);">Logged in as</div><div style="font-size:0.8125rem;color:var(--g300);font-weight:500;margin-top:0.2rem;">admin@bulbau.lu</div></div>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <div class="admin-page-title">Careers</div>
+      <button class="btn btn-primary btn-sm" onclick="showEditor()">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Job Opening
+      </button>
+    </div>
+    <div class="admin-content">
+
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div class="admin-card-title">Job Openings (3 active · 1 archived)</div>
+        </div>
+        <table class="data-table">
+          <thead><tr><th style="width:32px;"></th><th>Position</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr>
+              <td style="cursor:grab;color:var(--g400);"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg></td>
+              <td><strong style="color:var(--g900);">Solar PV Technician</strong><div style="font-size:0.75rem;color:var(--g400);margin-top:0.15rem;">Full-time · Luxembourg</div></td>
+              <td><span class="badge badge-orange">Technical</span></td>
+              <td><span class="badge badge-green">Active</span></td>
+              <td><div class="flex gap-1"><a href="#" class="action-link" onclick="showEditor();return false;">Edit</a><span class="dot-sep">·</span><button class="action-link action-link-gray" style="border:none;padding:0;background:none;">Archive</button><span class="dot-sep">·</span><button class="action-link action-link-red" style="border:none;padding:0;background:none;">Delete</button></div></td>
+            </tr>
+            <tr>
+              <td style="cursor:grab;color:var(--g400);"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg></td>
+              <td><strong style="color:var(--g900);">Electrical Engineer</strong><div style="font-size:0.75rem;color:var(--g400);margin-top:0.15rem;">Full-time · Luxembourg City</div></td>
+              <td><span class="badge badge-orange">Engineering</span></td>
+              <td><span class="badge badge-green">Active</span></td>
+              <td><div class="flex gap-1"><a href="#" class="action-link" onclick="showEditor();return false;">Edit</a><span class="dot-sep">·</span><button class="action-link action-link-gray" style="border:none;padding:0;background:none;">Archive</button><span class="dot-sep">·</span><button class="action-link action-link-red" style="border:none;padding:0;background:none;">Delete</button></div></td>
+            </tr>
+            <tr>
+              <td style="cursor:grab;color:var(--g400);"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg></td>
+              <td><strong style="color:var(--g900);">Project Manager</strong><div style="font-size:0.75rem;color:var(--g400);margin-top:0.15rem;">Full-time · Luxembourg</div></td>
+              <td><span class="badge badge-yellow">Management</span></td>
+              <td><span class="badge badge-green">Active</span></td>
+              <td><div class="flex gap-1"><a href="#" class="action-link" onclick="showEditor();return false;">Edit</a><span class="dot-sep">·</span><button class="action-link action-link-gray" style="border:none;padding:0;background:none;">Archive</button><span class="dot-sep">·</span><button class="action-link action-link-red" style="border:none;padding:0;background:none;">Delete</button></div></td>
+            </tr>
+            <tr style="opacity:0.6;">
+              <td></td>
+              <td><strong style="color:var(--g700);">Junior Electrician</strong><div style="font-size:0.75rem;color:var(--g400);margin-top:0.15rem;">Full-time · Luxembourg</div></td>
+              <td><span class="badge badge-gray">Technical</span></td>
+              <td><span class="badge badge-gray">Archived</span></td>
+              <td><div class="flex gap-1"><a href="#" class="action-link" onclick="showEditor();return false;">Edit</a><span class="dot-sep">·</span><button class="action-link" style="border:none;padding:0;background:none;color:var(--orange);">Restore</button><span class="dot-sep">·</span><button class="action-link action-link-red" style="border:none;padding:0;background:none;">Delete</button></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Inline editor -->
+      <div id="jobEditor" style="display:none;margin-top:1.5rem;">
+        <div class="admin-form-section">
+          <div class="admin-form-section-header">
+            <div class="admin-form-section-title"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>New / Edit Job Opening</div>
+            <button onclick="document.getElementById('jobEditor').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--g400);">✕ Close</button>
+          </div>
+          <div class="admin-form-section-body">
+            <div class="admin-form-row">
+              <div class="form-field"><label class="form-label">Job Title *</label><input type="text" class="form-input" placeholder="e.g. Solar PV Technician"></div>
+              <div class="form-field"><label class="form-label">Status</label><select class="form-input"><option>Active</option><option>Archived</option></select></div>
+            </div>
+            <div class="form-field"><label class="form-label">Description (role, responsibilities, requirements)</label>
+              <div class="rich-editor-mock">
+                <div class="rich-editor-toolbar"><button class="rich-editor-btn" style="font-weight:900;">B</button><button class="rich-editor-btn" style="font-style:italic;">I</button><div class="rich-editor-divider"></div><button class="rich-editor-btn">• List</button></div>
+                <div class="rich-editor-body" contenteditable="true" style="min-height:120px;">Describe the role, key responsibilities, and requirements here…</div>
+              </div>
+            </div>
+            <div class="form-field"><label class="form-label">Photo</label><div class="upload-zone"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg><p><strong>Click to upload</strong> or drag and drop · PNG, JPG up to 5MB</p></div></div>
+            <div class="flex gap-2"><button class="btn btn-primary" onclick="alert('Job saved');document.getElementById('jobEditor').style.display='none'">Save Listing</button><button class="btn btn-dark" onclick="document.getElementById('jobEditor').style.display='none'">Cancel</button></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+<script>
+  function showEditor() {
+    const ed = document.getElementById('jobEditor');
+    ed.style.display = '';
+    ed.scrollIntoView({ behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>

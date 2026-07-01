@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About Us — BULBAU</title>
+  <link rel="stylesheet" href="./assets/css/style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <nav>
+    <a href="./index.html" class="logo">
+      <div class="logo-mark">B</div>
+      <span class="logo-name">Bulbau</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="./index.html">Home</a></li>
+      <li><a href="./projects.html">Projects</a></li>
+      <li><a href="./about.html" class="active">About Us</a></li>
+      <li><a href="./careers.html">Careers</a></li>
+    </ul>
+    <div class="flex items-center gap-2">
+      <div class="lang-switcher">
+        <button class="lang-btn active">FR</button>
+        <button class="lang-btn">DE</button>
+        <button class="lang-btn">EN</button>
+      </div>
+      <button class="hamburger" id="menuBtn" aria-label="Open menu" aria-expanded="false">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+  </nav>
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="./index.html">Home</a>
+    <a href="./projects.html">Projects</a>
+    <a href="./about.html">About Us</a>
+    <a href="./careers.html">Careers</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="grid-bg" style="padding:4rem 0 3rem;">
+  <div class="container">
+    <span class="eyebrow-white">Who We Are</span>
+    <h1 class="display-lg" style="color:#fff;">About Bulbau</h1>
+    <p style="color:var(--g400);max-width:540px;margin-top:0.75rem;font-size:0.9375rem;">
+      A Luxembourg-based engineering company specialising in energy and building services since 2015.
+    </p>
+  </div>
+</section>
+
+<!-- ABOUT + CONTACT DETAILS -->
+<section class="section bg-white">
+  <div class="container">
+    <div style="display:grid;grid-template-columns:1fr 380px;gap:4rem;align-items:start;">
+
+      <!-- Company story -->
+      <div>
+        <span class="eyebrow">Our Story</span>
+        <h2 class="display-md heading-accent" style="margin-bottom:1.5rem;">Engineering for a sustainable future</h2>
+
+        <div style="font-size:0.9375rem;color:var(--g700);line-height:1.8;display:flex;flex-direction:column;gap:1.25rem;">
+          <p>
+            Bulbau was founded in Luxembourg in 2015 with a clear mission: to bring precision engineering and honest craftsmanship to the energy and building services sector. From our first residential solar installation to large-scale commercial projects, we have built a reputation for on-time delivery, transparent pricing, and work that lasts.
+          </p>
+          <p>
+            Our team of certified engineers and technicians covers the full spectrum of building energy systems — photovoltaics, electrical infrastructure, energy storage, building automation, industrial lighting, and heat pumps. Every project begins with a detailed site survey and energy audit, so our recommendations are always grounded in real data.
+          </p>
+          <p>
+            We operate across all three regions of Luxembourg, working with private homeowners, architects, property developers, and industrial clients. Whether the brief is a single rooftop solar array or a complete building systems overhaul, we apply the same rigour: measure twice, install once.
+          </p>
+          <p>
+            Bulbau holds all required certifications under Luxembourg law and is a registered member of the Fédération des Artisans. We carry full professional indemnity and public liability insurance on every project.
+          </p>
+        </div>
+
+        <!-- Values strip -->
+        <div style="margin-top:2.5rem;display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+          <div style="padding:1.25rem;background:var(--g100);border-left:3px solid var(--orange);">
+            <div style="font-weight:700;font-size:0.875rem;color:var(--g900);margin-bottom:0.25rem;">Precision First</div>
+            <div style="font-size:0.8125rem;color:var(--g600);">Every system is engineered to specification, not approximation.</div>
+          </div>
+          <div style="padding:1.25rem;background:var(--g100);border-left:3px solid var(--orange);">
+            <div style="font-weight:700;font-size:0.875rem;color:var(--g900);margin-bottom:0.25rem;">Transparent Pricing</div>
+            <div style="font-size:0.8125rem;color:var(--g600);">No hidden costs. Our quotes are itemised and fixed.</div>
+          </div>
+          <div style="padding:1.25rem;background:var(--g100);border-left:3px solid var(--orange);">
+            <div style="font-weight:700;font-size:0.875rem;color:var(--g900);margin-bottom:0.25rem;">Certified Team</div>
+            <div style="font-size:0.8125rem;color:var(--g600);">All technicians hold current professional certifications.</div>
+          </div>
+          <div style="padding:1.25rem;background:var(--g100);border-left:3px solid var(--orange);">
+            <div style="font-weight:700;font-size:0.875rem;color:var(--g900);margin-bottom:0.25rem;">Long-Term Support</div>
+            <div style="font-size:0.8125rem;color:var(--g600);">Maintenance contracts and remote monitoring available.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contact details -->
+      <div>
+        <div style="background:var(--g100);padding:2rem;margin-bottom:1.5rem;">
+          <h3 class="display-md" style="margin-bottom:1.5rem;">Get in Touch</h3>
+
+          <div class="contact-item">
+            <div class="contact-icon">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 7.18a2 2 0 012-2.18h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L9.91 10.91a16 16 0 006.16 6.16l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 17z"/></svg>
+            </div>
+            <div>
+              <div class="contact-meta">Phone</div>
+              <div class="contact-value"><a href="tel:+35212345678">+352 12 34 56 78</a></div>
+            </div>
+          </div>
+
+          <div class="contact-item">
+            <div class="contact-icon">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </div>
+            <div>
+              <div class="contact-meta">Email</div>
+              <div class="contact-value"><a href="mailto:info@bulbau.lu">info@bulbau.lu</a></div>
+            </div>
+          </div>
+
+          <div class="contact-item">
+            <div class="contact-icon">
+              <svg fill="currentColor" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
+            </div>
+            <div>
+              <div class="contact-meta">Facebook</div>
+              <div class="contact-value"><a href="#">facebook.com/bulbau</a></div>
+            </div>
+          </div>
+
+          <div class="contact-item">
+            <div class="contact-icon">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+            </div>
+            <div>
+              <div class="contact-meta">Instagram</div>
+              <div class="contact-value"><a href="#">@bulbau.lu</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT FORM -->
+<section class="section-sm grid-bg-light">
+  <div class="container">
+    <div style="max-width:700px;margin:0 auto;">
+      <div style="text-align:center;margin-bottom:2.5rem;">
+        <span class="eyebrow">Direct Contact</span>
+        <h2 class="display-md" style="margin-bottom:0.5rem;">Send Us a Message</h2>
+        <p style="color:var(--g500);font-size:0.9375rem;">We aim to respond to all enquiries within one business day.</p>
+      </div>
+
+      <div style="background:var(--white);padding:2.5rem;border:1px solid var(--g200);">
+        <form id="contactForm" style="display:flex;flex-direction:column;gap:1.25rem;">
+          <div class="form-grid-2">
+            <div class="form-field">
+              <label class="form-label">Name <span class="form-required">*</span></label>
+              <input type="text" class="form-input" placeholder="Your full name" required>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Email <span class="form-required">*</span></label>
+              <input type="email" class="form-input" placeholder="you@example.com" required>
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" class="form-input" placeholder="+352 …">
+          </div>
+          <div class="form-field">
+            <label class="form-label">Subject <span class="form-required">*</span></label>
+            <input type="text" class="form-input" placeholder="e.g. Quote request for photovoltaic installation" required>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Message <span class="form-required">*</span></label>
+            <textarea class="form-input form-textarea" placeholder="Describe your project or question…" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" style="align-self:flex-start;">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Send Message
+          </button>
+          <div class="form-success" id="formSuccess">
+            ✓ Your message has been sent. We'll get back to you within one business day.
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-col">
+      <a href="./index.html" class="logo" style="margin-bottom:1rem;display:inline-flex;">
+        <div class="logo-mark">B</div>
+        <span class="logo-name" style="margin-left:0.75rem;">Bulbau</span>
+      </a>
+      <p>Professional energy and building services across Luxembourg.</p>
+      <div class="footer-social">
+        <a href="#" title="Facebook"><svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg></a>
+        <a href="#" title="Instagram"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/></svg></a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Navigation</h4>
+      <ul><li><a href="./index.html">Home</a></li><li><a href="./projects.html">Projects</a></li><li><a href="./about.html">About Us</a></li><li><a href="./careers.html">Careers</a></li></ul>
+    </div>
+    <div class="footer-col">
+      <h4>Services</h4>
+      <ul><li><a href="./service.html">Photovoltaic Systems</a></li><li><a href="./service.html">Electrical Installations</a></li><li><a href="./service.html">Energy Storage</a></li><li><a href="./service.html">Heat Pump Systems</a></li></ul>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <ul><li><a href="tel:+35212345678">+352 12 34 56 78</a></li><li><a href="mailto:info@bulbau.lu">info@bulbau.lu</a></li></ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 Bulbau S.à r.l. · Luxembourg</span>
+    <span>bulbau.lu</span>
+  </div>
+</footer>
+
+<script src="./assets/js/main.js"></script>
+</body>
+</html>

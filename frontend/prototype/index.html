@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BULBAU — Energy & Building Services · Luxembourg</title>
+  <link rel="stylesheet" href="./assets/css/style.css">
+</head>
+<body>
+
+<!-- ============================================================
+     HEADER
+     ============================================================ -->
+<header class="site-header">
+  <nav>
+    <a href="./index.html" class="logo">
+      <div class="logo-mark">B</div>
+      <span class="logo-name">Bulbau</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="./index.html" class="active">Home</a></li>
+      <li><a href="./projects.html">Projects</a></li>
+      <li><a href="./about.html">About Us</a></li>
+      <li><a href="./careers.html">Careers</a></li>
+    </ul>
+    <div class="flex items-center gap-2">
+      <div class="lang-switcher">
+        <button class="lang-btn active">FR</button>
+        <button class="lang-btn">DE</button>
+        <button class="lang-btn">EN</button>
+      </div>
+      <button class="hamburger" id="menuBtn" aria-label="Open menu" aria-expanded="false">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+    </div>
+  </nav>
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="./index.html">Home</a>
+    <a href="./projects.html">Projects</a>
+    <a href="./about.html">About Us</a>
+    <a href="./careers.html">Careers</a>
+  </div>
+</header>
+
+<!-- ============================================================
+     HERO
+     ============================================================ -->
+<section class="grid-bg hero" style="min-height:640px; padding: 6rem 0;">
+  <!-- Decorative corner bracket -->
+  <div style="position:absolute;top:2.5rem;left:2rem;width:40px;height:40px;border-top:2px solid rgba(224,90,0,0.4);border-left:2px solid rgba(224,90,0,0.4);"></div>
+  <div style="position:absolute;bottom:2.5rem;right:2rem;width:40px;height:40px;border-bottom:2px solid rgba(224,90,0,0.4);border-right:2px solid rgba(224,90,0,0.4);"></div>
+
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-badge">Luxembourg · Since 2015</div>
+
+      <h1 class="display-xl" style="color:#fff; max-width:780px; line-height:1.02;">
+        Engineering<br>
+        <span style="color:var(--orange);">Better</span><br>
+        Buildings
+      </h1>
+
+      <p style="color:var(--g400);font-size:1.0625rem;margin-top:1.5rem;max-width:500px;line-height:1.7;">
+        Precision-engineered energy and building services — from photovoltaic systems and electrical installations to building automation and heat pump solutions.
+      </p>
+
+      <div class="flex gap-2 flex-wrap" style="margin-top:2.5rem;">
+        <a href="./about.html" class="btn btn-primary btn-lg">Get in Touch</a>
+        <a href="./projects.html" class="btn btn-outline-white btn-lg">View Projects</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Technical measurement marks -->
+  <div style="position:absolute;right:3rem;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:0.35rem;opacity:0.25;">
+    <div style="width:1px;height:60px;background:var(--orange);"></div>
+    <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.15em;color:var(--orange);writing-mode:vertical-rl;text-transform:uppercase;transform:rotate(180deg);">bulbau.lu</div>
+    <div style="width:1px;height:60px;background:var(--orange);"></div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SERVICES
+     ============================================================ -->
+<section class="section bg-white">
+  <div class="container">
+    <div style="margin-bottom:3rem;">
+      <span class="eyebrow">What We Do</span>
+      <h2 class="display-lg heading-accent">Our Services</h2>
+      <p style="color:var(--g500);max-width:540px;margin-top:0.75rem;font-size:0.9375rem;">
+        Each service includes an online price estimator. Fill in your parameters and receive an instant quote — then contact us for a precise offer.
+      </p>
+    </div>
+
+    <div class="services-grid">
+
+      <!-- Card 1 -->
+      <a href="./service.html" class="service-card">
+        <div class="service-card-img">
+          <div class="card-img-inner img-ph" style="height:200px;">
+            <!-- Solar panel icon -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 3v1m0 16v1M4.22 4.22l.71.71m14.14 14.14.71.71M3 12H2m20 0h-1M4.22 19.78l.71-.71M18.36 5.64l.71-.71"/>
+              <circle cx="12" cy="12" r="5"/>
+              <rect x="2" y="8" width="20" height="8" rx="1" opacity="0.2"/>
+            </svg>
+          </div>
+        </div>
+        <div class="service-card-body">
+          <div class="service-card-title">Photovoltaic Systems</div>
+          <p class="service-card-desc">Custom solar panel installations for residential and commercial rooftops. Maximise energy independence with precision-sized arrays.</p>
+          <div class="card-arrow">
+            Calculate estimate
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+      </a>
+
+      <!-- Card 2 -->
+      <a href="./service.html" class="service-card">
+        <div class="service-card-img">
+          <div class="card-img-inner img-ph" style="height:200px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="service-card-body">
+          <div class="service-card-title">Electrical Installations</div>
+          <p class="service-card-desc">Full-scope electrical work for new builds and renovations — from panel upgrades to complete wiring and testing.</p>
+          <div class="card-arrow">
+            Calculate estimate
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+      </a>
+
+      <!-- Card 3 -->
+      <a href="./service.html" class="service-card">
+        <div class="service-card-img">
+          <div class="card-img-inner img-ph" style="height:200px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="7" width="18" height="13" rx="1"/>
+              <path d="M8 7V5a4 4 0 018 0v2"/>
+              <path d="M12 12v3"/>
+              <circle cx="12" cy="12" r="2"/>
+            </svg>
+          </div>
+        </div>
+        <div class="service-card-body">
+          <div class="service-card-title">Energy Storage</div>
+          <p class="service-card-desc">Battery storage systems that pair with your solar or grid supply, giving you power on demand and protection against outages.</p>
+          <div class="card-arrow">
+            Calculate estimate
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+      </a>
+
+      <!-- Card 4 -->
+      <a href="./service.html" class="service-card">
+        <div class="service-card-img">
+          <div class="card-img-inner img-ph" style="height:200px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="4" y="4" width="16" height="16" rx="2"/>
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 8V6M12 18v-2M8 12H6M18 12h-2"/>
+            </svg>
+          </div>
+        </div>
+        <div class="service-card-body">
+          <div class="service-card-title">Building Automation</div>
+          <p class="service-card-desc">Smart control systems for lighting, HVAC, access, and security — integrated into a single, intuitive dashboard.</p>
+          <div class="card-arrow">
+            Calculate estimate
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+      </a>
+
+      <!-- Card 5 -->
+      <a href="./service.html" class="service-card">
+        <div class="service-card-img">
+          <div class="card-img-inner img-ph" style="height:200px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M9 18h6M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              <circle cx="12" cy="12" r="4"/>
+            </svg>
+          </div>
+        </div>
+        <div class="service-card-body">
+          <div class="service-card-title">Industrial Lighting</div>
+          <p class="service-card-desc">High-efficiency LED lighting design and installation for warehouses, factories, and commercial spaces — engineered to spec.</p>
+          <div class="card-arrow">
+            Calculate estimate
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+      </a>
+
+      <!-- Card 6 -->
+      <a href="./service.html" class="service-card">
+        <div class="service-card-img">
+          <div class="card-img-inner img-ph" style="height:200px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="service-card-body">
+          <div class="service-card-title">Heat Pump Systems</div>
+          <p class="service-card-desc">Ground-source and air-source heat pump installations — sustainable heating and cooling sized precisely to your property.</p>
+          <div class="card-arrow">
+            Calculate estimate
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+      </a>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     WHY BULBAU — STRIP
+     ============================================================ -->
+<section class="section grid-bg-light">
+  <div class="container">
+    <div class="grid-3" style="gap:2.5rem;">
+      <div>
+        <div style="font-family:var(--font-display);font-size:3rem;font-weight:900;color:var(--orange);line-height:1;">250+</div>
+        <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--g600);margin-top:0.35rem;">Projects completed</div>
+      </div>
+      <div>
+        <div style="font-family:var(--font-display);font-size:3rem;font-weight:900;color:var(--orange);line-height:1;">10+</div>
+        <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--g600);margin-top:0.35rem;">Years in Luxembourg</div>
+      </div>
+      <div>
+        <div style="font-family:var(--font-display);font-size:3rem;font-weight:900;color:var(--orange);line-height:1;">100%</div>
+        <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--g600);margin-top:0.35rem;">Certified & insured</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CTA
+     ============================================================ -->
+<section class="section bg-black">
+  <div class="container" style="text-align:center;">
+    <span class="eyebrow-white">Ready to start?</span>
+    <h2 class="display-lg" style="color:#fff;max-width:600px;margin:0 auto 1.5rem;">Have a project in mind?</h2>
+    <p style="color:var(--g400);max-width:480px;margin:0 auto 2rem;font-size:0.9375rem;">
+      Use our online calculators to get an instant estimate, then contact us for a precise quote tailored to your needs.
+    </p>
+    <div class="flex gap-2 justify-center flex-wrap">
+      <a href="./about.html" class="btn btn-primary btn-lg">Contact Us</a>
+      <a href="./projects.html" class="btn btn-outline-white btn-lg">See Our Work</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FOOTER
+     ============================================================ -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-col">
+      <a href="./index.html" class="logo" style="margin-bottom:1rem;display:inline-flex;">
+        <div class="logo-mark">B</div>
+        <span class="logo-name" style="margin-left:0.75rem;">Bulbau</span>
+      </a>
+      <p>Professional energy and building services across Luxembourg. Precise engineering, reliable execution.</p>
+      <div class="footer-social">
+        <a href="#" title="Facebook">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
+        </a>
+        <a href="#" title="Instagram">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Navigation</h4>
+      <ul>
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./projects.html">Projects</a></li>
+        <li><a href="./about.html">About Us</a></li>
+        <li><a href="./careers.html">Careers</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Services</h4>
+      <ul>
+        <li><a href="./service.html">Photovoltaic Systems</a></li>
+        <li><a href="./service.html">Electrical Installations</a></li>
+        <li><a href="./service.html">Energy Storage</a></li>
+        <li><a href="./service.html">Building Automation</a></li>
+        <li><a href="./service.html">Industrial Lighting</a></li>
+        <li><a href="./service.html">Heat Pump Systems</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <ul>
+        <li><a href="tel:+35212345678">+352 12 34 56 78</a></li>
+        <li><a href="mailto:info@bulbau.lu">info@bulbau.lu</a></li>
+        <li><a href="#">Facebook</a></li>
+        <li><a href="#">Instagram</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 Bulbau S.à r.l. · Luxembourg</span>
+    <span>bulbau.lu</span>
+  </div>
+</footer>
+
+<script src="./assets/js/main.js"></script>
+</body>
+</html>

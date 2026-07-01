@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Projects — BULBAU</title>
+  <link rel="stylesheet" href="./assets/css/style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <nav>
+    <a href="./index.html" class="logo">
+      <div class="logo-mark">B</div>
+      <span class="logo-name">Bulbau</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="./index.html">Home</a></li>
+      <li><a href="./projects.html" class="active">Projects</a></li>
+      <li><a href="./about.html">About Us</a></li>
+      <li><a href="./careers.html">Careers</a></li>
+    </ul>
+    <div class="flex items-center gap-2">
+      <div class="lang-switcher">
+        <button class="lang-btn active">FR</button>
+        <button class="lang-btn">DE</button>
+        <button class="lang-btn">EN</button>
+      </div>
+      <button class="hamburger" id="menuBtn" aria-label="Open menu" aria-expanded="false">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+    </div>
+  </nav>
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="./index.html">Home</a>
+    <a href="./projects.html">Projects</a>
+    <a href="./about.html">About Us</a>
+    <a href="./careers.html">Careers</a>
+  </div>
+</header>
+
+<!-- PAGE HERO -->
+<section class="grid-bg" style="padding:4rem 0 3rem;">
+  <div class="container">
+    <span class="eyebrow-white">Our Portfolio</span>
+    <h1 class="display-lg" style="color:#fff;">Completed Projects</h1>
+    <p style="color:var(--g400);max-width:520px;margin-top:0.75rem;font-size:0.9375rem;">
+      A selection of installations across Luxembourg — each one engineered to specification and delivered on time.
+    </p>
+  </div>
+</section>
+
+<!-- FILTER BAR -->
+<div style="background:var(--g100);border-bottom:1px solid var(--g200);">
+  <div class="container" style="padding-top:1.5rem;padding-bottom:1.5rem;">
+    <div class="filter-bar" style="margin-bottom:0;">
+      <div class="search-input-wrap">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" class="search-input" id="searchInput" placeholder="Search projects by title or description…">
+      </div>
+      <select class="filter-select" id="categoryFilter">
+        <option value="">All Categories</option>
+        <option value="photovoltaic">Photovoltaic Systems</option>
+        <option value="electrical">Electrical Installations</option>
+        <option value="storage">Energy Storage</option>
+        <option value="automation">Building Automation</option>
+        <option value="lighting">Industrial Lighting</option>
+        <option value="heat-pump">Heat Pump Systems</option>
+      </select>
+      <div id="resultsCount" style="font-size:0.8rem;color:var(--g500);white-space:nowrap;font-weight:500;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECTS GRID -->
+<section class="section bg-white">
+  <div class="container">
+    <div class="projects-grid" id="projectsGrid">
+
+      <div class="project-card" data-cat="photovoltaic" data-title="Rooftop Solar Array" data-desc="200 kWp commercial rooftop installation with south-facing panels and remote monitoring.">
+        <div class="project-card-img">
+          <div class="card-img-inner img-ph" style="height:180px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;">
+              <circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </svg>
+          </div>
+        </div>
+        <div class="project-card-body">
+          <div class="project-card-title">Rooftop Solar Array — Kirchberg</div>
+          <p class="project-card-desc">200 kWp commercial rooftop installation with south-facing panels and remote monitoring system.</p>
+          <div class="project-meta">
+            <span class="project-date">March 2024</span>
+            <span class="project-tag">Photovoltaic</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="project-card" data-cat="electrical" data-title="Factory Rewiring" data-desc="Complete electrical rewiring of a 4,500 m² manufacturing plant, including new distribution board and earthing system.">
+        <div class="project-card-img">
+          <div class="card-img-inner img-ph" style="height:180px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="project-card-body">
+          <div class="project-card-title">Factory Rewiring — Differdange</div>
+          <p class="project-card-desc">Complete electrical rewiring of a 4,500 m² manufacturing plant with new distribution board and earthing.</p>
+          <div class="project-meta">
+            <span class="project-date">January 2024</span>
+            <span class="project-tag">Electrical</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="project-card" data-cat="automation" data-title="Smart Office Building" data-desc="KNX building automation covering lighting, HVAC, access control, and energy metering across 12 floors.">
+        <div class="project-card-img">
+          <div class="card-img-inner img-ph" style="height:180px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;">
+              <rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M12 8V6M12 18v-2M8 12H6M18 12h-2"/>
+            </svg>
+          </div>
+        </div>
+        <div class="project-card-body">
+          <div class="project-card-title">Smart Office — Luxembourg City</div>
+          <p class="project-card-desc">KNX building automation covering lighting, HVAC, access control, and energy metering across 12 floors.</p>
+          <div class="project-meta">
+            <span class="project-date">November 2023</span>
+            <span class="project-tag">Automation</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="project-card" data-cat="lighting" data-title="LED Retrofit" data-desc="Full LED retrofit of a 8,000 m² logistics warehouse, reducing energy consumption by 68%.">
+        <div class="project-card-img">
+          <div class="card-img-inner img-ph" style="height:180px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;">
+              <path d="M9 18h6M12 2v4m0 16v-4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m16 0h-4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"/>
+              <circle cx="12" cy="12" r="4"/>
+            </svg>
+          </div>
+        </div>
+        <div class="project-card-body">
+          <div class="project-card-title">LED Retrofit — Esch-sur-Alzette</div>
+          <p class="project-card-desc">Full LED retrofit of an 8,000 m² logistics warehouse, reducing energy consumption by 68%.</p>
+          <div class="project-meta">
+            <span class="project-date">September 2023</span>
+            <span class="project-tag">Lighting</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="project-card" data-cat="storage" data-title="Battery Storage System" data-desc="1 MWh lithium-ion battery storage system paired with existing 400 kWp solar installation for a supermarket chain.">
+        <div class="project-card-img">
+          <div class="card-img-inner img-ph" style="height:180px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;">
+              <rect x="3" y="7" width="18" height="13" rx="1"/><path d="M8 7V5a4 4 0 018 0v2"/>
+            </svg>
+          </div>
+        </div>
+        <div class="project-card-body">
+          <div class="project-card-title">Battery Storage — Bettembourg</div>
+          <p class="project-card-desc">1 MWh lithium-ion battery system paired with existing 400 kWp solar installation for a supermarket chain.</p>
+          <div class="project-meta">
+            <span class="project-date">July 2023</span>
+            <span class="project-tag">Storage</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="project-card" data-cat="heat-pump" data-title="Heat Pump — Villa" data-desc="Air-to-water heat pump installation for a 320 m² residential property, replacing an aging oil boiler.">
+        <div class="project-card-img">
+          <div class="card-img-inner img-ph" style="height:180px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;">
+              <path d="M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="project-card-body">
+          <div class="project-card-title">Heat Pump — Mersch</div>
+          <p class="project-card-desc">Air-to-water heat pump installation for a 320 m² residential property, replacing an aging oil boiler.</p>
+          <div class="project-meta">
+            <span class="project-date">May 2023</span>
+            <span class="project-tag">Heat Pump</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="project-card" data-cat="photovoltaic" data-title="Carport Solar Structure" data-desc="Freestanding 80 kWp solar carport structure for a corporate campus, providing covered parking and clean energy.">
+        <div class="project-card-img">
+          <div class="card-img-inner img-ph" style="height:180px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;">
+              <circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2"/>
+            </svg>
+          </div>
+        </div>
+        <div class="project-card-body">
+          <div class="project-card-title">Solar Carport — Strassen</div>
+          <p class="project-card-desc">Freestanding 80 kWp solar carport structure for a corporate campus, providing covered parking and clean energy.</p>
+          <div class="project-meta">
+            <span class="project-date">March 2023</span>
+            <span class="project-tag">Photovoltaic</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="project-card" data-cat="electrical" data-title="Industrial Wiring — Dudelange" data-desc="High-voltage industrial wiring for a new production hall including 630A main distribution and power factor correction.">
+        <div class="project-card-img">
+          <div class="card-img-inner img-ph" style="height:180px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="project-card-body">
+          <div class="project-card-title">Industrial Wiring — Dudelange</div>
+          <p class="project-card-desc">High-voltage industrial wiring for a new production hall including 630A main distribution and power factor correction.</p>
+          <div class="project-meta">
+            <span class="project-date">December 2022</span>
+            <span class="project-tag">Electrical</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Empty state -->
+    <div id="emptyState" style="display:none;padding:4rem;text-align:center;background:var(--g100);border:1px solid var(--g200);">
+      <svg width="48" height="48" fill="none" stroke="var(--g300)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 1rem;">
+        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <p style="font-size:1.0625rem;font-weight:600;color:var(--g600);">No projects found</p>
+      <p style="font-size:0.875rem;color:var(--g400);margin-top:0.35rem;">Try adjusting your search or filter.</p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-col">
+      <a href="./index.html" class="logo" style="margin-bottom:1rem;display:inline-flex;">
+        <div class="logo-mark">B</div>
+        <span class="logo-name" style="margin-left:0.75rem;">Bulbau</span>
+      </a>
+      <p>Professional energy and building services across Luxembourg.</p>
+      <div class="footer-social">
+        <a href="#" title="Facebook"><svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg></a>
+        <a href="#" title="Instagram"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Navigation</h4>
+      <ul>
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./projects.html">Projects</a></li>
+        <li><a href="./about.html">About Us</a></li>
+        <li><a href="./careers.html">Careers</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Services</h4>
+      <ul>
+        <li><a href="./service.html">Photovoltaic Systems</a></li>
+        <li><a href="./service.html">Electrical Installations</a></li>
+        <li><a href="./service.html">Energy Storage</a></li>
+        <li><a href="./service.html">Heat Pump Systems</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <ul>
+        <li><a href="tel:+35212345678">+352 12 34 56 78</a></li>
+        <li><a href="mailto:info@bulbau.lu">info@bulbau.lu</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 Bulbau S.à r.l. · Luxembourg</span>
+    <span>bulbau.lu</span>
+  </div>
+</footer>
+
+<script src="./assets/js/main.js"></script>
+<script>
+  // Live search + filter
+  const searchInput  = document.getElementById('searchInput');
+  const categoryFilter = document.getElementById('categoryFilter');
+  const grid         = document.getElementById('projectsGrid');
+  const cards        = Array.from(grid.querySelectorAll('.project-card'));
+  const emptyState   = document.getElementById('emptyState');
+  const resultsCount = document.getElementById('resultsCount');
+
+  function filterProjects() {
+    const q   = searchInput.value.toLowerCase();
+    const cat = categoryFilter.value;
+    let visible = 0;
+
+    cards.forEach(card => {
+      const title = card.dataset.title.toLowerCase();
+      const desc  = card.dataset.desc.toLowerCase();
+      const cardCat = card.dataset.cat;
+      const matchesSearch = !q || title.includes(q) || desc.includes(q);
+      const matchesCat    = !cat || cardCat === cat;
+
+      if (matchesSearch && matchesCat) {
+        card.style.display = '';
+        visible++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    emptyState.style.display = visible === 0 ? 'block' : 'none';
+    resultsCount.textContent = visible + (visible === 1 ? ' project' : ' projects');
+  }
+
+  searchInput.addEventListener('input', filterProjects);
+  categoryFilter.addEventListener('change', filterProjects);
+  filterProjects(); // initial count
+</script>
+</body>
+</html>

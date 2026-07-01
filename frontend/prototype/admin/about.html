@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About & Company Info — BULBAU Admin</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="admin-root">
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar-logo"><div class="logo-mark">B</div><div><div class="logo-name" style="font-size:1.1rem;">Bulbau</div><div style="font-size:0.65rem;color:var(--g600);font-weight:500;letter-spacing:0.06em;margin-top:0.1rem;">Admin Panel</div></div></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Overview</div><a href="./dashboard.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Content</div><a href="./services.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2"/></svg>Services</a><a href="./projects.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Projects</a><a href="./careers.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Careers</a><a href="./about.html" class="admin-nav-item active"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>About & Company Info</a></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Localisation</div><a href="./translations.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>Translations</a></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Account</div><a href="#" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Account Settings</a><a href="./login.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign Out</a></div>
+    <div style="padding:1.5rem;margin-top:auto;border-top:1px solid rgba(255,255,255,0.06);"><div style="font-size:0.7rem;color:var(--g600);">Logged in as</div><div style="font-size:0.8125rem;color:var(--g300);font-weight:500;margin-top:0.2rem;">admin@bulbau.lu</div></div>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <div class="admin-page-title">About & Company Info</div>
+      <button class="btn btn-primary btn-sm" onclick="alert('Changes saved successfully')">Save All Changes</button>
+    </div>
+    <div class="admin-content">
+      <div class="admin-form">
+
+        <!-- About Us page content -->
+        <div class="admin-form-section">
+          <div class="admin-form-section-header">
+            <div class="admin-form-section-title"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>About Us Page — Main Content</div>
+          </div>
+          <div class="admin-form-section-body">
+            <div style="font-size:0.8125rem;color:var(--g500);margin-bottom:0.75rem;">This text appears in the "Our Story" section of the About Us page. Write in English — translations are generated automatically.</div>
+            <div class="rich-editor-mock">
+              <div class="rich-editor-toolbar">
+                <button class="rich-editor-btn" style="font-weight:900;">B</button>
+                <button class="rich-editor-btn" style="font-style:italic;">I</button>
+                <button class="rich-editor-btn" style="text-decoration:underline;">U</button>
+                <div class="rich-editor-divider"></div>
+                <button class="rich-editor-btn">≡</button>
+                <button class="rich-editor-btn">• List</button>
+                <div class="rich-editor-divider"></div>
+                <button class="rich-editor-btn">H2</button>
+                <button class="rich-editor-btn">H3</button>
+                <div class="rich-editor-divider"></div>
+                <button class="rich-editor-btn">Link</button>
+              </div>
+              <div class="rich-editor-body" contenteditable="true">
+                <p>Bulbau was founded in Luxembourg in 2015 with a clear mission: to bring precision engineering and honest craftsmanship to the energy and building services sector. From our first residential solar installation to large-scale commercial projects, we have built a reputation for on-time delivery, transparent pricing, and work that lasts.</p>
+                <br>
+                <p>Our team of certified engineers and technicians covers the full spectrum of building energy systems — photovoltaics, electrical infrastructure, energy storage, building automation, industrial lighting, and heat pumps.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Company Info -->
+        <div class="admin-form-section">
+          <div class="admin-form-section-header">
+            <div class="admin-form-section-title"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 7.18a2 2 0 012-2.18h3a2 2 0 012 1.72 12.8 12.8 0 00.7 2.81 2 2 0 01-.45 2.11L9.91 10.91a16 16 0 006.16 6.16l1.27-1.27a2 2 0 012.11-.45 12.8 12.8 0 002.81.7A2 2 0 0122 17z"/></svg>Company Contact Details</div>
+          </div>
+          <div class="admin-form-section-body">
+            <div style="font-size:0.8125rem;color:var(--g500);margin-bottom:0.75rem;background:var(--orange-bg);border-left:3px solid var(--orange);padding:0.75rem 1rem;">
+              These values are used across the entire website — in the header, footer, About Us page, service page disclaimers, and all PDF quotes. Changing them here updates every location automatically.
+            </div>
+            <div class="admin-form-row">
+              <div class="form-field"><label class="form-label">Phone Number</label><input type="tel" class="form-input" value="+352 12 34 56 78"></div>
+              <div class="form-field"><label class="form-label">Email Address</label><input type="email" class="form-input" value="info@bulbau.lu"></div>
+            </div>
+            <div class="admin-form-row">
+              <div class="form-field"><label class="form-label">Facebook Profile URL</label><input type="url" class="form-input" value="https://facebook.com/bulbau"></div>
+              <div class="form-field"><label class="form-label">Instagram Profile URL</label><input type="url" class="form-input" value="https://instagram.com/bulbau.lu"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PDF branding -->
+        <div class="admin-form-section">
+          <div class="admin-form-section-header">
+            <div class="admin-form-section-title"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF Quote Branding</div>
+          </div>
+          <div class="admin-form-section-body">
+            <div style="font-size:0.8125rem;color:var(--g500);margin-bottom:1rem;">The company logo and contact details in all generated PDF quotes come from the settings above. You can upload a high-resolution logo here specifically for print.</div>
+            <div class="form-field" style="max-width:400px;">
+              <label class="form-label">Company Logo (for PDF header)</label>
+              <div class="upload-zone">
+                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                <p><strong>Click to upload</strong> · PNG or SVG · min 400px wide · transparent background recommended</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end" style="padding-bottom:2rem;">
+          <button class="btn btn-primary" onclick="alert('All changes saved')">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            Save All Changes
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

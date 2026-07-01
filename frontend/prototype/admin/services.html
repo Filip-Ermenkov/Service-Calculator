@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Services — BULBAU Admin</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="admin-root">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar-logo">
+      <div class="logo-mark">B</div>
+      <div>
+        <div class="logo-name" style="font-size:1.1rem;">Bulbau</div>
+        <div style="font-size:0.65rem;color:var(--g600);font-weight:500;letter-spacing:0.06em;margin-top:0.1rem;">Admin Panel</div>
+      </div>
+    </div>
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-label">Overview</div>
+      <a href="./dashboard.html" class="admin-nav-item">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+    </div>
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-label">Content</div>
+      <a href="./services.html" class="admin-nav-item active">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2"/></svg>
+        Services
+      </a>
+      <a href="./projects.html" class="admin-nav-item">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+        Projects
+      </a>
+      <a href="./careers.html" class="admin-nav-item">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Careers
+      </a>
+      <a href="./about.html" class="admin-nav-item">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        About & Company Info
+      </a>
+    </div>
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-label">Localisation</div>
+      <a href="./translations.html" class="admin-nav-item">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>
+        Translations
+      </a>
+    </div>
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-label">Account</div>
+      <a href="#" class="admin-nav-item">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Account Settings
+      </a>
+      <a href="./login.html" class="admin-nav-item">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Sign Out
+      </a>
+    </div>
+    <div style="padding:1.5rem;margin-top:auto;border-top:1px solid rgba(255,255,255,0.06);">
+      <div style="font-size:0.7rem;color:var(--g600);">Logged in as</div>
+      <div style="font-size:0.8125rem;color:var(--g300);font-weight:500;margin-top:0.2rem;">admin@bulbau.lu</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <div class="admin-page-title">Services</div>
+      <a href="./service-editor.html" class="btn btn-primary btn-sm">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Service
+      </a>
+    </div>
+
+    <div class="admin-content">
+
+      <!-- Info bar -->
+      <div style="background:var(--g100);border:1px solid var(--g200);padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:0.75rem;font-size:0.8125rem;color:var(--g600);">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>The order shown here determines the order of service cards on the Home page. Drag rows to reorder.</span>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div class="admin-card-title">All Services (6)</div>
+          <div style="font-size:0.75rem;color:var(--g500);">Drag rows to reorder</div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:32px;"></th>
+              <th>Service</th>
+              <th>Home Page Card</th>
+              <th>Calculator Fields</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="cursor:grab;color:var(--g400);">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>
+              </td>
+              <td>
+                <strong style="color:var(--g900);">Photovoltaic Systems</strong>
+                <div style="font-size:0.75rem;color:var(--g400);margin-top:0.15rem;">Last edited: today</div>
+              </td>
+              <td style="font-size:0.8rem;color:var(--g600);">Photo set · Card text set</td>
+              <td style="font-size:0.8rem;color:var(--g600);">5 fields defined</td>
+              <td><span class="badge badge-green">Published</span></td>
+              <td>
+                <div class="flex gap-1">
+                  <a href="./service-editor.html" class="action-link">Edit</a>
+                  <span class="dot-sep">·</span>
+                  <a href="../service.html" target="_blank" class="action-link action-link-gray">Preview</a>
+                  <span class="dot-sep">·</span>
+                  <button class="action-link action-link-red" style="border:none;padding:0;background:none;" onclick="confirmDelete('Photovoltaic Systems')">Delete</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="cursor:grab;color:var(--g400);">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>
+              </td>
+              <td><strong style="color:var(--g900);">Electrical Installations</strong><div style="font-size:0.75rem;color:var(--g400);margin-top:0.15rem;">Last edited: 3 days ago</div></td>
+              <td style="font-size:0.8rem;color:var(--g600);">Photo set · Card text set</td>
+              <td style="font-size:0.8rem;color:var(--g600);">4 fields defined</td>
+              <td><span class="badge badge-green">Published</span></td>
+              <td><div class="flex gap-1"><a href="./service-editor.html" class="action-link">Edit</a><span class="dot-sep">·</span><a href="../service.html" target="_blank" class="action-link action-link-gray">Preview</a><span class="dot-sep">·</span><button class="action-link action-link-red" style="border:none;padding:0;background:none;" onclick="confirmDelete('Electrical Installations')">Delete</button></div></td>
+            </tr>
+            <tr>
+              <td style="cursor:grab;color:var(--g400);">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>
+              </td>
+              <td><strong style="color:var(--g900);">Energy Storage</strong><div style="font-size:0.75rem;color:var(--g400);margin-top:0.15rem;">Last edited: 1 week ago</div></td>
+              <td style="font-size:0.8rem;color:var(--g600);">Photo set · Card text set</td>
+              <td style="font-size:0.8rem;color:var(--g600);">3 fields defined</td>
+              <td><span class="badge badge-green">Published</span></td>
+              <td><div class="flex gap-1"><a href="./service-editor.html" class="action-link">Edit</a><span class="dot-sep">·</span><a href="../service.html" target="_blank" class="action-link action-link-gray">Preview</a><span class="dot-sep">·</span><button class="action-link action-link-red" style="border:none;padding:0;background:none;" onclick="confirmDelete('Energy Storage')">Delete</button></div></td>
+            </tr>
+            <tr>
+              <td style="cursor:grab;color:var(--g400);">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>
+              </td>
+              <td><strong style="color:var(--g900);">Building Automation</strong><div style="font-size:0.75rem;color:var(--g400);margin-top:0.15rem;">Last edited: 2 weeks ago</div></td>
+              <td style="font-size:0.8rem;color:var(--g600);">Photo set · Card text set</td>
+              <td style="font-size:0.8rem;color:var(--g600);">6 fields defined</td>
+              <td><span class="badge badge-green">Published</span></td>
+              <td><div class="flex gap-1"><a href="./service-editor.html" class="action-link">Edit</a><span class="dot-sep">·</span><a href="../service.html" target="_blank" class="action-link action-link-gray">Preview</a><span class="dot-sep">·</span><button class="action-link action-link-red" style="border:none;padding:0;background:none;" onclick="confirmDelete('Building Automation')">Delete</button></div></td>
+            </tr>
+            <tr>
+              <td style="cursor:grab;color:var(--g400);">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>
+              </td>
+              <td><strong style="color:var(--g900);">Industrial Lighting</strong><div style="font-size:0.75rem;color:var(--g400);margin-top:0.15rem;">Last edited: 3 weeks ago</div></td>
+              <td style="font-size:0.8rem;color:var(--g600);">Photo set · Card text set</td>
+              <td style="font-size:0.8rem;color:var(--g600);">4 fields defined</td>
+              <td><span class="badge badge-green">Published</span></td>
+              <td><div class="flex gap-1"><a href="./service-editor.html" class="action-link">Edit</a><span class="dot-sep">·</span><a href="../service.html" target="_blank" class="action-link action-link-gray">Preview</a><span class="dot-sep">·</span><button class="action-link action-link-red" style="border:none;padding:0;background:none;" onclick="confirmDelete('Industrial Lighting')">Delete</button></div></td>
+            </tr>
+            <tr>
+              <td style="cursor:grab;color:var(--g400);">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>
+              </td>
+              <td><strong style="color:var(--g900);">Heat Pump Systems</strong><div style="font-size:0.75rem;color:var(--g400);margin-top:0.15rem;">Last edited: 1 month ago</div></td>
+              <td style="font-size:0.8rem;color:var(--g600);">Photo set · Card text set</td>
+              <td style="font-size:0.8rem;color:var(--g600);">5 fields defined · <span style="color:var(--orange);font-weight:600;">Draft</span></td>
+              <td><span class="badge badge-yellow">Draft</span></td>
+              <td><div class="flex gap-1"><a href="./service-editor.html" class="action-link">Edit</a><span class="dot-sep">·</span><a href="../service.html" target="_blank" class="action-link action-link-gray">Preview</a><span class="dot-sep">·</span><button class="action-link action-link-red" style="border:none;padding:0;background:none;" onclick="confirmDelete('Heat Pump Systems')">Delete</button></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Home page display count -->
+      <div class="admin-card" style="margin-top:1.5rem;padding:1.5rem;">
+        <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--g500);margin-bottom:1rem;">Home Page Display Settings</div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="form-field" style="flex:0 0 auto;">
+            <label class="form-label">Number of service cards shown on Home page</label>
+            <select class="form-input form-select" style="width:auto;min-width:200px;">
+              <option>3 cards</option>
+              <option selected>6 cards (all)</option>
+              <option>Custom order (drag above)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-sm" style="margin-top:1.25rem;">Save Setting</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  function confirmDelete(name) {
+    if (confirm('Delete "' + name + '"? This cannot be undone.')) {
+      alert('In the live application, "' + name + '" would be permanently deleted.');
+    }
+  }
+</script>
+</body>
+</html>

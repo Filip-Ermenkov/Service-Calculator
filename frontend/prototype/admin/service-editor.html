@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Service — BULBAU Admin</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="admin-root">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar-logo">
+      <div class="logo-mark">B</div>
+      <div>
+        <div class="logo-name" style="font-size:1.1rem;">Bulbau</div>
+        <div style="font-size:0.65rem;color:var(--g600);font-weight:500;letter-spacing:0.06em;margin-top:0.1rem;">Admin Panel</div>
+      </div>
+    </div>
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-label">Overview</div>
+      <a href="./dashboard.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a>
+    </div>
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-label">Content</div>
+      <a href="./services.html" class="admin-nav-item active"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2"/></svg>Services</a>
+      <a href="./projects.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Projects</a>
+      <a href="./careers.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Careers</a>
+      <a href="./about.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>About & Company Info</a>
+    </div>
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-label">Localisation</div>
+      <a href="./translations.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>Translations</a>
+    </div>
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-label">Account</div>
+      <a href="#" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Account Settings</a>
+      <a href="./login.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign Out</a>
+    </div>
+    <div style="padding:1.5rem;margin-top:auto;border-top:1px solid rgba(255,255,255,0.06);">
+      <div style="font-size:0.7rem;color:var(--g600);">Logged in as</div>
+      <div style="font-size:0.8125rem;color:var(--g300);font-weight:500;margin-top:0.2rem;">admin@bulbau.lu</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <div class="flex items-center gap-2">
+        <a href="./services.html" style="font-size:0.8rem;color:var(--g500);display:flex;align-items:center;gap:0.3rem;">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          Services
+        </a>
+        <span style="color:var(--g300);">/</span>
+        <div class="admin-page-title">Edit: Photovoltaic Systems</div>
+      </div>
+      <div class="flex gap-1">
+        <button class="btn btn-dark btn-sm" onclick="alert('Saved as draft')">Save Draft</button>
+        <button class="btn btn-primary btn-sm" onclick="alert('Published successfully')">Publish</button>
+      </div>
+    </div>
+
+    <div class="admin-content">
+      <div class="admin-form">
+
+        <!-- Basic Info -->
+        <div class="admin-form-section">
+          <div class="admin-form-section-header">
+            <div class="admin-form-section-title">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Basic Information
+            </div>
+          </div>
+          <div class="admin-form-section-body">
+            <div class="admin-form-row">
+              <div class="form-field">
+                <label class="form-label">Service Title <span class="form-required">*</span></label>
+                <input type="text" class="form-input" value="Photovoltaic Systems">
+              </div>
+              <div class="form-field">
+                <label class="form-label">Status</label>
+                <select class="form-input">
+                  <option selected>Published</option>
+                  <option>Draft</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Service Description (shown on the service page)</label>
+              <div class="rich-editor-mock">
+                <div class="rich-editor-toolbar">
+                  <button class="rich-editor-btn" style="font-weight:900;">B</button>
+                  <button class="rich-editor-btn" style="font-style:italic;">I</button>
+                  <button class="rich-editor-btn" style="text-decoration:underline;">U</button>
+                  <div class="rich-editor-divider"></div>
+                  <button class="rich-editor-btn">≡</button>
+                  <button class="rich-editor-btn">• List</button>
+                  <div class="rich-editor-divider"></div>
+                  <button class="rich-editor-btn">H2</button>
+                  <button class="rich-editor-btn">H3</button>
+                </div>
+                <div class="rich-editor-body" contenteditable="true">
+                  Custom-designed solar panel installations for residential rooftops, commercial buildings, and industrial facilities. Each system is sized to your energy consumption and structural constraints, maximising output and return on investment.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Home page card -->
+        <div class="admin-form-section">
+          <div class="admin-form-section-header">
+            <div class="admin-form-section-title">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              Home Page Card
+            </div>
+          </div>
+          <div class="admin-form-section-body">
+            <div class="admin-form-row">
+              <div class="form-field">
+                <label class="form-label">Card Title (shown in the home page tile)</label>
+                <input type="text" class="form-input" value="Photovoltaic Systems">
+              </div>
+              <div></div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Card Short Description (1–3 sentences)</label>
+              <textarea class="form-input form-textarea" style="min-height:80px;">Custom solar panel installations for residential and commercial rooftops. Maximise energy independence with precision-sized arrays.</textarea>
+            </div>
+            <div class="admin-form-row">
+              <div class="form-field">
+                <label class="form-label">Card Photo</label>
+                <div class="upload-zone">
+                  <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                  <p><strong>Click to upload</strong> or drag and drop<br>PNG, JPG up to 5MB · Recommended 800×600</p>
+                </div>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Hero Image (shown at top of service page)</label>
+                <div class="upload-zone">
+                  <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                  <p><strong>Click to upload</strong> or drag and drop<br>PNG, JPG up to 5MB · Recommended 1600×600</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Calculator Fields -->
+        <div class="admin-form-section">
+          <div class="admin-form-section-header">
+            <div class="admin-form-section-title">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
+              Calculator Fields
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="addField()">+ Add Field</button>
+          </div>
+          <div style="padding:1.25rem;" id="fieldsContainer">
+
+            <!-- Field 1 -->
+            <div class="field-block" id="field1">
+              <div class="field-block-drag">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>
+                <span class="field-block-name">Usable Roof Area</span>
+                <span class="badge badge-green">Number Input</span>
+                <button onclick="document.getElementById('field1').remove()" style="background:none;border:none;cursor:pointer;color:var(--g400);margin-left:auto;">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div class="field-block-body">
+                <div class="form-field">
+                  <label class="form-label">Field Label</label>
+                  <input type="text" class="form-input" value="Usable Roof Area">
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Unit (displayed next to input)</label>
+                  <input type="text" class="form-input" value="m²">
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Field Type</label>
+                  <select class="form-input"><option selected>Number Input</option><option>Dropdown</option><option>Toggle (yes/no)</option></select>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Effect on Price</label>
+                  <select class="form-input"><option selected>Positive (adds to price)</option><option>Negative (subtracts from price)</option><option>Multiplier</option></select>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Price per Unit (€)</label>
+                  <input type="number" class="form-input" value="180">
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Required?</label>
+                  <select class="form-input"><option selected>Required</option><option>Optional</option></select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Field 2 -->
+            <div class="field-block" id="field2">
+              <div class="field-block-drag">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>
+                <span class="field-block-name">Panel Technology</span>
+                <span class="badge badge-orange">Dropdown</span>
+                <button onclick="document.getElementById('field2').remove()" style="background:none;border:none;cursor:pointer;color:var(--g400);margin-left:auto;">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div class="field-block-body">
+                <div class="form-field">
+                  <label class="form-label">Field Label</label>
+                  <input type="text" class="form-input" value="Panel Technology">
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Field Type</label>
+                  <select class="form-input"><option>Number Input</option><option selected>Dropdown</option><option>Toggle (yes/no)</option></select>
+                </div>
+                <div class="form-field" style="grid-column:1/-1;">
+                  <label class="form-label">Dropdown Options (label : price multiplier)</label>
+                  <div style="display:flex;flex-direction:column;gap:0.5rem;">
+                    <div style="display:flex;gap:0.5rem;align-items:center;">
+                      <input type="text" class="form-input" value="Standard Monocrystalline" style="flex:2;">
+                      <span style="font-size:0.8rem;color:var(--g500);">×</span>
+                      <input type="number" class="form-input" value="1.0" style="width:80px;">
+                      <button style="background:none;border:none;cursor:pointer;color:var(--g400);">✕</button>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;align-items:center;">
+                      <input type="text" class="form-input" value="Premium High-Efficiency" style="flex:2;">
+                      <span style="font-size:0.8rem;color:var(--g500);">×</span>
+                      <input type="number" class="form-input" value="1.2" style="width:80px;">
+                      <button style="background:none;border:none;cursor:pointer;color:var(--g400);">✕</button>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;align-items:center;">
+                      <input type="text" class="form-input" value="Industrial Bifacial" style="flex:2;">
+                      <span style="font-size:0.8rem;color:var(--g500);">×</span>
+                      <input type="number" class="form-input" value="1.45" style="width:80px;">
+                      <button style="background:none;border:none;cursor:pointer;color:var(--g400);">✕</button>
+                    </div>
+                    <button class="action-link" style="align-self:flex-start;">+ Add Option</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Field 3 -->
+            <div class="field-block" id="field3">
+              <div class="field-block-drag">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>
+                <span class="field-block-name">Battery Storage</span>
+                <span class="badge badge-yellow">Toggle</span>
+                <button onclick="document.getElementById('field3').remove()" style="background:none;border:none;cursor:pointer;color:var(--g400);margin-left:auto;">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div class="field-block-body">
+                <div class="form-field">
+                  <label class="form-label">Field Label</label>
+                  <input type="text" class="form-input" value="Battery Storage">
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Field Type</label>
+                  <select class="form-input"><option>Number Input</option><option>Dropdown</option><option selected>Toggle (yes/no)</option></select>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Price When ON (€, added)</label>
+                  <input type="number" class="form-input" value="3200">
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Default State</label>
+                  <select class="form-input"><option selected>ON</option><option>OFF</option></select>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Formula Builder -->
+        <div class="admin-form-section">
+          <div class="admin-form-section-header">
+            <div class="admin-form-section-title">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+              Price Formula Builder
+            </div>
+          </div>
+
+          <div style="padding:1.25rem;">
+            <p style="font-size:0.875rem;color:var(--g600);margin-bottom:1.25rem;">
+              Define exactly how the fields above combine to produce the final price. Drag field tokens and operators to build the formula. Use brackets to control order of operations.
+            </p>
+
+            <div class="formula-builder">
+              <div class="formula-builder-tabs">
+                <button class="formula-tab active" onclick="switchTab(this,'tabFormula')">Formula Composition</button>
+                <button class="formula-tab" onclick="switchTab(this,'tabTest')">Test / Preview</button>
+              </div>
+
+              <!-- Formula canvas -->
+              <div id="tabFormula" style="padding:1.25rem;">
+                <div style="font-size:0.75rem;color:var(--g500);margin-bottom:0.75rem;font-weight:600;">Current formula (drag tokens to reorder):</div>
+                <div class="formula-canvas">
+                  <span class="formula-token formula-token-op">(</span>
+                  <span class="formula-token formula-token-field" title="Usable Roof Area">AREA</span>
+                  <span class="formula-token formula-token-op">×</span>
+                  <span class="formula-token formula-token-field" title="Price per m²">RATE</span>
+                  <span class="formula-token formula-token-op">×</span>
+                  <span class="formula-token formula-token-field" title="Panel Technology multiplier">PANEL</span>
+                  <span class="formula-token formula-token-op">×</span>
+                  <span class="formula-token formula-token-field" title="Orientation factor">ORIENT</span>
+                  <span class="formula-token formula-token-op">)</span>
+                  <span class="formula-token formula-token-op">+</span>
+                  <span class="formula-token formula-token-fixed" title="Fixed cost">LABOUR</span>
+                  <span class="formula-token formula-token-op">+</span>
+                  <span class="formula-token formula-token-field" title="Battery Storage (toggle)">BATTERY</span>
+                  <span class="formula-token formula-token-op">+</span>
+                  <span class="formula-token formula-token-field" title="Inverter type">INVERTER</span>
+                  <span class="formula-token formula-token-op">×</span>
+                  <span class="formula-token formula-token-pct" title="VAT 17%">1.17</span>
+                </div>
+
+                <div style="margin-top:1rem;">
+                  <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--g500);margin-bottom:0.6rem;">Insert token</div>
+                  <div class="flex gap-1 flex-wrap">
+                    <button class="formula-token formula-token-field" style="cursor:pointer;border:none;" onclick="addToken('AREA')">AREA</button>
+                    <button class="formula-token formula-token-field" style="cursor:pointer;border:none;" onclick="addToken('RATE')">RATE</button>
+                    <button class="formula-token formula-token-field" style="cursor:pointer;border:none;" onclick="addToken('PANEL')">PANEL</button>
+                    <button class="formula-token formula-token-field" style="cursor:pointer;border:none;" onclick="addToken('BATTERY')">BATTERY</button>
+                    <button class="formula-token formula-token-op" style="cursor:pointer;border:none;" onclick="addToken('+')">+</button>
+                    <button class="formula-token formula-token-op" style="cursor:pointer;border:none;" onclick="addToken('−')">−</button>
+                    <button class="formula-token formula-token-op" style="cursor:pointer;border:none;" onclick="addToken('×')">×</button>
+                    <button class="formula-token formula-token-op" style="cursor:pointer;border:none;" onclick="addToken('÷')">÷</button>
+                    <button class="formula-token formula-token-op" style="cursor:pointer;border:none;" onclick="addToken('(')">(</button>
+                    <button class="formula-token formula-token-op" style="cursor:pointer;border:none;" onclick="addToken(')')">)</button>
+                    <button class="formula-token formula-token-pct" style="cursor:pointer;border:none;" onclick="addToken('%VAT')">% VAT</button>
+                    <button class="formula-token formula-token-fixed" style="cursor:pointer;border:none;" onclick="addToken('FIXED')">Fixed €</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Test / Preview -->
+              <div id="tabTest" style="display:none;padding:1.25rem;">
+                <p style="font-size:0.875rem;color:var(--g600);margin-bottom:1rem;">Enter sample values to verify the formula produces the expected result.</p>
+                <div class="formula-preview">
+                  <div class="formula-preview-inputs">
+                    <div class="formula-preview-field">
+                      <label>Area (m²):</label>
+                      <input type="number" value="40" id="testArea" oninput="calcPreview()">
+                    </div>
+                    <div class="formula-preview-field">
+                      <label>Panel ×:</label>
+                      <input type="number" value="1.2" step="0.1" id="testPanel" oninput="calcPreview()">
+                    </div>
+                    <div class="formula-preview-field">
+                      <label>Orient ×:</label>
+                      <input type="number" value="0.9" step="0.05" id="testOrient" oninput="calcPreview()">
+                    </div>
+                    <div class="formula-preview-field">
+                      <label>Battery €:</label>
+                      <input type="number" value="3200" step="100" id="testBattery" oninput="calcPreview()">
+                    </div>
+                    <div class="formula-preview-field">
+                      <label>Inverter €:</label>
+                      <input type="number" value="800" step="100" id="testInverter" oninput="calcPreview()">
+                    </div>
+                  </div>
+                  <div>
+                    <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--g500);">Result (incl. VAT)</div>
+                    <div class="formula-result" id="previewResult">€0</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fixed costs & VAT -->
+            <div style="margin-top:1.25rem;border:1px solid var(--g200);padding:1.25rem;background:var(--g100);">
+              <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--g600);margin-bottom:1rem;">Fixed Costs & Adjustments</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+                <div class="form-field">
+                  <label class="form-label">Labour Rate (% of panel cost)</label>
+                  <input type="number" class="form-input" value="22">
+                </div>
+                <div class="form-field">
+                  <label class="form-label">VAT Rate (%)</label>
+                  <input type="number" class="form-input" value="17">
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Fixed Base Cost (€, always added)</label>
+                  <input type="number" class="form-input" value="0">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Save buttons -->
+        <div class="flex gap-2 justify-end" style="padding-bottom:2rem;">
+          <a href="./services.html" class="btn btn-dark btn-sm">Cancel</a>
+          <button class="btn btn-dark btn-sm" onclick="alert('Saved as draft')">Save Draft</button>
+          <button class="btn btn-primary" onclick="alert('Published successfully')">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            Publish Service
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  function switchTab(btn, tabId) {
+    document.querySelectorAll('.formula-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tabFormula').style.display = tabId === 'tabFormula' ? '' : 'none';
+    document.getElementById('tabTest').style.display    = tabId === 'tabTest'    ? '' : 'none';
+    if (tabId === 'tabTest') calcPreview();
+  }
+
+  function calcPreview() {
+    const area     = parseFloat(document.getElementById('testArea').value)    || 0;
+    const panel    = parseFloat(document.getElementById('testPanel').value)   || 1;
+    const orient   = parseFloat(document.getElementById('testOrient').value)  || 1;
+    const battery  = parseFloat(document.getElementById('testBattery').value) || 0;
+    const inverter = parseFloat(document.getElementById('testInverter').value)|| 0;
+
+    const panelCost  = area * 180 * panel * orient;
+    const labour     = panelCost * 0.22;
+    const subtotal   = panelCost + labour + battery + inverter;
+    const total      = subtotal * 1.17;
+
+    document.getElementById('previewResult').textContent = '€' + Math.round(total).toLocaleString('de-LU');
+  }
+
+  function addToken(name) {
+    const canvas = document.querySelector('.formula-canvas');
+    const t = document.createElement('span');
+    t.className = 'formula-token ' + (
+      ['+','−','×','÷','(',')'].includes(name) ? 'formula-token-op' :
+      name.startsWith('%') ? 'formula-token-pct' :
+      name === 'FIXED' ? 'formula-token-fixed' :
+      'formula-token-field'
+    );
+    t.textContent = name;
+    canvas.appendChild(t);
+  }
+
+  function addField() {
+    alert('In the live application, a new field editor would appear here, allowing you to define the field label, type, and price contribution.');
+  }
+</script>
+</body>
+</html>

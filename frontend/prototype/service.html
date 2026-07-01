@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Photovoltaic Systems — BULBAU</title>
+  <link rel="stylesheet" href="./assets/css/style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <nav>
+    <a href="./index.html" class="logo">
+      <div class="logo-mark">B</div>
+      <span class="logo-name">Bulbau</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="./index.html">Home</a></li>
+      <li><a href="./projects.html">Projects</a></li>
+      <li><a href="./about.html">About Us</a></li>
+      <li><a href="./careers.html">Careers</a></li>
+    </ul>
+    <div class="flex items-center gap-2">
+      <div class="lang-switcher">
+        <button class="lang-btn active">FR</button>
+        <button class="lang-btn">DE</button>
+        <button class="lang-btn">EN</button>
+      </div>
+      <button class="hamburger" id="menuBtn" aria-label="Open menu" aria-expanded="false">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+  </nav>
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="./index.html">Home</a>
+    <a href="./projects.html">Projects</a>
+    <a href="./about.html">About Us</a>
+    <a href="./careers.html">Careers</a>
+  </div>
+</header>
+
+<!-- SERVICE HERO -->
+<section class="grid-bg" style="padding:4rem 0 3.5rem;">
+  <div class="container">
+    <div style="display:grid;grid-template-columns:1fr 280px;gap:3rem;align-items:center;">
+      <div>
+        <a href="./index.html" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.75rem;color:var(--g500);font-weight:500;letter-spacing:0.04em;margin-bottom:1.5rem;">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          All Services
+        </a>
+        <span class="eyebrow-white">Service</span>
+        <h1 class="display-lg" style="color:#fff;">Photovoltaic<br>Systems</h1>
+        <p style="color:var(--g400);max-width:540px;margin-top:1rem;font-size:0.9375rem;line-height:1.75;">
+          Custom-designed solar panel installations for residential rooftops, commercial buildings, and industrial facilities. Each system is sized to your energy consumption and structural constraints, maximising output and return on investment.
+        </p>
+      </div>
+      <div class="img-ph" style="height:200px;display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="width:80px;height:80px;opacity:0.4;color:var(--orange);">
+          <circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TOP DISCLAIMER -->
+<div class="container" style="margin-top:2rem;">
+  <div class="disclaimer">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div class="disclaimer-text">
+      <strong>Estimate only.</strong> The price calculated below is an automated estimate based on standard parameters. Actual costs depend on site conditions, equipment availability, and other factors.
+      Contact us at <strong>+352 12 34 56 78</strong> or <strong>info@bulbau.lu</strong> for a precise, binding quotation.
+    </div>
+  </div>
+</div>
+
+<!-- CALCULATOR + PRICE -->
+<section class="section bg-white">
+  <div class="container">
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:2rem;align-items:start;">
+
+      <!-- Calculator form -->
+      <div>
+        <div style="margin-bottom:1.5rem;">
+          <span class="eyebrow">Price Estimator</span>
+          <h2 class="display-md heading-accent">Configure Your System</h2>
+        </div>
+
+        <div class="calc-wrapper">
+          <div class="calc-header">
+            <span class="calc-header-label">Input Parameters</span>
+            <span style="font-size:0.7rem;color:var(--g600);">Values update price in real time</span>
+          </div>
+
+          <!-- Field 1: Roof area -->
+          <div class="calc-row">
+            <div class="calc-label">
+              Usable Roof Area
+              <span>Available south-facing surface in square metres</span>
+            </div>
+            <div class="calc-control">
+              <input type="number" class="calc-input" id="f_area" value="40" min="10" max="2000" step="1">
+              <span style="font-size:0.8rem;color:var(--g500);font-weight:600;white-space:nowrap;">m²</span>
+            </div>
+          </div>
+
+          <!-- Field 2: Panel type -->
+          <div class="calc-row">
+            <div class="calc-label">
+              Panel Technology
+              <span>Higher grades produce more kWp per m²</span>
+            </div>
+            <div class="calc-control">
+              <select class="calc-select" id="f_panel">
+                <option value="1.0">Standard Monocrystalline</option>
+                <option value="1.2" selected>Premium High-Efficiency</option>
+                <option value="1.45">Industrial Bifacial</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Field 3: Orientation -->
+          <div class="calc-row">
+            <div class="calc-label">
+              Roof Orientation
+              <span>South gives maximum yield; other angles reduce output</span>
+            </div>
+            <div class="calc-control">
+              <select class="calc-select" id="f_orient">
+                <option value="1.0">South (optimal)</option>
+                <option value="0.9" selected>Southeast / Southwest</option>
+                <option value="0.78">East / West</option>
+                <option value="0.65">North (not recommended)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Field 4: Battery storage -->
+          <div class="calc-row">
+            <div class="calc-label">
+              Battery Storage
+              <span>Add a lithium-ion storage unit to store excess energy</span>
+            </div>
+            <div class="calc-control">
+              <label class="toggle">
+                <input type="checkbox" id="f_battery" checked>
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-label" id="batteryLabel">Included (+€3,200)</span>
+            </div>
+          </div>
+
+          <!-- Field 5: Grid connection type -->
+          <div class="calc-row" style="border-bottom:none;">
+            <div class="calc-label">
+              Inverter Type
+              <span>Affects efficiency and compatibility</span>
+            </div>
+            <div class="calc-control">
+              <select class="calc-select" id="f_inverter">
+                <option value="0">String Inverter (standard)</option>
+                <option value="800" selected>Hybrid Inverter (+€800)</option>
+                <option value="1400">Micro-Inverters (+€1,400)</option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Quote actions -->
+        <div class="quote-actions" style="margin-top:0;">
+          <button class="btn btn-primary" onclick="downloadPDF()">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Download PDF Quote
+          </button>
+          <button class="btn btn-outline-orange" onclick="document.getElementById('emailModal').classList.add('open')">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Send to Email
+          </button>
+        </div>
+      </div>
+
+      <!-- Price box -->
+      <div style="position:sticky;top:84px;">
+        <div class="price-box">
+          <div class="price-tag">Estimated Total Price</div>
+          <div class="price-amount"><span>€</span><span id="priceTotal">0</span></div>
+          <div class="price-note">
+            VAT (17%) included. This is an automated estimate — contact us for a binding quotation.
+          </div>
+          <div class="price-breakdown">
+            <div class="price-line">
+              <span>Panel installation</span>
+              <span id="bLinePanel">€0</span>
+            </div>
+            <div class="price-line">
+              <span>Inverter</span>
+              <span id="bLineInverter">€0</span>
+            </div>
+            <div class="price-line" id="bBatteryLine">
+              <span>Battery storage</span>
+              <span id="bLineBattery">€3,200</span>
+            </div>
+            <div class="price-line">
+              <span>Installation & labour</span>
+              <span id="bLineLabour">€0</span>
+            </div>
+            <div class="price-line">
+              <span>VAT (17%)</span>
+              <span id="bLineVAT">€0</span>
+            </div>
+            <div class="price-line total">
+              <span>Total (incl. VAT)</span>
+              <span id="bLineTotal">€0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom disclaimer -->
+        <div class="disclaimer" style="margin-top:1rem;">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 7.18a2 2 0 012-2.18h3a2 2 0 012 1.72 12.8 12.8 0 00.7 2.81 2 2 0 01-.45 2.11L9.91 10.91a16 16 0 006.16 6.16l1.27-1.27a2 2 0 012.11-.45 12.8 12.8 0 002.81.7A2 2 0 0122 17z"/></svg>
+          <div class="disclaimer-text">
+            Ready to move forward? Call us at <strong>+352 12 34 56 78</strong> and we'll arrange a free site survey.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- EMAIL MODAL -->
+<div class="modal-overlay" id="emailModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('emailModal').classList.remove('open')">✕</button>
+    <div class="modal-title">Send Quote by Email</div>
+    <p style="font-size:0.875rem;color:var(--g500);margin-bottom:1.5rem;">Enter your email address and we'll send your PDF estimate directly to your inbox.</p>
+    <div class="login-form">
+      <div class="form-field">
+        <label class="form-label">Email Address <span class="form-required">*</span></label>
+        <input type="email" class="form-input" placeholder="you@example.com" id="emailInput">
+      </div>
+      <div id="emailSuccess" style="display:none;background:#DCFCE7;border-left:4px solid #16A34A;padding:0.85rem 1rem;font-size:0.8125rem;color:#166534;">
+        ✓ Quote sent! Check your inbox. Remember this is an estimate — contact us for a precise price.
+      </div>
+      <button class="btn btn-primary w-full" id="sendEmailBtn" style="justify-content:center;" onclick="sendEmail()">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        Send PDF Quote
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-col">
+      <a href="./index.html" class="logo" style="margin-bottom:1rem;display:inline-flex;">
+        <div class="logo-mark">B</div>
+        <span class="logo-name" style="margin-left:0.75rem;">Bulbau</span>
+      </a>
+      <p>Professional energy and building services across Luxembourg.</p>
+      <div class="footer-social">
+        <a href="#" title="Facebook"><svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg></a>
+        <a href="#" title="Instagram"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/></svg></a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Navigation</h4>
+      <ul><li><a href="./index.html">Home</a></li><li><a href="./projects.html">Projects</a></li><li><a href="./about.html">About Us</a></li><li><a href="./careers.html">Careers</a></li></ul>
+    </div>
+    <div class="footer-col">
+      <h4>Other Services</h4>
+      <ul><li><a href="./service.html">Electrical Installations</a></li><li><a href="./service.html">Energy Storage</a></li><li><a href="./service.html">Building Automation</a></li><li><a href="./service.html">Heat Pump Systems</a></li></ul>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <ul><li><a href="tel:+35212345678">+352 12 34 56 78</a></li><li><a href="mailto:info@bulbau.lu">info@bulbau.lu</a></li></ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 Bulbau S.à r.l. · Luxembourg</span>
+    <span>bulbau.lu</span>
+  </div>
+</footer>
+
+<script src="./assets/js/main.js"></script>
+<script>
+  // ---- Live price calculator ----
+  const BASE_COST_PER_M2 = 180; // €/m² panel+mounting
+  const LABOUR_RATE      = 0.22; // 22% of panel cost
+  const VAT_RATE         = 0.17;
+
+  function fmt(n) {
+    return new Intl.NumberFormat('de-LU', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.round(n));
+  }
+
+  function recalc() {
+    const area     = parseFloat(document.getElementById('f_area').value)    || 0;
+    const panel    = parseFloat(document.getElementById('f_panel').value)   || 1.0;
+    const orient   = parseFloat(document.getElementById('f_orient').value)  || 1.0;
+    const battery  = document.getElementById('f_battery').checked;
+    const inverter = parseFloat(document.getElementById('f_inverter').value)|| 0;
+
+    const panelCost   = area * BASE_COST_PER_M2 * panel * orient;
+    const labourCost  = panelCost * LABOUR_RATE;
+    const batteryCost = battery ? 3200 : 0;
+    const subtotal    = panelCost + labourCost + batteryCost + inverter;
+    const vat         = subtotal * VAT_RATE;
+    const total       = subtotal + vat;
+
+    document.getElementById('priceTotal').textContent       = fmt(total);
+    document.getElementById('bLinePanel').textContent       = '€' + fmt(panelCost);
+    document.getElementById('bLineInverter').textContent    = inverter > 0 ? '€' + fmt(inverter) : '€0';
+    document.getElementById('bLineBattery').textContent     = '€' + fmt(batteryCost);
+    document.getElementById('bLineLabour').textContent      = '€' + fmt(labourCost);
+    document.getElementById('bLineVAT').textContent         = '€' + fmt(vat);
+    document.getElementById('bLineTotal').textContent       = '€' + fmt(total);
+    document.getElementById('bBatteryLine').style.display   = battery ? '' : 'none';
+
+    document.getElementById('batteryLabel').textContent     = battery ? 'Included (+€3,200)' : 'Not included';
+  }
+
+  document.querySelectorAll('.calc-input, .calc-select').forEach(el => el.addEventListener('input', recalc));
+  document.getElementById('f_battery').addEventListener('change', recalc);
+  recalc();
+
+  // ---- PDF download (prototype — triggers print dialog) ----
+  function downloadPDF() {
+    const area    = document.getElementById('f_area').value;
+    const total   = document.getElementById('bLineTotal').textContent;
+    alert('In the live application, a PDF quote would be generated and downloaded here.\n\nThe PDF would include:\n• BULBAU logo & contact details\n• List of selected parameters\n• Price breakdown\n• Total: ' + total + '\n• Disclaimer that this is an estimate');
+  }
+
+  // ---- Send to email ----
+  function sendEmail() {
+    const email = document.getElementById('emailInput').value;
+    if (!email.includes('@')) {
+      document.getElementById('emailInput').style.borderColor = 'red';
+      return;
+    }
+    document.getElementById('emailInput').style.borderColor = '';
+    document.getElementById('sendEmailBtn').style.display   = 'none';
+    document.getElementById('emailSuccess').style.display   = 'block';
+    setTimeout(() => {
+      document.getElementById('emailModal').classList.remove('open');
+      document.getElementById('sendEmailBtn').style.display = '';
+      document.getElementById('emailSuccess').style.display = 'none';
+      document.getElementById('emailInput').value           = '';
+    }, 3000);
+  }
+
+  // Close modal on overlay click
+  document.getElementById('emailModal').addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+</script>
+</body>
+</html>

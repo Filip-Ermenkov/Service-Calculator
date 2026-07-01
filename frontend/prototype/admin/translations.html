@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Translations — BULBAU Admin</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="admin-root">
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar-logo"><div class="logo-mark">B</div><div><div class="logo-name" style="font-size:1.1rem;">Bulbau</div><div style="font-size:0.65rem;color:var(--g600);font-weight:500;letter-spacing:0.06em;margin-top:0.1rem;">Admin Panel</div></div></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Overview</div><a href="./dashboard.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Content</div><a href="./services.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2"/></svg>Services</a><a href="./projects.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Projects</a><a href="./careers.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Careers</a><a href="./about.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>About & Company Info</a></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Localisation</div><a href="./translations.html" class="admin-nav-item active"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>Translations</a></div>
+    <div class="admin-sidebar-section"><div class="admin-sidebar-label">Account</div><a href="#" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Account Settings</a><a href="./login.html" class="admin-nav-item"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign Out</a></div>
+    <div style="padding:1.5rem;margin-top:auto;border-top:1px solid rgba(255,255,255,0.06);"><div style="font-size:0.7rem;color:var(--g600);">Logged in as</div><div style="font-size:0.8125rem;color:var(--g300);font-weight:500;margin-top:0.2rem;">admin@bulbau.lu</div></div>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <div class="admin-page-title">Translations</div>
+    </div>
+    <div class="admin-content">
+
+      <!-- Legend + alert -->
+      <div style="display:grid;grid-template-columns:1fr auto;gap:1rem;margin-bottom:1.5rem;align-items:start;">
+        <div style="background:var(--orange-bg);border-left:4px solid var(--orange);padding:1rem 1.25rem;font-size:0.875rem;color:var(--g700);">
+          <strong style="color:var(--orange);">2 strings need review</strong> — the source content was edited after a manual translation override was saved. Check that your overrides still apply.
+        </div>
+        <div class="flex gap-2 items-center" style="flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.75rem;color:var(--g500);"><span style="width:10px;height:10px;background:#DCFCE7;display:inline-block;border:1px solid #16A34A;"></span>Manual override</div>
+          <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.75rem;color:var(--g500);"><span style="width:10px;height:10px;background:var(--white);display:inline-block;border:1px solid var(--g300);"></span>Auto-translated</div>
+          <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.75rem;color:var(--g500);"><span style="width:10px;height:10px;background:#FFFBEB;display:inline-block;border:1px solid #D97706;"></span>Needs review</div>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar" style="margin-bottom:1rem;">
+        <div class="search-input-wrap" style="flex:1;">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" class="search-input" placeholder="Search strings…">
+        </div>
+        <select class="filter-select">
+          <option>All Sections</option>
+          <option>Services</option>
+          <option>Projects</option>
+          <option>Navigation</option>
+          <option>Forms</option>
+          <option>PDF / Disclaimer</option>
+          <option>Footer</option>
+        </select>
+        <select class="filter-select">
+          <option>All Statuses</option>
+          <option>Needs Review</option>
+          <option>Manual Override</option>
+          <option>Auto Only</option>
+        </select>
+      </div>
+
+      <!-- Translation table -->
+      <div class="admin-card">
+        <div class="translation-header-row">
+          <div class="translation-header-cell">English (source)</div>
+          <div class="translation-header-cell">French (FR)</div>
+          <div class="translation-header-cell">German (DE)</div>
+          <div class="translation-header-cell">Actions</div>
+        </div>
+
+        <!-- Row 1 — needs review -->
+        <div class="translation-row">
+          <div class="translation-cell original">Custom-designed solar panel installations for residential rooftops, commercial buildings, and industrial facilities.</div>
+          <div class="translation-cell review">
+            <div>
+              <span style="font-size:0.65rem;font-weight:700;color:#D97706;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:0.2rem;">⚠ Needs review</span>
+              Installations de panneaux solaires conçues sur mesure pour les toits résidentiels, commerciaux et industriels.
+            </div>
+          </div>
+          <div class="translation-cell auto">Maßgeschneiderte Solaranlageinstallationen für Wohn-, Gewerbe- und Industriedächer.</div>
+          <div class="translation-cell"><button class="action-link" onclick="openEdit()">Edit</button></div>
+        </div>
+
+        <!-- Row 2 — needs review -->
+        <div class="translation-row">
+          <div class="translation-cell original">Each system is sized to your energy consumption and structural constraints, maximising output and return on investment.</div>
+          <div class="translation-cell auto">Chaque système est dimensionné selon votre consommation énergétique et vos contraintes structurelles, maximisant la production et le retour sur investissement.</div>
+          <div class="translation-cell review">
+            <div>
+              <span style="font-size:0.65rem;font-weight:700;color:#D97706;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:0.2rem;">⚠ Needs review</span>
+              Jedes System wird auf Ihren Energieverbrauch und Ihre baulichen Gegebenheiten zugeschnitten.
+            </div>
+          </div>
+          <div class="translation-cell"><button class="action-link" onclick="openEdit()">Edit</button></div>
+        </div>
+
+        <!-- Row 3 — manual override -->
+        <div class="translation-row">
+          <div class="translation-cell original">Get in Touch</div>
+          <div class="translation-cell overridden">
+            <span style="font-size:0.65rem;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:0.2rem;">✓ Override</span>
+            Contactez-nous
+          </div>
+          <div class="translation-cell overridden">
+            <span style="font-size:0.65rem;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:0.2rem;">✓ Override</span>
+            Kontakt aufnehmen
+          </div>
+          <div class="translation-cell"><button class="action-link" onclick="openEdit()">Edit</button></div>
+        </div>
+
+        <!-- Row 4 — auto -->
+        <div class="translation-row">
+          <div class="translation-cell original">Estimate only. The price calculated below is an automated estimate based on standard parameters.</div>
+          <div class="translation-cell auto">Estimation uniquement. Le prix calculé ci-dessous est une estimation automatisée basée sur des paramètres standards.</div>
+          <div class="translation-cell auto">Nur Schätzung. Der unten berechnete Preis ist eine automatisierte Schätzung auf Basis von Standardparametern.</div>
+          <div class="translation-cell"><button class="action-link" onclick="openEdit()">Edit</button></div>
+        </div>
+
+        <!-- Row 5 — auto -->
+        <div class="translation-row">
+          <div class="translation-cell original">Download PDF Quote</div>
+          <div class="translation-cell auto">Télécharger le devis PDF</div>
+          <div class="translation-cell auto">PDF-Angebot herunterladen</div>
+          <div class="translation-cell"><button class="action-link" onclick="openEdit()">Edit</button></div>
+        </div>
+
+        <!-- Row 6 — manual override FR, auto DE -->
+        <div class="translation-row">
+          <div class="translation-cell original">Send to Email</div>
+          <div class="translation-cell overridden">
+            <span style="font-size:0.65rem;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:0.2rem;">✓ Override</span>
+            Envoyer par e-mail
+          </div>
+          <div class="translation-cell auto">Per E-Mail senden</div>
+          <div class="translation-cell"><button class="action-link" onclick="openEdit()">Edit</button></div>
+        </div>
+
+        <!-- Row 7 — auto -->
+        <div class="translation-row">
+          <div class="translation-cell original">Solar PV Technician</div>
+          <div class="translation-cell auto">Technicien en systèmes photovoltaïques</div>
+          <div class="translation-cell auto">Solartechnik-Techniker</div>
+          <div class="translation-cell"><button class="action-link" onclick="openEdit()">Edit</button></div>
+        </div>
+
+        <!-- Row 8 — auto -->
+        <div class="translation-row">
+          <div class="translation-cell original">There are currently no open positions. Check back later.</div>
+          <div class="translation-cell auto">Il n'y a actuellement aucun poste ouvert. Revenez plus tard.</div>
+          <div class="translation-cell auto">Derzeit sind keine Stellen offen. Schauen Sie später wieder vorbei.</div>
+          <div class="translation-cell"><button class="action-link" onclick="openEdit()">Edit</button></div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box" style="max-width:600px;">
+    <button class="modal-close" onclick="document.getElementById('editModal').classList.remove('open')">✕</button>
+    <div class="modal-title">Edit Translation</div>
+    <p style="font-size:0.875rem;color:var(--g500);margin-bottom:1.5rem;">Manually override the auto-generated translation for this string. Your override will be used until you reset it.</p>
+
+    <div style="display:flex;flex-direction:column;gap:1.25rem;">
+      <div class="form-field">
+        <label class="form-label">English (source — read only)</label>
+        <textarea class="form-input form-textarea" style="min-height:70px;background:var(--g100);color:var(--g600);" readonly>Custom-designed solar panel installations for residential rooftops, commercial buildings, and industrial facilities.</textarea>
+      </div>
+      <div class="form-field">
+        <label class="form-label">French (FR)</label>
+        <textarea class="form-input form-textarea" style="min-height:70px;" id="frEdit">Installations de panneaux solaires conçues sur mesure pour les toits résidentiels, commerciaux et industriels.</textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:0.4rem;"><button class="action-link" style="font-size:0.75rem;" onclick="resetAuto('fr')">↺ Reset to auto-translation</button></div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">German (DE)</label>
+        <textarea class="form-input form-textarea" style="min-height:70px;" id="deEdit">Maßgeschneiderte Solaranlageinstallationen für Wohn-, Gewerbe- und Industriedächer.</textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:0.4rem;"><button class="action-link" style="font-size:0.75rem;" onclick="resetAuto('de')">↺ Reset to auto-translation</button></div>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-primary" onclick="saveTranslation()">Save Override</button>
+        <button class="btn btn-dark" onclick="document.getElementById('editModal').classList.remove('open')">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openEdit() {
+    document.getElementById('editModal').classList.add('open');
+  }
+  function saveTranslation() {
+    document.getElementById('editModal').classList.remove('open');
+    alert('Translation override saved.');
+  }
+  function resetAuto(lang) {
+    if (lang === 'fr') {
+      document.getElementById('frEdit').value = 'Installations de panneaux solaires conçues sur mesure pour les toits résidentiels, les bâtiments commerciaux et les installations industrielles.';
+    } else {
+      document.getElementById('deEdit').value = 'Individuell geplante Solaranlagen für Wohngebäude, Gewerbebauten und Industrieanlagen.';
+    }
+    alert('Reset to auto-translation for ' + lang.toUpperCase() + '. Save to apply.');
+  }
+  document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+</script>
+</body>
+</html>
