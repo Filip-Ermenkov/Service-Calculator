@@ -128,7 +128,7 @@ Service-Calculator/
 | `LegalInfo` | global singleton: legalName, legalForm, registeredAddress, rcsNumber, vatNumber, legalContactEmail, privacyPolicyContent (rich text), status (draft/published) | Backs the Legal Notice and Privacy Policy pages (Section 6.9). `legalName`/`legalForm`/`rcsNumber`/`vatNumber`/`registeredAddress` are required fields that block moving `status` to `published` — this collection stays in draft until the client's real registration details are entered; it must never ship with placeholder values. |
 | `Translations` | auto-managed shadow of every localized field: englishSource, frText, deText, overrideFr, overrideDe, sourceHash, needsReview | Populated/updated by hooks, surfaced in the admin Translation Management screen. |
 | `Users` | email, password (hashed by Payload), totpSecret, totpEnabled, failedAttempts, lockedUntil | Single administrator; no role system needed per `FUNCTIONALITY.md`. |
-| `Media` | Payload's built-in upload collection, backed by S3 | |
+| `Media` | Payload's built-in upload collection, backed by S3; `altText` (required) | Alt text is enforced at the schema level, not left as an optional afterthought — it's both an accessibility requirement (Section 7B) and an SEO one (Section 6.11). |
 
 All content-bearing collections use Payload's native localization (`en` required, `fr`/`de` auto-populated) rather than a hand-rolled translation table, so drafts/versions and localization compose correctly out of the box.
 
@@ -169,6 +169,16 @@ Rendered the same way as the About Us page — localized rich text from a Payloa
 ### 6.10 Analytics
 Plausible's tracking script (or the self-hosted equivalent) is added sitewide, outside of any consent-gating logic since it sets no cookies and processes no personal data — consistent with the Privacy Policy's disclosure in §2.5.
 
+### 6.11 SEO implementation
+The architecture is SEO-friendly by design (SSR/ISR instead of client-only rendering, URL-based locales with hreflang — Section 3), but that's the foundation, not the whole job. Built explicitly, per page:
+- Per-page `<title>`/meta description generated from each collection's existing title/description fields (no new content-authoring burden on the admin).
+- Open Graph and Twitter Card tags, using each service/project's existing hero image.
+- Structured data (schema.org `LocalBusiness` on Home/About, `Service` on each service page), generated from data already in `CompanyInfo`/`Services` — no separate content to maintain.
+- A generated, localized XML sitemap and `robots.txt` (Next.js's built-in `sitemap.ts`/`robots.ts` conventions).
+- Canonical URLs per locale, with `hreflang` alternates pointing at the `/en`, `/fr`, `/de` versions of each page.
+- Required alt text on every `Media` upload (Section 5) — both an accessibility requirement (Section 7B) and an SEO one.
+- A Core Web Vitals budget enforced in CI (Lighthouse CI against the staging deploy) rather than left to chance.
+
 ---
 
 ## 7. Security baseline (applies regardless of hosting tier)
@@ -195,6 +205,16 @@ This is a Luxembourg business serving EU visitors, so GDPR applies regardless of
 - **DPO — resolved**: this business's data processing (contact-form inquiries only, no large-scale or special-category data) doesn't meet GDPR Article 37's threshold for a mandatory Data Protection Officer. The admin/business owner is listed as the data controller in the Privacy Policy instead.
 - **Retention — resolved**: no fixed retention period is specified; the Privacy Policy states messages are kept only as long as needed to respond, then deleted per normal business practice.
 - **Legal Notice / Privacy Policy — specified, not yet publishable**: both pages are now fully specified in `FUNCTIONALITY.md` §2.5 and implemented per Section 6.9. They cannot go live with placeholder legal details — the company's registered legal form, RCS Luxembourg number, VAT number, and registered address are still pending from the client and are a hard gate on Phase 6 sign-off, enforced technically (Section 6.9), not just procedurally.
+
+---
+
+## 7B. Accessibility (WCAG 2.1 AA)
+
+Not previously specified anywhere in this document — added on review, not because a client or legal mandate demanded it, but because it's current best practice for any public-facing site and is far cheaper to build in than to retrofit:
+
+- Target WCAG 2.1 AA: semantic HTML landmarks, full keyboard navigation (including the calculator and the admin panel's custom formula-builder component — the easiest place for a custom UI to silently fail this), visible focus states, sufficient color contrast carried over from the already-approved prototype's design, and required alt text on all media (Section 5).
+- The EU's Accessibility Act (in force since June 2025) most clearly covers e-commerce; whether a quote-generation (not transactional) site like this falls squarely within its scope is genuinely ambiguous and not worth over-claiming either way — but WCAG 2.1 AA is the right bar regardless of whether it's strictly mandated here.
+- Verified with automated tooling (axe-core in CI, similar to the Lighthouse CI check in Section 6.11) plus a manual keyboard-only and screen-reader pass before each phase's sign-off (Section 12), not assumed from automated checks alone — automated tools catch a minority of real accessibility issues.
 
 ---
 
@@ -241,7 +261,7 @@ Baseline ECS Fargate + ALB + RDS single-AZ setup, as scoped earlier in this proj
 
 ### 10.2 CI/CD (GitHub Actions)
 1. Lint + typecheck + unit/integration tests on every PR.
-2. On merge to `main`: build → deploy to staging via `sst deploy --stage staging` → run E2E suite against staging → manual approval gate → `sst deploy --stage production`.
+2. On merge to `main`: build → deploy to staging via `sst deploy --stage staging` → run E2E suite, Lighthouse CI (Section 6.11), and axe-core accessibility checks (Section 7B) against staging → manual approval gate → `sst deploy --stage production`.
 
 ### 10.3 IaC ownership
 - SST (`infra/sst.config.ts`): Lambda functions, CloudFront, S3, Route 53 records, SES identity, Payload's environment wiring — and the Neon project/branches, via SST's ability to consume Terraform/Pulumi providers directly.
@@ -269,6 +289,10 @@ CDK/CloudFormation is AWS-only and cannot declare the Neon database as code, whi
 
 No content, media, translations, or configuration is ever tied to the compute choice — only S3 (media) and Postgres (everything else) hold state, and both are portable by design.
 
+### 11.3 Scaling beyond the Phase B baseline
+
+Worth being explicit about, since neither "Phase A" nor "Phase B" as scoped is an unlimited-scale claim: the Phase B baseline in Section 9 (single Fargate task, single-AZ database) is a starting point sized for this project's actual traffic, not a ceiling disguised as one. If real usage ever justified going further, the levers — in the order they'd actually get pulled — are: (1) Fargate target-tracking auto-scaling on CPU/memory or ALB request count, since the containers are already stateless and this requires no redesign; (2) Postgres read replicas, since this workload (a CMS-backed content site with a single admin) is overwhelmingly read-heavy; (3) a caching layer (e.g. ElastiCache) in front of the database only if read replicas stop being enough; (4) multi-region, only if the business ever had a genuine reason to need it. None of this is built now because none of it is justified by current traffic — but it's a deliberate next-steps list, not an unaddressed dead end.
+
 ---
 
 ## 12. Roadmap (implementation slices)
@@ -279,12 +303,12 @@ Each phase below is implemented, then manually and automatically tested end-to-e
 |---|---|---|
 | 0 | Repo scaffolding: Next.js + Payload skeleton, local Postgres, SST project skeleton, CI pipeline skeleton, Neon project provisioned | App boots locally and on a deployed Lambda staging stack with a placeholder page |
 | 1 | Content model + admin auth | All Payload collections defined; login + TOTP 2FA working; default Payload admin UI usable for CRUD |
-| 2 | Public site wired to real content | Home/Projects/About/Careers/Service pages render real CMS data via ISR, replacing all static prototype content; URL-based i18n live (EN complete, FR/DE stubbed); Legal Notice & Privacy Policy pages built (may stay in Draft pending real legal details); cookie-free analytics live |
+| 2 | Public site wired to real content | Home/Projects/About/Careers/Service pages render real CMS data via ISR, replacing all static prototype content; URL-based i18n live (EN complete, FR/DE stubbed); Legal Notice & Privacy Policy pages built (may stay in Draft pending real legal details); cookie-free analytics live; SEO basics (Section 6.11) and a keyboard/screen-reader pass (Section 7B) done on every public page shipped |
 | 3 | Calculator field builder + formula engine | Admin can define fields/formula visually; public calculator computes in real time from the stored formula, replacing the prototype's hardcoded JS math |
 | 4 | PDF generation + email delivery | Download and send-to-email both produce a correct branded PDF; failure path tested |
 | 5 | Translation pipeline | DeepL auto-translation on save, manual override UI, stale-flagging on source edits; FR/DE live sitewide |
 | 6 | Contact form + spam protection | Form submits via SES, Turnstile + honeypot verified, rate limiting confirmed; **hard gate**: `LegalInfo` populated with real registration details and published before this phase can go to production |
-| 7 | Hardening & Well-Architected pass | WAF/GuardDuty evaluated against real traffic, backups verified, monitoring/alarms in place, this document updated to reflect final state |
+| 7 | Hardening & Well-Architected pass | WAF/GuardDuty evaluated against real traffic, backups verified, monitoring/alarms in place, full-site WCAG 2.1 AA and Lighthouse/SEO audit completed (Sections 6.11/7B), this document updated to reflect final state |
 
 ---
 
