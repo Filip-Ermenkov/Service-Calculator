@@ -3,7 +3,6 @@ import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
-import sharp from 'sharp'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
@@ -33,7 +32,17 @@ export default buildConfig({
       max: process.env.NODE_ENV === 'production' ? 3 : 10,
     },
   }),
-  sharp,
+  // sharp intentionally omitted: it's optional as of Payload 3.x, and the
+  // Media collection (src/collections/Media.ts) doesn't configure any
+  // sharp-dependent feature (imageSizes, resizeOptions, focal point) yet.
+  // sharp ships architecture-specific native binaries, which conflicts with
+  // building on ubuntu-latest (x64) CI runners while deploying to arm64
+  // Lambda (see sst.config.ts) — OpenNext also excludes it from the main
+  // server bundle by default regardless, since it assumes sharp is only used
+  // by Next's own separate image-optimizer function. Revisit properly
+  // (matching CI/Lambda architecture, or a prebuilt arm64 Sharp Lambda
+  // Layer) once Media actually needs resizing — tracked as a follow-up, not
+  // a Phase 0 blocker.
   localization: {
     locales: ['en'],
     fallback: true,

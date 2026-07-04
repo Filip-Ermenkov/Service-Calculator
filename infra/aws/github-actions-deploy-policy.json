@@ -72,6 +72,12 @@
       }
     },
     {
+      "Sid": "ManageCloudFront",
+      "Effect": "Allow",
+      "Action": "cloudfront:*",
+      "Resource": "*"
+    },
+    {
       "Sid": "ExplicitDenyHighRiskActions",
       "Effect": "Deny",
       "Action": [
