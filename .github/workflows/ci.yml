@@ -32,6 +32,10 @@ jobs:
     env:
       DATABASE_URL: postgresql://bulbau:bulbau_ci@localhost:5432/bulbau
       PAYLOAD_SECRET: ci-only-secret-not-for-production
+      # Dummy value — no test currently exercises the upload flow, this just
+      # keeps the s3Storage plugin's config from seeing an empty bucket name
+      # during the local dev server the e2e tests run against.
+      S3_BUCKET: ci-local-test-bucket-not-real
     steps:
       - uses: actions/checkout@v5
 
