@@ -13,8 +13,12 @@ jobs:
   verify:
     name: Lint, typecheck, unit/integration tests
     runs-on: ubuntu-latest
-    # Ephemeral Postgres for this job only — separate from any real Neon
-    # project. Payload's dev-mode schema push runs against this on boot.
+    # Ephemeral Postgres + S3Mock for this job only — separate from any real
+    # Neon project / AWS bucket. Payload's dev-mode schema push runs against
+    # Postgres on boot; the media upload/delete integration test
+    # (tests/int/media.int.spec.ts) runs against S3Mock. S3Mock, not MinIO or
+    # LocalStack — both discontinued free/CE container images (Oct 2025 /
+    # Mar 2026) — see docs/PROGRESS.md for the research trail.
     services:
       postgres:
         image: postgres:17-alpine
@@ -29,13 +33,24 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      s3mock:
+        image: adobe/s3mock:5.1.0
+        env:
+          COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: bulbau-ci-test
+        ports:
+          - 9090:9090
+        options: >-
+          --health-cmd "wget --spider -q http://localhost:9090/favicon.ico"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgresql://bulbau:bulbau_ci@localhost:5432/bulbau
       PAYLOAD_SECRET: ci-only-secret-not-for-production
-      # Dummy value — no test currently exercises the upload flow, this just
-      # keeps the s3Storage plugin's config from seeing an empty bucket name
-      # during the local dev server the e2e tests run against.
-      S3_BUCKET: ci-local-test-bucket-not-real
+      S3_BUCKET: bulbau-ci-test
+      S3_ENDPOINT: http://localhost:9090
+      S3_ACCESS_KEY_ID: test
+      S3_SECRET_ACCESS_KEY: test
     steps:
       - uses: actions/checkout@v5
 

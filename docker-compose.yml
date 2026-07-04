@@ -1,6 +1,8 @@
-# Local development database only. The app itself runs directly on the host
-# via `npm run dev` — see README.md. Alternatively, skip this entirely and
-# point DATABASE_URL at a personal Neon branch (see docs/TECHSPEC.md §10.1).
+# Local development database + S3-compatible storage only. The app itself
+# runs directly on the host via `npm run dev` — see README.md. Postgres can
+# alternatively be skipped in favor of a personal Neon branch (see
+# docs/TECHSPEC.md §10.1); S3Mock has no such alternative — see README.md for
+# the env vars that point Payload's S3 storage plugin at it.
 services:
   postgres:
     image: postgres:17-alpine
@@ -15,6 +17,25 @@ services:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U bulbau']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # S3-compatible object storage for local dev/testing, standing in for the
+  # real S3 bucket staging/production use. Deliberately Adobe's S3Mock, not
+  # MinIO or LocalStack: both of those discontinued free/CE container images
+  # in Oct 2025 / Mar 2026 respectively (see docs/PROGRESS.md for the research
+  # trail) — S3Mock is a small, purpose-built, Apache-2.0 testing tool with no
+  # such commercial pressure and is still actively released.
+  s3mock:
+    image: adobe/s3mock:5.1.0
+    restart: unless-stopped
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: bulbau-dev
+    ports:
+      - '9090:9090'
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:9090/favicon.ico']
       interval: 5s
       timeout: 5s
       retries: 5

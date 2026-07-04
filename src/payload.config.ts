@@ -56,12 +56,35 @@ export default buildConfig({
       // one. Needs CORS PUT allowed on the bucket; sst.aws.Bucket's default
       // CORS (wildcard origins, includes PUT) already covers this, see
       // https://sst.dev/docs/component/aws/bucket/#cors
+      //
+      // Note: clientUploads only changes the REST/admin-UI upload path
+      // (browser gets redirected to a presigned URL). Local API calls
+      // (payload.create/update with a `file`) always go through
+      // handleUpload -> a real server-side S3 PutObject, unaffected by this
+      // flag — that's what makes the media Local-API integration test
+      // (tests/int/media.int.spec.ts) able to exercise real S3 semantics
+      // without a browser.
       clientUploads: true,
       config: {
         region: process.env.AWS_REGION || 'eu-central-1',
-        // No explicit credentials: Lambda's own execution role — granted S3
-        // access via `link: [media, ...]` in sst.config.ts — is picked up
-        // automatically by the AWS SDK's default credential provider chain.
+        // No explicit credentials by default: Lambda's own execution role —
+        // granted S3 access via `link: [media, ...]` in sst.config.ts — is
+        // picked up automatically by the AWS SDK's default credential
+        // provider chain.
+        //
+        // S3_ENDPOINT is only set locally/in CI, to point at the S3Mock
+        // container (docker-compose.yml / .github/workflows/ci.yml) instead
+        // of real AWS — see docs/PROGRESS.md for why S3Mock (not MinIO or
+        // LocalStack) was chosen. Never set in staging/production, so this
+        // branch never runs against real infrastructure.
+        ...(process.env.S3_ENDPOINT && {
+          endpoint: process.env.S3_ENDPOINT,
+          forcePathStyle: true,
+          credentials: {
+            accessKeyId: process.env.S3_ACCESS_KEY_ID || 'test',
+            secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || 'test',
+          },
+        }),
       },
     }),
   ],

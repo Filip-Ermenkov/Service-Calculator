@@ -19,15 +19,19 @@ day-to-day commands.
 cp .env.example .env
 # then edit .env: set DATABASE_URL and PAYLOAD_SECRET
 # generate a secret with: openssl rand -base64 32
-# also set S3_BUCKET — media uploads use @payloadcms/storage-s3 (no local-disk
-# fallback works on Lambda, so there's no local-disk option here either); point
-# it at any bucket you can reach, or a personal/dev bucket
+# also set the S3_* vars — media uploads use @payloadcms/storage-s3 (no
+# local-disk fallback works on Lambda, so there's no local-disk option here
+# either). Two options, both documented in .env.example:
+#   A) point S3_BUCKET/AWS_REGION at a real bucket you can reach
+#   B) run the S3Mock container below and point S3_ENDPOINT at it instead —
+#      no real AWS credentials needed for local dev
 
-# Option A — local Postgres via Docker:
+# Local Postgres + S3Mock via Docker:
 docker compose up -d
 
-# Option B — point DATABASE_URL at a personal Neon branch instead
-# (use the POOLED connection string, hostname contains "-pooler")
+# Postgres alternative — point DATABASE_URL at a personal Neon branch instead
+# (use the POOLED connection string, hostname contains "-pooler"); S3Mock has
+# no such hosted alternative, always run it locally for dev/test.
 
 npm install
 npm run dev
@@ -58,6 +62,11 @@ files. Deploys go through CI (`ubuntu-latest`) for exactly this reason; if
 you need to test a build locally, do it from WSL2, not PowerShell/CMD.
 
 ## Testing
+
+`npm run test:int` includes a real (mocked) S3 upload/delete round-trip
+(`tests/int/media.int.spec.ts`) against the S3Mock container from
+`docker compose up -d` — make sure it's running (`docker compose ps`) before
+running tests locally, same as Postgres.
 
 The first time you run the Playwright suite, install its browser binary
 (one-time, not needed again after):
