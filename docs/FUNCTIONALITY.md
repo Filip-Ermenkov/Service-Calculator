@@ -1,6 +1,8 @@
 # Functionality Specification — bulbau.lu
 
 > This document describes the complete functionality of the bulbau.lu website from a non-technical perspective. It covers every page, every user-facing interaction, every admin capability, and all cross-cutting behaviours. It is intended to serve as the single source of truth before any technical decisions are made.
+>
+> **Status as of Phase 0 (2026-07-04)**: nothing in this document has shipped yet — Phase 0 was infrastructure only (Section 12 of `docs/TECHSPEC.md`), with no content model, pages, or admin features built. Everything below remains the target to build toward, starting with Phase 1. Reviewed at Phase 0 sign-off and found still accurate with nothing to revise; see `docs/PROGRESS.md` for what Phase 0 actually built.
 
 ---
 

@@ -3,6 +3,8 @@
 > **Status**: Living document. This is the technical plan for the entire application. Every implementation slice must be checked against this document before work starts, and this document must be amended once a slice is built, tested, and signed off — before the next slice begins. If reality and this document diverge, this document loses, and gets updated.
 >
 > **Companion document**: `docs/FUNCTIONALITY.md` (non-technical functional spec — the "what"). This document is the "how."
+>
+> **Progress**: Phase 0 (Section 12) is complete and signed off as of 2026-07-04. See `docs/PROGRESS.md` for the full build/debug history and current handoff state — this document reflects the *plan as corrected by what Phase 0 actually required*; that file explains *how it got there*.
 
 ---
 
@@ -60,14 +62,14 @@ The only things that change between Phase A and Phase B: the compute target (Lam
 
 | Layer | Choice | Why |
 |---|---|---|
-| Application framework | Next.js 15+ (App Router, TypeScript) | Industry-standard React meta-framework; SSR/ISR fits a content site that also needs SEO; native support in every tool below. |
-| CMS / backend | Payload CMS 3.x, embedded in the Next.js app | Native localization model matches the EN-source + FR/DE-override requirement exactly; built-in draft/publish, media handling, auth, and an extensible admin UI framework we need anyway for the custom formula builder. Avoids building a bespoke CMS and a bespoke admin panel as two separate systems. |
+| Application framework | Next.js 16.2 (App Router, TypeScript) | Industry-standard React meta-framework; SSR/ISR fits a content site that also needs SEO; native support in every tool below. Bumped from the original "15+" during Phase 0 — 15 reaches EOL Oct 2026, so 16.2 was the correct pin, not just the newest. |
+| CMS / backend | Payload CMS 3.85.x, embedded in the Next.js app | Native localization model matches the EN-source + FR/DE-override requirement exactly; built-in draft/publish, media handling, auth, and an extensible admin UI framework we need anyway for the custom formula builder. Avoids building a bespoke CMS and a bespoke admin panel as two separate systems. Uses `@payloadcms/db-postgres` (Drizzle-based) as the DB adapter, not the Mongo default or a Vercel-specific adapter. |
 | Database | Postgres, via Payload's official Postgres (Drizzle) adapter | Standard SQL, not a proprietary format — this is what makes the Phase A → Phase B migration a dump/restore instead of a rewrite. Rejected SQLite/Turso for the same reason (different dialect, harder to port to RDS later) and DynamoDB (no official Payload adapter — would mean abandoning Payload's data layer). |
 | Database host (Phase A) | **Neon** (serverless Postgres) | True scale-to-zero (not just a low floor), standard Postgres wire protocol, free tier covers this workload entirely. Non-AWS, which is an accepted trade-off given the cost and portability benefits. |
 | Database host (Phase B) | RDS or Aurora Postgres | Managed, VPC-native, integrates with the rest of an AWS container deployment. |
-| Compute (Phase A) | AWS Lambda via **OpenNext** + **SST (Ion)** | OpenNext is the current standard adapter for running Next.js on Lambda (backed by a multi-vendor working group including Vercel, Cloudflare, Netlify, AWS). SST provisions and deploys it. |
-| Compute (Phase B) | ECS Fargate | Managed container hosting, no host patching, standard target for "graduated" web apps; App Runner was ruled out as it's in maintenance mode. |
-| IaC / deployment tool | **SST (Ion)** as primary; **Terraform** for anything outside SST's native components | SST's own engine moved off CDK/CloudFormation onto Pulumi + Terraform providers specifically for multi-provider support and to avoid CloudFormation's per-stack resource limits — the same reason we need it here, since Neon isn't an AWS resource and CDK/CloudFormation cannot model it. SST can consume the community Neon Terraform provider directly, keeping one IaC surface for AWS + Neon. CDK was deliberately not chosen (see Section 10.4 for the full reasoning). |
+| Compute (Phase A) | AWS Lambda via **OpenNext** (`@opennextjs/aws`) + **SST v4** | OpenNext is the current standard adapter for running Next.js on Lambda (backed by a multi-vendor working group including Vercel, Cloudflare, Netlify, AWS). SST provisions and deploys it. Confirmed working end-to-end in the Phase 0 spike (Section 13). |
+| Compute (Phase B) | ECS Fargate | Managed container hosting, no host patching, standard target for "graduated" web apps; App Runner confirmed ruled out — it entered maintenance mode Mar 2026 and closed to new customers Apr 2026. Worth evaluating ECS **Express Mode** (launched Nov 2025) when Phase B planning starts: shares one ALB across services and supports scale-to-zero in non-prod, which may make the Phase B baseline in Section 9 cheaper/simpler than the manual Fargate+ALB setup currently scoped — not yet incorporated into this document's Phase B numbers, flagged for evaluation at that time. |
+| IaC / deployment tool | **SST v4** ("Ion" engine) as primary; **Terraform** for anything outside SST's native components | SST's own engine moved off CDK/CloudFormation onto Pulumi + Terraform providers specifically for multi-provider support and to avoid CloudFormation's per-stack resource limits — the same reason we need it here, since Neon isn't an AWS resource and CDK/CloudFormation cannot model it. SST can consume the community Neon Terraform provider directly, keeping one IaC surface for AWS + Neon. CDK was deliberately not chosen (see Section 10.4 for the full reasoning). `sst.config.ts` lives at the repo root, not `infra/` — see Section 4. |
 | PDF generation | Playwright + `@sparticuz/chromium-min`, in its own isolated Lambda function | On-demand, rarely invoked, pay-per-call — a textbook serverless workload. Isolated from the main app function to keep the Chromium binary out of the hot-path bundle. |
 | Formula/pricing engine | JSON-based rule structure evaluated with `json-logic-js` (or equivalent safe evaluator) | Never `eval()`/`new Function()` on admin-authored input. Same evaluator runs both server-side (validation, PDF) and client-side (real-time recalculation), so they can't drift apart. |
 | Translation | DeepL API (Free tier initially) | Measurably better quality than Google/AWS Translate specifically for FR/DE, the two languages this entire site depends on. Free tier (500k characters/month) comfortably covers this site's content volume. |
@@ -78,7 +80,7 @@ The only things that change between Phase A and Phase B: the compute target (Lam
 | Secrets | SSM Parameter Store (free) for static config; Secrets Manager only for the DB credential that benefits from rotation | Keeps recurring cost near zero without giving up rotation where it matters. |
 | CDN / edge | CloudFront | Fronts both the Lambda app and S3 media/static assets; carries AWS Shield Standard (free) DDoS protection by default. |
 | DNS | Route 53 (hosted zone; domain registration for `.lu` stays with a Luxembourg-accredited registrar, delegated via NS records) | Route 53 Domains does not sell `.lu` TLDs. |
-| AWS region | `eu-central-1` (Frankfurt), not `us-east-1` | This is a Luxembourg business serving EU visitors; EU data residency is the expected default for GDPR purposes even though it isn't always a strict legal mandate. Frankfurt over Dublin (`eu-west-1`) specifically for lower latency from Luxembourg. Note: the cost figures in Section 9 were sourced against `us-east-1` pricing for research simplicity — EU regions typically run 10–20% higher. Still comfortably within the targets stated, but the numbers should be re-pulled for `eu-central-1` before Phase 0 sign-off. |
+| AWS region | `eu-central-1` (Frankfurt), not `us-east-1` | This is a Luxembourg business serving EU visitors; EU data residency is the expected default for GDPR purposes even though it isn't always a strict legal mandate. Frankfurt over Dublin (`eu-west-1`) specifically for lower latency from Luxembourg. Cost figures in Section 9 re-verified against `eu-central-1` pricing at Phase 0 sign-off (2026-07-04) — see Section 9's note. |
 | Analytics | Plausible (or a self-hosted cookieless equivalent, e.g. Umami) | Cookie-free by design, decided deliberately so the site needs no cookie-consent banner at all — the only cookie in use anywhere is the strictly-functional language preference. Rejected Google Analytics for the same reason: it sets tracking cookies and would force a consent-banner requirement this site doesn't otherwise need. |
 | i18n routing | `next-intl`, URL-prefixed locales (`/en`, `/fr`, `/de`) | Deviation from the literal wording of `FUNCTIONALITY.md` §2.1 ("session... for the duration of the visit"), made deliberately: session-only language switching is invisible to search engines, meaning FR/DE content would likely never get indexed. URL-based locales with auto-detection on first visit satisfy the same UX requirement (switch anytime, stay on the same page) while remaining crawlable and hreflang-taggable. |
 | Auth | Payload's built-in auth (login, logout, forgot/reset password) + custom TOTP step | Payload does not ship 2FA natively; the Google Authenticator step is added as a second verification stage via a custom hook/endpoint using `otplib`, with failed-attempt counters in Upstash Redis. |
@@ -86,34 +88,62 @@ The only things that change between Phase A and Phase B: the compute target (Lam
 
 ---
 
-## 4. Repository structure (proposed)
+## 4. Repository structure (as built, Phase 0)
+
+Corrected against reality during Phase 0 — three deliberate deviations from the original proposal above, each explained inline below.
 
 ```
 Service-Calculator/
 ├── docs/
 │   ├── FUNCTIONALITY.md
-│   └── TECHSPEC.md
-├── app/                        # Next.js App Router
-│   ├── (public)/[locale]/      # Home, Projects, About, Careers, Service pages
-│   ├── (admin)/admin/          # Payload admin UI mount point
-│   └── api/                    # Route handlers (contact form, quote email, webhooks)
-├── payload/
+│   ├── TECHSPEC.md
+│   └── PROGRESS.md             # Rolling build/debug history + handoff state
+├── prototype/                  # Static, client-approved HTML/CSS/JS visual reference.
+│                                # Zero backend logic, not architecture — layout/design
+│                                # reference only. Renamed from frontend/prototype/ during
+│                                # Phase 0 to remove the naming collision with the route
+│                                # group below (was ambiguous which "frontend" was which).
+├── src/
+│   ├── app/
+│   │   ├── (frontend)/          # Public site (page.tsx, layout.tsx, styles.css)
+│   │   ├── (payload)/           # Payload's admin UI mount + REST/GraphQL routes —
+│   │   │                        # generated by Payload's installer, follows Payload's own
+│   │   │                        # official route-group convention. Do not hand-edit
+│   │   │                        # admin/importMap.js; regenerate it (`npm run
+│   │   │                        # generate:importmap`) whenever a collection, field, or
+│   │   │                        # plugin that contributes admin UI changes — Phase 0 hit
+│   │   │                        # this exact staleness bug twice.
+│   │   └── (payload)/admin/importMap.js  # generated, see above
+│   ├── collections/             # Users, Media so far — Services/Projects/CareerListings/
+│   │                             # CompanyInfo/LegalInfo/Translations land in Phase 1+
 │   ├── payload.config.ts
-│   ├── collections/            # Services, Projects, Careers, CompanyInfo, Users, Media
-│   ├── fields/                 # Custom field components (FormulaBuilder, CalcFieldList)
-│   ├── hooks/                  # translation trigger, stale-flagging, audit
-│   └── jobs/                   # translation regeneration, email retries
-├── lib/
-│   ├── pricing-engine/         # JSONLogic evaluator, shared client + server
-│   ├── pdf/                    # PDF template + generation entrypoint (separate Lambda)
-│   └── i18n/
-├── infra/                      # sst.config.ts + any standalone Terraform (Neon, Route 53)
+│   └── payload-types.ts         # generated (`npm run generate:types`)
+├── infra/
+│   └── aws/                     # Standalone, one-time AWS bootstrap — NOT managed by
+│       ├── github-actions-trust-policy.json    # sst.config.ts or Terraform, since it has
+│       ├── github-actions-deploy-policy.json   # to exist before SST/CI can run at all.
+│       └── README.md                           # Applied once by hand via AWS CLI; see
+│                                                # its own README for the reasoning and
+│                                                # the Access Analyzer follow-up.
 ├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/                    # Playwright
+│   ├── int/                    # Vitest, against a real Postgres (local or CI service container)
+│   ├── e2e/                    # Playwright
+│   └── helpers/
+├── sst.config.ts                # AWS infra (SST v4/Ion). Deliberately at repo root, not
+│                                # infra/ — the SST CLI resolves this path relative to
+│                                # wherever `sst` is invoked from and cannot be relocated
+│                                # without changing every `sst <command>` invocation. When
+│                                # this file's `run()` body grows unwieldy (Phase 4's PDF
+│                                # Lambda, Phase 5's cron Lambda), split its contents into
+│                                # imported files under infra/ (SST's own documented
+│                                # pattern for this) — the file itself stays at root.
+├── docker-compose.yml           # Local Postgres only; the app runs on the host, not in Docker
 └── .github/workflows/
+    ├── ci.yml
+    └── dependabot.yml
 ```
+
+No `apps/`/`packages/` monorepo split: this is one deployable unit (Next.js + embedded Payload), and that pattern solves a different problem (multiple independently-deployable apps sharing code) that doesn't describe this project. SST's own default template recommends a workspace layout for "frontend + backend + functions"-shaped projects, but SST also explicitly supports keeping `sst.config.ts` at repo root while splitting only its contents — which is the path taken here, deferred until there's actually enough to split.
 
 ---
 
@@ -231,6 +261,8 @@ Given this is a single-administrator marketing/lead-generation site with no paym
 
 ## 9. Cost model
 
+> Re-verified against `eu-central-1` pricing at Phase 0 sign-off (2026-07-04). Lambda's perpetual free tier (1M requests + 400,000 GB-seconds/month) is confirmed still current and unchanged. The general ~10–20% EU-vs-`us-east-1` premium the original estimate flagged holds directionally across S3/CloudFront/Route 53/SES, but at this traffic level (dominated by free-tier coverage) it doesn't move the total out of the range below — realistically €3–8/month rather than a single fixed number, which is the honest level of precision worth claiming for a pre-launch workload.
+
 ### Phase A — serverless (current target)
 
 | Item | Estimated monthly cost |
@@ -301,7 +333,7 @@ Each phase below is implemented, then manually and automatically tested end-to-e
 
 | Phase | Deliverable | Exit criteria |
 |---|---|---|
-| 0 | Repo scaffolding: Next.js + Payload skeleton, local Postgres, SST project skeleton, CI pipeline skeleton, Neon project provisioned | App boots locally and on a deployed Lambda staging stack with a placeholder page |
+| 0 | ✅ **Done** (2026-07-04) — Repo scaffolding: Next.js + Payload skeleton, local Postgres, SST project skeleton, CI pipeline skeleton, Neon project provisioned | App boots locally **and** on a deployed Lambda staging stack, with working admin auth (create/delete users) and working media upload/delete through S3 — a materially stronger bar than the original "placeholder page" wording, met along the way while resolving the spike (Section 13). One known gap carried into Phase 1: no automated test covers the upload/delete flow yet (manually verified only) — see `docs/PROGRESS.md` for why and the plan to close it. |
 | 1 | Content model + admin auth | All Payload collections defined; login + TOTP 2FA working; default Payload admin UI usable for CRUD |
 | 2 | Public site wired to real content | Home/Projects/About/Careers/Service pages render real CMS data via ISR, replacing all static prototype content; URL-based i18n live (EN complete, FR/DE stubbed); Legal Notice & Privacy Policy pages built (may stay in Draft pending real legal details); cookie-free analytics live; SEO basics (Section 6.11) and a keyboard/screen-reader pass (Section 7B) done on every public page shipped |
 | 3 | Calculator field builder + formula engine | Admin can define fields/formula visually; public calculator computes in real time from the stored formula, replacing the prototype's hardcoded JS math |
@@ -314,7 +346,9 @@ Each phase below is implemented, then manually and automatically tested end-to-e
 
 ## 13. Open risks & assumptions to validate early
 
-- Payload 3's "runs inside Next.js" model is proven on Vercel; running it via OpenNext on Lambda is architecturally equivalent but should be spiked in Phase 0 before other work depends on it.
+- ~~Payload 3's "runs inside Next.js" model is proven on Vercel; running it via OpenNext on Lambda is architecturally equivalent but should be spiked in Phase 0 before other work depends on it.~~ **Resolved in Phase 0.** It works, but not out of the box — five real, non-obvious issues had to be fixed before it did, all now handled and documented in `docs/PROGRESS.md`: (1) OpenNext's build tracing copies externalized packages (`pg`, `pino`) into the Lambda bundle via symlinks, which Windows can't reliably produce as real Linux symlinks — builds must happen on Linux (CI), never locally on Windows. (2) `sharp` is excluded from the main server bundle by OpenNext by default and also ships architecture-specific binaries that don't cross-compile between an x64 CI runner and an arm64 Lambda — omitted entirely for now since nothing in the current Media collection uses it. (3) Payload's `admin/importMap.js` is generated, not static, and must be regenerated (`npm run generate:importmap`) whenever a collection, field, or plugin that contributes admin UI changes — silently stale otherwise, with no build-time error. (4) Media uploads need an explicit storage adapter (`@payloadcms/storage-s3`); SST linking a bucket only wires IAM permissions, it doesn't make Payload use it. (5) IAM's `aws:RequestedRegion` condition key doesn't meaningfully scope global services (CloudFront, IAM, Route 53) — a region-conditioned Allow silently doesn't cover them.
 - Payload's package size + Chromium in the same Lambda function is why PDF generation is split into its own function — this isolation should be confirmed working in Phase 4, not assumed.
-- Exact SST component for ECS Fargate services (Phase B) should be confirmed against current SST documentation when Phase B planning starts, rather than assumed now.
+- Exact SST component for ECS Fargate services (Phase B) should be confirmed against current SST documentation when Phase B planning starts, rather than assumed now — also evaluate ECS Express Mode (Section 3) at that time.
+- **New, discovered in Phase 0**: the GitHub Actions staging-deploy IAM role currently uses a broad, region-scoped Allow (plus an explicit Deny on the highest-risk IAM/org/billing actions) rather than a hand-enumerated least-privilege policy — a deliberate, documented trade-off (see `infra/aws/README.md`), not an oversight. Follow-up before this pattern is reused for a `production` role: run IAM Access Analyzer against staging's CloudTrail activity and replace the broad statement with the generated policy.
+- **New, discovered in Phase 0**: no automated test exercises the media upload/delete flow (only manually verified). Adding coverage needs either real AWS credentials in the CI `verify` job or a MinIO/LocalStack service container (matching the existing ephemeral-Postgres pattern) — worth doing before Phase 1's content model adds more upload-dependent fields (hero images, project photos), not deferred indefinitely.
 - **Outstanding client input, tracked as a launch blocker, not a spec gap**: the company's real registered legal form, RCS Luxembourg number, VAT number, and registered office address are still needed to populate `LegalInfo` (Section 5) before Phase 6 can ship to production (Section 6.9).

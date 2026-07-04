@@ -19,6 +19,9 @@ day-to-day commands.
 cp .env.example .env
 # then edit .env: set DATABASE_URL and PAYLOAD_SECRET
 # generate a secret with: openssl rand -base64 32
+# also set S3_BUCKET — media uploads use @payloadcms/storage-s3 (no local-disk
+# fallback works on Lambda, so there's no local-disk option here either); point
+# it at any bucket you can reach, or a personal/dev bucket
 
 # Option A — local Postgres via Docker:
 docker compose up -d
@@ -39,6 +42,20 @@ means that hook didn't run — just run `npx sst install` once by hand.
 
 Visit `http://localhost:3000` for the public site placeholder, and
 `http://localhost:3000/admin` to create the first admin user.
+
+**If you change a collection, a field, or a plugin that contributes admin
+UI** (like `@payloadcms/storage-s3`'s upload handler), run
+`npm run generate:importmap` afterwards. Payload's admin route resolves
+custom components through `src/app/(payload)/admin/importMap.js`, which is
+generated, not hand-written — it goes stale silently (no build error, just a
+broken admin page at runtime) if you skip this.
+
+**Do not run `npx sst deploy` from a native Windows shell.** OpenNext's
+build copies externalized packages into the Lambda bundle via symlinks,
+and a Windows-created symlink doesn't survive being packaged the way a
+Linux one does — the build succeeds but the deployed function is missing
+files. Deploys go through CI (`ubuntu-latest`) for exactly this reason; if
+you need to test a build locally, do it from WSL2, not PowerShell/CMD.
 
 ## Testing
 
@@ -79,8 +96,15 @@ not a credential) and `docs/TECHSPEC.md` §10 for the trust policy.
 
 ## Project structure
 
-See `docs/TECHSPEC.md` §4. Notable deviation from a from-scratch layout:
-`app/(payload)/` and `app/(frontend)/` follow Payload's own official
-route-group convention (the `(payload)` files are generated and must not be
-hand-edited) rather than a custom `(admin)`/`(public)` split, specifically
-so future Payload upgrades that touch those files stay a clean diff.
+See `docs/TECHSPEC.md` §4 for the full layout and reasoning. Quick pointers:
+
+- `src/app/(payload)/` and `src/app/(frontend)/` follow Payload's own
+  official route-group convention — the `(payload)` files (including
+  `admin/importMap.js`) are generated and must not be hand-edited.
+- `prototype/` is the static, client-approved design reference (zero
+  backend logic) — not to be confused with the real frontend above.
+- `infra/aws/` holds the one-time IAM bootstrap for GitHub Actions OIDC —
+  see its own README. Everything else AWS-related lives in `sst.config.ts`
+  at the repo root (not `infra/` — the SST CLI requires this).
+- `docs/PROGRESS.md` is the rolling build/debug log and current handoff
+  state — read this first if you're picking the project back up.
