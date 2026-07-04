@@ -1,0 +1,12 @@
+# Staging deploy role (GitHub Actions OIDC)
+
+One-time AWS bootstrap so `.github/workflows/ci.yml`'s `deploy-staging` job can run `sst deploy --stage staging` without stored AWS keys. Not managed by `sst.config.ts` or Terraform — this has to exist *before* SST/CI can run, so it's applied once by hand via the AWS CLI. See the root README's Deploying section for the full command sequence.
+
+## Files
+
+- `github-actions-trust-policy.json` — trust policy for the IAM role. Scoped with `token.actions.githubusercontent.com:sub` to `repo:Filip-Ermenkov/Service-Calculator:environment:staging`. Environment-scoped rather than branch-scoped because the `deploy-staging` job sets `environment: staging`, which changes the shape of GitHub's OIDC `sub` claim (see [GitHub's OIDC-in-AWS docs](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)). Replace `ACCOUNT_ID` with the real 12-digit AWS account ID before use.
+- `github-actions-deploy-policy.json` — permission policy attached to that role. The bootstrap (`ManageBootstrap*`) and `ManageSecrets` statements are copied from [SST's own documented IAM policy](https://sst.dev/docs/iam-credentials) — those are genuinely scoped to `sst-*`-prefixed resources. The `DeploymentsScopedToRegion` statement is deliberately broad (SST's own docs say hand-enumerating every action their components might need is tedious and error-prone) but constrained to `eu-central-1` via `aws:RequestedRegion`, and backstopped by an explicit `Deny` on the highest-risk IAM/org/billing actions — a region condition alone doesn't meaningfully limit IAM, CloudFront, or Route 53, since those are global services. Replace `ACCOUNT_ID` here too.
+
+## Before this is "done"
+
+Per SST's own "Minimize permissions" guidance: once staging has run for a few weeks, run IAM Access Analyzer against its CloudTrail activity and replace `DeploymentsScopedToRegion` with the generated least-privilege policy before this pattern is reused for a `production` role. Tracked as a follow-up, not a blocker for the Phase 0 spike.

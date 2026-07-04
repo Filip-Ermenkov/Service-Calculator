@@ -1,9 +1,13 @@
 # Dependencies
 node_modules/
+/.pnp
+.pnp.js
+.yarn/install-state.gz
 
 # Next.js
 .next/
 out/
+next-env.d.ts
 
 # SST / IaC
 .sst/
@@ -25,14 +29,25 @@ build/
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # OS / editor
 .DS_Store
 Thumbs.db
-.vscode/
-.idea/
+*.pem
+/.idea/*
+!/.idea/runConfigurations
+
+# TypeScript
+*.tsbuildinfo
 
 # Test / coverage
 coverage/
 playwright-report/
 test-results/
+blob-report/
+playwright/.cache/
+
+# Uploaded media (local dev only — production media lives in S3)
+/media

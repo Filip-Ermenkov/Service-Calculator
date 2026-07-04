@@ -1,9 +1,86 @@
-# Service-Calculator
-A multilingual, content-managed company website for a service business
+# bulbau.lu
 
-## Documentation
-- [`docs/FUNCTIONALITY.md`](docs/FUNCTIONALITY.md) — full functional specification (non-technical): every page, interaction, and admin capability.
-- [`docs/TECHSPEC.md`](docs/TECHSPEC.md) — technical plan: architecture, stack, per-feature implementation approach, and delivery roadmap.
+Multilingual (EN/FR/DE) service-calculator website for a Luxembourg service
+business. Next.js (App Router, TypeScript) with Payload CMS 3 embedded in
+the same app. See `docs/FUNCTIONALITY.md` (the "what") and
+`docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
+day-to-day commands.
 
-## Status
-Functional spec and technical plan are complete. Implementation has not started yet — see the roadmap in `docs/TECHSPEC.md` §12 for the phased build order.
+## Requirements
+
+- Node.js 20.9+ (24.x LTS recommended; CI runs on 24)
+- npm 10+
+- A Postgres database — either Docker Compose (below) or a personal Neon
+  branch (recommended, see `docs/TECHSPEC.md` §10.1)
+
+## Local development
+
+```bash
+cp .env.example .env
+# then edit .env: set DATABASE_URL and PAYLOAD_SECRET
+# generate a secret with: openssl rand -base64 32
+
+# Option A — local Postgres via Docker:
+docker compose up -d
+
+# Option B — point DATABASE_URL at a personal Neon branch instead
+# (use the POOLED connection string, hostname contains "-pooler")
+
+npm install
+npm run dev
+```
+
+`npm install` also runs `sst install` automatically (a `postinstall` hook) —
+this downloads the SST/Pulumi AWS provider and generates
+`.sst/platform/config.d.ts`, which `sst.config.ts` needs for its types. It
+needs network access but no AWS credentials. If you ever see TypeScript
+errors pointing at `sst.config.ts` (`Cannot find name '$config'`, etc.), it
+means that hook didn't run — just run `npx sst install` once by hand.
+
+Visit `http://localhost:3000` for the public site placeholder, and
+`http://localhost:3000/admin` to create the first admin user.
+
+## Testing
+
+The first time you run the Playwright suite, install its browser binary
+(one-time, not needed again after):
+
+```bash
+npx playwright install chromium
+```
+
+```bash
+npm run lint         # ESLint
+npm run typecheck    # tsc --noEmit
+npm run test:int     # Vitest — integration tests against DATABASE_URL
+npm run test:e2e     # Playwright — needs `npm run build && npm start` or `next dev` running
+npm run test         # both of the above
+```
+
+## Deploying
+
+Infrastructure is defined in `sst.config.ts` (SST v4 / Ion engine) and
+deployed via GitHub Actions (`.github/workflows/ci.yml`) — pushes to `main`
+deploy to the `staging` stage automatically after tests pass. There is no
+production deploy job yet (added once staging has been verified stable).
+
+Secrets are never stored in this repo or in GitHub Actions secrets directly
+for app-level config — they're SST secrets, scoped per stage:
+
+```bash
+npx sst secret set DatabaseUrl "postgresql://...-pooler..." --stage staging
+npx sst secret set PayloadSecret "$(openssl rand -base64 32)" --stage staging
+```
+
+The GitHub Actions AWS credentials themselves use OIDC federation (a
+short-lived assumed role, not a stored access key) — see the repo's GitHub
+Environment settings for the `AWS_DEPLOY_ROLE_ARN` secret (an IAM role ARN,
+not a credential) and `docs/TECHSPEC.md` §10 for the trust policy.
+
+## Project structure
+
+See `docs/TECHSPEC.md` §4. Notable deviation from a from-scratch layout:
+`app/(payload)/` and `app/(frontend)/` follow Payload's own official
+route-group convention (the `(payload)` files are generated and must not be
+hand-edited) rather than a custom `(admin)`/`(public)` split, specifically
+so future Payload upgrades that touch those files stay a clean diff.

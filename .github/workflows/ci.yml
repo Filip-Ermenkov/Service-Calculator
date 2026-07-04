@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, typecheck, unit/integration tests
+    runs-on: ubuntu-latest
+    # Ephemeral Postgres for this job only — separate from any real Neon
+    # project. Payload's dev-mode schema push runs against this on boot.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: bulbau
+          POSTGRES_PASSWORD: bulbau_ci
+          POSTGRES_DB: bulbau
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://bulbau:bulbau_ci@localhost:5432/bulbau
+      PAYLOAD_SECRET: ci-only-secret-not-for-production
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci --legacy-peer-deps
+
+      - name: Dependency audit (fails on high/critical only)
+        run: npm audit --audit-level=high
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm run test:int
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - run: npm run build
+
+      - run: npm run test:e2e
+
+      # TODO (Phase 2+): axe-core accessibility checks and Lighthouse CI
+      # against a running build, once there's real page content to audit
+      # (docs/TECHSPEC.md §6.11, §7B). Wiring an empty check now would just
+      # be theatre — added when Phase 2 ships real pages.
+
+  deploy-staging:
+    name: Deploy to staging
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      id-token: write # required for AWS OIDC — no stored AWS keys
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci --legacy-peer-deps
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - run: npx sst deploy --stage staging
+        env:
+          CI: true
+
+  # TODO (once staging is verified stable, Phase 2+): a `deploy-production`
+  # job gated on a GitHub Environment manual approval, running
+  # `sst deploy --stage production` — deliberately not added yet so an empty
+  # placeholder gate doesn't create a false sense of coverage.

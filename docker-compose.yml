@@ -1,0 +1,23 @@
+# Local development database only. The app itself runs directly on the host
+# via `npm run dev` — see README.md. Alternatively, skip this entirely and
+# point DATABASE_URL at a personal Neon branch (see docs/TECHSPEC.md §10.1).
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bulbau
+      POSTGRES_PASSWORD: bulbau_dev_only
+      POSTGRES_DB: bulbau
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bulbau']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
