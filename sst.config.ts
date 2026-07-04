@@ -48,6 +48,12 @@ export default $config({
       environment: {
         DATABASE_URL: databaseUrl.value,
         PAYLOAD_SECRET: payloadSecret.value,
+        // Read by the s3Storage plugin in src/payload.config.ts. No explicit
+        // AWS credentials are passed to that plugin — the Lambda's own
+        // execution role (granted S3 access here via `link: [media, ...]`)
+        // is picked up automatically by the AWS SDK's default credential
+        // provider chain, same as everywhere else in this app.
+        S3_BUCKET: media.name,
         // Known OpenNext/Lambda workaround: without this, some Payload API
         // routes stream an empty body and the response hangs. Confirmed via
         // the Phase 0 spike (docs/TECHSPEC.md §13) — see also

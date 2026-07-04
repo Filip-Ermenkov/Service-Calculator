@@ -1,5 +1,6 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { s3Storage } from '@payloadcms/storage-s3'
 import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
@@ -43,6 +44,27 @@ export default buildConfig({
   // (matching CI/Lambda architecture, or a prebuilt arm64 Sharp Lambda
   // Layer) once Media actually needs resizing — tracked as a follow-up, not
   // a Phase 0 blocker.
+  plugins: [
+    s3Storage({
+      collections: {
+        media: true,
+      },
+      bucket: process.env.S3_BUCKET || '',
+      // Uploads go browser -> S3 directly (presigned URL), not through this
+      // Lambda. Avoids routing file bytes through the function's payload
+      // size limits — a real risk for a media library, not a theoretical
+      // one. Needs CORS PUT allowed on the bucket; sst.aws.Bucket's default
+      // CORS (wildcard origins, includes PUT) already covers this, see
+      // https://sst.dev/docs/component/aws/bucket/#cors
+      clientUploads: true,
+      config: {
+        region: process.env.AWS_REGION || 'eu-central-1',
+        // No explicit credentials: Lambda's own execution role — granted S3
+        // access via `link: [media, ...]` in sst.config.ts — is picked up
+        // automatically by the AWS SDK's default credential provider chain.
+      },
+    }),
+  ],
   localization: {
     locales: ['en'],
     fallback: true,
