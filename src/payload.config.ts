@@ -50,21 +50,38 @@ export default buildConfig({
         media: true,
       },
       bucket: process.env.S3_BUCKET || '',
-      // Uploads go browser -> S3 directly (presigned URL), not through this
-      // Lambda. Avoids routing file bytes through the function's payload
-      // size limits — a real risk for a media library, not a theoretical
-      // one. Needs CORS PUT allowed on the bucket; sst.aws.Bucket's default
-      // CORS (wildcard origins, includes PUT) already covers this, see
-      // https://sst.dev/docs/component/aws/bucket/#cors
+      // Real AWS (staging/production, and local dev pointed at a real
+      // bucket): uploads go browser -> S3 directly (presigned URL), not
+      // through this Lambda. Avoids routing file bytes through the
+      // function's payload size limits — a real risk for a media library,
+      // not a theoretical one. Needs CORS PUT allowed on the bucket;
+      // sst.aws.Bucket's default CORS (wildcard origins, includes PUT)
+      // already covers this, see https://sst.dev/docs/component/aws/bucket/#cors
+      //
+      // S3Mock (local dev/CI, whenever S3_ENDPOINT is set): clientUploads is
+      // turned OFF instead. S3Mock's CORS support is known-incomplete (see
+      // https://github.com/adobe/S3Mock/issues/74 — only ever partially
+      // fixed, GET only) and isn't configurable at all (no
+      // PutBucketCors/GetBucketCors support), so a browser PUT straight to
+      // localhost:9090 fails as an opaque `TypeError: Failed to fetch`
+      // (blocked CORS preflight) — this was hit via the admin UI, not caught
+      // by tests/int/media.int.spec.ts, since that test uses the Local API,
+      // which never takes the clientUploads path in the first place (see
+      // below). With clientUploads off, the browser instead POSTs to this
+      // same Next.js dev server (same-origin, no CORS involved at all), and
+      // the server relays the bytes to S3Mock itself — a plain
+      // server-to-server call, which browser CORS rules never apply to.
+      // There's no Lambda payload-size concern locally to weigh against
+      // that, so this is a strict improvement for local dev, not a
+      // trade-off.
       //
       // Note: clientUploads only changes the REST/admin-UI upload path
-      // (browser gets redirected to a presigned URL). Local API calls
-      // (payload.create/update with a `file`) always go through
-      // handleUpload -> a real server-side S3 PutObject, unaffected by this
-      // flag — that's what makes the media Local-API integration test
-      // (tests/int/media.int.spec.ts) able to exercise real S3 semantics
-      // without a browser.
-      clientUploads: true,
+      // either way. Local API calls (payload.create/update with a `file`)
+      // always go through handleUpload -> a real server-side S3 PutObject,
+      // unaffected by this flag — that's what makes the media Local-API
+      // integration test (tests/int/media.int.spec.ts) able to exercise real
+      // S3 semantics without a browser, and why it never caught this.
+      clientUploads: !process.env.S3_ENDPOINT,
       config: {
         region: process.env.AWS_REGION || 'eu-central-1',
         // No explicit credentials by default: Lambda's own execution role —

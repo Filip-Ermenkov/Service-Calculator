@@ -15,18 +15,30 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 // HeadObjectCommand calls) so the test can't pass on DB state alone while
 // the actual object is missing.
 //
-// Requires the S3Mock container from docker-compose.yml (or the equivalent
-// CI service in .github/workflows/ci.yml) to be running and reachable at
-// S3_ENDPOINT — see README.md "Testing".
-
+// Requires either the S3Mock container from docker-compose.yml (or the
+// equivalent CI service in .github/workflows/ci.yml) to be running and
+// reachable at S3_ENDPOINT, or a real bucket reachable with your local AWS
+// credentials (S3_BUCKET/AWS_REGION only, no S3_ENDPOINT) — see README.md
+// "Testing" and .env.example.
+//
+// This client's config must stay in lockstep with the s3Storage() config in
+// src/payload.config.ts: same conditional (only override
+// endpoint/forcePathStyle/credentials when S3_ENDPOINT is set). Letting them
+// diverge is exactly the bug that made this test fail against a real bucket
+// while Payload's own upload succeeded — forcing path-style addressing and
+// fake credentials onto a real-AWS client breaks it in a way the SDK can't
+// turn into a readable error (surfaces as an opaque "UnknownError" instead
+// of e.g. NoSuchBucket/InvalidAccessKeyId).
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'eu-central-1',
-  endpoint: process.env.S3_ENDPOINT,
-  forcePathStyle: true,
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY_ID || 'test',
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || 'test',
-  },
+  ...(process.env.S3_ENDPOINT && {
+    endpoint: process.env.S3_ENDPOINT,
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: process.env.S3_ACCESS_KEY_ID || 'test',
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || 'test',
+    },
+  }),
 })
 
 const bucket = process.env.S3_BUCKET || ''
