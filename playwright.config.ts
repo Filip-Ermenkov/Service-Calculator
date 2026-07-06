@@ -35,7 +35,17 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    reuseExistingServer: true,
+    // Playwright's own default template uses `!process.env.CI` here for a
+    // reason: reusing a dev server that's already running is a nice speedup
+    // locally, but it means a stale server — e.g. one started before a
+    // proxy.ts/middleware change, which Next's dev server does not reliably
+    // hot-reload — silently gets tested instead of the current code. That
+    // exact scenario reproduced the "route isn't actually gated" failure
+    // here even after the fix landed: the old server was still running.
+    // Hardcoding `true` traded that safety for a speed-up this project
+    // doesn't need in CI (no server is ever already running there) and
+    // shouldn't rely on locally either.
+    reuseExistingServer: !process.env.CI,
     url: 'http://localhost:3000',
   },
 })

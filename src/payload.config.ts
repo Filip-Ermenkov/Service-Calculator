@@ -17,6 +17,28 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    components: {
+      // Additive slot (renders before the default Dashboard contents, does
+      // not replace them) — the redirect gate for "logged in but hasn't
+      // completed TOTP yet". See BeforeDashboardTotpGate.tsx for why this
+      // slot specifically, and src/access/requireTotpVerified.ts for the
+      // actual enforcement (this component is UX, not the security boundary).
+      beforeDashboard: ['/components/admin/BeforeDashboardTotpGate'],
+      views: {
+        // New Root Views (not overrides of any built-in Payload view) for
+        // the TOTP enrollment and per-login verification steps. Payload's
+        // own /admin/login view is untouched — it still handles the
+        // password (first) factor exactly as it always has.
+        totpSetup: {
+          Component: '/components/admin/TotpSetupView',
+          path: '/totp-setup',
+        },
+        totpVerify: {
+          Component: '/components/admin/TotpVerifyView',
+          path: '/totp-verify',
+        },
+      },
+    },
   },
   collections: [Users, Media],
   editor: lexicalEditor(),

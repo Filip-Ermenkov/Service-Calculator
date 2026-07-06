@@ -17,8 +17,8 @@ day-to-day commands.
 
 ```bash
 cp .env.example .env
-# then edit .env: set DATABASE_URL and PAYLOAD_SECRET
-# generate a secret with: openssl rand -base64 32
+# then edit .env: set DATABASE_URL, PAYLOAD_SECRET, and TOTP_ENCRYPTION_KEY
+# generate secrets with: openssl rand -base64 32
 # also set the S3_* vars — media uploads use @payloadcms/storage-s3 (no
 # local-disk fallback works on Lambda, so there's no local-disk option here
 # either). Two options, both documented in .env.example:
@@ -46,6 +46,16 @@ means that hook didn't run — just run `npx sst install` once by hand.
 
 Visit `http://localhost:3000` for the public site placeholder, and
 `http://localhost:3000/admin` to create the first admin user.
+
+**Two-factor authentication is mandatory, not optional** (`docs/FUNCTIONALITY.md`
+§5.1): the first time you log in, you're redirected to `/admin/totp-setup` to
+scan a QR code with an authenticator app (Google Authenticator, Authy,
+Microsoft Authenticator, 1Password, etc.) before you can reach anything else
+in the admin panel. Every login after that requires the current 6-digit
+code at `/admin/totp-verify`. See `docs/TECHSPEC.md` §6.6 and §7 for the
+design (custom TOTP endpoints + a step-up cookie layered on top of
+Payload's own password auth, since Payload doesn't ship 2FA natively) and
+rate-limiting/lockout notes.
 
 **If you change a collection, a field, or a plugin that contributes admin
 UI** (like `@payloadcms/storage-s3`'s upload handler), run

@@ -1,6 +1,6 @@
 import { test, expect, Page } from '@playwright/test'
 import { login } from '../helpers/login'
-import { seedTestUser, cleanupTestUser, testUser } from '../helpers/seedUser'
+import { seedTestUser, cleanupTestUser, testUser, testUserTotpSecret } from '../helpers/seedUser'
 
 test.describe('Admin Panel', () => {
   let page: Page
@@ -11,7 +11,10 @@ test.describe('Admin Panel', () => {
     const context = await browser.newContext()
     page = await context.newPage()
 
-    await login({ page, user: testUser })
+    // testUser is seeded with 2FA already enabled (see seedUser.ts) — these
+    // specs are about collection CRUD, not the 2FA flow itself (that's
+    // covered by totp.e2e.spec.ts), so login() completes both factors here.
+    await login({ page, user: testUser, totpSecret: testUserTotpSecret })
   })
 
   test.afterAll(async () => {

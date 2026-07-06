@@ -47,6 +47,14 @@ jobs:
     env:
       DATABASE_URL: postgresql://bulbau:bulbau_ci@localhost:5432/bulbau
       PAYLOAD_SECRET: ci-only-secret-not-for-production
+      # 2FA (TOTP) secret encryption + step-up cookie signing — see
+      # src/lib/totp/keys.ts. CI-only value, unrelated to any real secret.
+      # No UPSTASH_REDIS_REST_URL/TOKEN here deliberately: absent, the rate
+      # limiter (src/lib/totp/rateLimit.ts) falls back to an in-memory
+      # limiter, which is exactly the right behavior for CI (same pattern as
+      # S3Mock standing in for real S3, below) — real Upstash credentials are
+      # only required in staging/production.
+      TOTP_ENCRYPTION_KEY: Y2ktb25seS10b3RwLWtleS1ub3QtZm9yLXByb2R1Y3Rpb24tMzJieXRlcyE=
       S3_BUCKET: bulbau-ci-test
       S3_ENDPOINT: http://localhost:9090
       S3_ACCESS_KEY_ID: test
