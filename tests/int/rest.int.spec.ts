@@ -1,3 +1,14 @@
+/**
+ * @vitest-environment node
+ *
+ * Runs in the `node` environment rather than the suite-default `jsdom`.
+ * `payload.login()` (below) signs a JWT via `jose`, and Vitest's jsdom setup
+ * replaces the global `Uint8Array` with jsdom's own copy, which breaks jose's
+ * `instanceof Uint8Array` check — it fails with "payload must be an instance of
+ * Uint8Array". These are server-side HTTP-API tests with no DOM, so `node` is
+ * both the correct environment and the documented fix.
+ * See https://github.com/panva/jose/issues/671 and vitest-dev/vitest#5183.
+ */
 import { getPayload, Payload } from 'payload'
 import { REST_GET } from '@payloadcms/next/routes'
 import config from '@/payload.config'
