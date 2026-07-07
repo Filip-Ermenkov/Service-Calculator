@@ -69,6 +69,9 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    services: Service;
+    projects: Project;
+    'career-listings': CareerListing;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -78,6 +81,9 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    services: ServicesSelect<false> | ServicesSelect<true>;
+    projects: ProjectsSelect<false> | ProjectsSelect<true>;
+    'career-listings': CareerListingsSelect<false> | CareerListingsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -86,10 +92,16 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
-  fallbackLocale: ('false' | 'none' | 'null') | false | null | 'en' | 'en'[];
-  globals: {};
-  globalsSelect: {};
-  locale: 'en';
+  fallbackLocale: ('false' | 'none' | 'null') | false | null | ('en' | 'fr' | 'de') | ('en' | 'fr' | 'de')[];
+  globals: {
+    'company-info': CompanyInfo;
+    'legal-info': LegalInfo;
+  };
+  globalsSelect: {
+    'company-info': CompanyInfoSelect<false> | CompanyInfoSelect<true>;
+    'legal-info': LegalInfoSelect<false> | LegalInfoSelect<true>;
+  };
+  locale: 'en' | 'fr' | 'de';
   widgets: {
     collections: CollectionsWidget;
   };
@@ -165,6 +177,187 @@ export interface Media {
   focalY?: number | null;
 }
 /**
+ * Company services. Drag to reorder — this sets the order of the cards on the Home page.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "services".
+ */
+export interface Service {
+  id: number;
+  _order?: string | null;
+  title: string;
+  /**
+   * Detailed description shown on the service page.
+   */
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Service-page hero image.
+   */
+  heroImage?: (number | null) | Media;
+  /**
+   * How this service appears in the grid on the Home page. The card image and title can differ from the hero image and service title.
+   */
+  card?: {
+    /**
+     * Defaults to the service title if left blank.
+     */
+    cardTitle?: string | null;
+    /**
+     * Short blurb (1–3 sentences) for the card.
+     */
+    cardDescription?: string | null;
+    cardImage?: (number | null) | Media;
+  };
+  /**
+   * Input fields shown in this service’s price calculator. A visual builder replaces raw editing of these in Phase 3 (TECHSPEC §6.4). Leave empty for a service with no calculator.
+   */
+  calculatorFields?:
+    | {
+        /**
+         * Stable identifier the pricing formula references, e.g. "roof_area". Lowercase, no spaces. Do not change once a formula uses it.
+         */
+        fieldKey: string;
+        /**
+         * The field name the visitor sees.
+         */
+        label: string;
+        type: 'number' | 'dropdown' | 'toggle';
+        /**
+         * Selectable options and their values.
+         */
+        options?:
+          | {
+              optionLabel: string;
+              value: number;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * Amount the field’s value is multiplied by to get its contribution to the price.
+         */
+        unitPrice?: number | null;
+        sign?: ('add' | 'subtract') | null;
+        required?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Pricing formula as a JSONLogic structure. Authored via the visual Formula Builder in Phase 3 (TECHSPEC §6.4); never executable code.
+   */
+  formula?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Estimate-only disclaimer shown around the calculator. Optional — a site-wide default can be applied at render time in Phase 2.
+   */
+  disclaimer?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "projects".
+ */
+export interface Project {
+  id: number;
+  title: string;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  photo?: (number | null) | Media;
+  completionDate: string;
+  /**
+   * Service category this project belongs to (for filtering).
+   */
+  service?: (number | null) | Service;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * Open positions. Drag to reorder — this sets the display order on the public Careers page.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "career-listings".
+ */
+export interface CareerListing {
+  id: number;
+  _order?: string | null;
+  title: string;
+  /**
+   * Role summary, responsibilities, requirements.
+   */
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  photo?: (number | null) | Media;
+  /**
+   * Archived listings are hidden from the public site.
+   */
+  status: 'active' | 'archived';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -195,6 +388,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'services';
+        value: number | Service;
+      } | null)
+    | ({
+        relationTo: 'projects';
+        value: number | Project;
+      } | null)
+    | ({
+        relationTo: 'career-listings';
+        value: number | CareerListing;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -283,6 +488,73 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "services_select".
+ */
+export interface ServicesSelect<T extends boolean = true> {
+  _order?: T;
+  title?: T;
+  description?: T;
+  heroImage?: T;
+  card?:
+    | T
+    | {
+        cardTitle?: T;
+        cardDescription?: T;
+        cardImage?: T;
+      };
+  calculatorFields?:
+    | T
+    | {
+        fieldKey?: T;
+        label?: T;
+        type?: T;
+        options?:
+          | T
+          | {
+              optionLabel?: T;
+              value?: T;
+              id?: T;
+            };
+        unitPrice?: T;
+        sign?: T;
+        required?: T;
+        id?: T;
+      };
+  formula?: T;
+  disclaimer?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "projects_select".
+ */
+export interface ProjectsSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  photo?: T;
+  completionDate?: T;
+  service?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "career-listings_select".
+ */
+export interface CareerListingsSelect<T extends boolean = true> {
+  _order?: T;
+  title?: T;
+  description?: T;
+  photo?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
@@ -320,6 +592,124 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * Contact details and About Us content, used across the whole site. Changes here apply immediately everywhere they appear.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "company-info".
+ */
+export interface CompanyInfo {
+  id: number;
+  /**
+   * Contact-form destination and public contact address.
+   */
+  email: string;
+  /**
+   * Public phone number (click-to-call on mobile).
+   */
+  phone?: string | null;
+  facebookUrl?: string | null;
+  instagramUrl?: string | null;
+  /**
+   * About Us page body (rich text).
+   */
+  aboutUsContent?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Legal Notice and Privacy Policy content. Cannot be published until the real registration details (legal name, form, RCS number, VAT number, registered address) are filled in — see TECHSPEC §6.9.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "legal-info".
+ */
+export interface LegalInfo {
+  id: number;
+  /**
+   * Registered legal name of the company.
+   */
+  legalName: string;
+  /**
+   * e.g. S.à r.l., S.A. — the registered legal form.
+   */
+  legalForm: string;
+  /**
+   * Registered office address.
+   */
+  registeredAddress: string;
+  rcsNumber: string;
+  vatNumber: string;
+  /**
+   * Contact email for legal enquiries.
+   */
+  legalContactEmail?: string | null;
+  /**
+   * Privacy Policy body (rich text).
+   */
+  privacyPolicyContent?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  _status?: ('draft' | 'published') | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "company-info_select".
+ */
+export interface CompanyInfoSelect<T extends boolean = true> {
+  email?: T;
+  phone?: T;
+  facebookUrl?: T;
+  instagramUrl?: T;
+  aboutUsContent?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "legal-info_select".
+ */
+export interface LegalInfoSelect<T extends boolean = true> {
+  legalName?: T;
+  legalForm?: T;
+  registeredAddress?: T;
+  rcsNumber?: T;
+  vatNumber?: T;
+  legalContactEmail?: T;
+  privacyPolicyContent?: T;
+  _status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

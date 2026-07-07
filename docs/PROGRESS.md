@@ -6,9 +6,11 @@
 
 ## Current state (2026-07-06)
 
-**Phase 0 is done and signed off** (repo scaffolding, local + deployed-to-Lambda staging, admin login, user/media CRUD through S3, with automated media upload/delete coverage). **Phase 1 is now partially done: the mandatory TOTP two-factor-authentication slice is built** and pending a manual commit by Filip (see "Environment quirks" — commits are never made from the sandbox). The remaining Phase 1 work — the content-model collections — is **not** started yet.
+**Phase 0 is done and signed off** (repo scaffolding, local + deployed-to-Lambda staging, admin login, user/media CRUD through S3, with automated media upload/delete coverage). **Phase 1's TOTP two-factor-authentication slice is done and committed** (HEAD `23a8b7c`). **Phase 1's content model — the second and final part of Phase 1 — is now built and sandbox-tested** (this session), pending Filip's commit + a CI run. With it, **Phase 1 is functionally complete: every collection and global the app needs is defined and CRUD-usable through the default Payload admin.**
 
-Live staging URL: `https://d2mj4ke0wr57lb.cloudfront.net` (no custom domain yet). Repo: `github.com/Filip-Ermenkov/Service-Calculator`. **The 2FA slice below is committed on top of Phase 0; verify `git log --oneline` and `git status` before trusting this section** — this project's sandbox has had real git/filesystem flakiness (see "Environment quirks").
+Live staging URL: `https://d2mj4ke0wr57lb.cloudfront.net` (no custom domain yet). Repo: `github.com/Filip-Ermenkov/Service-Calculator`. **Before trusting this section, verify `git log --oneline` and `git status`** — this project's sandbox has had real git/filesystem flakiness (see "Environment quirks").
+
+> **⚠ Blocker before the next staging deploy (new, surfaced by this slice):** this is the first slice that adds database tables, and it exposed that **there is no migrations step on deploy**. CI's `deploy-staging` runs `sst deploy` only; on Lambda (`NODE_ENV=production`) Payload's Drizzle `push` is off, so the new tables will **not** be created on staging by a deploy alone. Phase 0's Users/Media schema was created by an initial dev-mode push, not a tracked migration. A migrations workflow must be adopted before this content model can reach staging — see "Immediate next steps" for the concrete plan. Local dev and CI tests are unaffected (they push on boot).
 
 **What's working (2FA slice), confirmed by automated + manual testing:**
 - Mandatory TOTP 2FA on the admin panel: first login forces enrollment at `/admin/totp-setup` (QR + manual secret), every later login on a new session requires a 6-digit code at `/admin/totp-verify`. Password (Payload's own) is the first factor; a signed, httpOnly "step-up" cookie is the second.
@@ -17,9 +19,9 @@ Live staging URL: `https://d2mj4ke0wr57lb.cloudfront.net` (no custom domain yet)
 - `npm run test:e2e`: 5 of 6 confirmed green by Filip including a manual browser check that a password-only session is redirected off `/admin/collections/users` to `/admin/totp-verify`. The 6th test's flakiness (a TOTP replay-window race, see below) has been fixed; **the full 6/6 run should be re-confirmed by Filip before/at commit time.**
 
 **What is NOT done yet (so a fresh session doesn't assume otherwise):**
-- The content-model collections (`Services`, `Projects`, `CareerListings`, `CompanyInfo`, `LegalInfo`, `Translations`) — the rest of Phase 1 (`docs/TECHSPEC.md` §5, §12).
-- Everything in Phases 2–7 (public site wired to CMS, calculator/formula engine, PDF quotes, DeepL translation pipeline, contact form + spam protection, hardening pass).
-- **Docs not yet reconciled beyond this file:** `docs/TECHSPEC.md` (§12 roadmap + status headers) and `docs/FUNCTIONALITY.md` (Phase-0 status note) still describe Phase 1 as unstarted. They should be updated to reflect that 2FA shipped — that reconciliation was deliberately scoped out of the commit that adds this slice and is a tracked next step.
+- **`Translations` collection + the translation pipeline** — deliberately deferred to Phase 5, not built here. With Payload native localization (below), translations live inside each field's per-locale values; the `Translations` "shadow" collection from `TECHSPEC.md` §5 is a management surface over those values and is inseparable from the DeepL hooks and the custom Translation Management admin view (both Phase 5). Building an empty shadow collection now would be dead scaffolding. (TECHSPEC §5 updated to record this.)
+- **The migrations workflow** (see the blocker above) — required before the next staging deploy.
+- Everything in Phases 2–7 (public site wired to CMS, calculator/formula engine, PDF quotes, DeepL translation pipeline, contact form + spam protection, hardening pass). Note the visual **Calculator Field/Formula Builder** admin UI and the live-preview evaluator are Phase 3 — this slice defines their *data* (`calculatorFields`, `formula`) but not the custom UI.
 
 ---
 
@@ -55,6 +57,49 @@ Payload has no native 2FA, so this is custom code layered on top of Payload's ow
 ### Verification
 - `npm run test:int`: green (both new int files; `proxy.int.spec.ts` now signs with the derived key via the shared `payloadJwtKey`).
 - `npm run test:e2e`: Filip confirmed 5/6 green plus the manual redirect check; the 6th (replay flake) is fixed and should be re-run to confirm 6/6 before relying on it. `npm run devsafe` (clean `.next` + restart) is required after any `proxy.ts` change — Next never hot-reloads the proxy file.
+
+---
+
+## Phase 1, part 2 — content model (built 2026-07-06)
+
+Completes Phase 1: all the collections and globals the rest of the app builds on, wired for EN/FR/DE localization and draft/publish, usable through the default Payload admin.
+
+### What was built (files in this slice)
+
+- `src/collections/Services.ts` — localized `title`/`description`/card fields, `heroImage`/`cardImage` uploads, `orderable: true` (drag order = Home-page card order, via Payload's fractional-index ordering), `versions.drafts`, and the calculator *data*: a `calculatorFields` array (localized `label`/option labels only; `fieldKey`/`type`/`unitPrice`/`sign`/`required` shared across locales) + a `formula` JSON field. The visual builder over these is Phase 3 (`TECHSPEC.md` §6.4); a service with zero calculator fields is a valid published state (§7).
+- `src/collections/Projects.ts` — localized `title`/`description`, `photo`, `completionDate` (`defaultSort: '-completionDate'` → newest first, §3.2), `service` relationship, `versions.drafts`. The §7 "retain the service label even after the service is deleted" requirement is a Phase 2 concern (a denormalized snapshot, added when the Projects-page filter is built) — noted in-file, not built here.
+- `src/collections/CareerListings.ts` — localized `title`/`description`, `photo`, `orderable`, and an explicit `status` select (`active`/`archived`) rather than drafts: §5.5 models this as a visibility toggle with Archive/Restore, not a draft→publish authoring flow.
+- `src/globals/CompanyInfo.ts` — `email`/`phone`/`facebookUrl`/`instagramUrl` + localized `aboutUsContent`; public `read`, 2FA-gated `update`; no drafts (changes are immediate per §5.6).
+- `src/globals/LegalInfo.ts` — legal identity fields + localized `privacyPolicyContent`, `versions.drafts`, and the **§6.9 publish gate**: the five identity fields are `required: true` (Payload blocks publishing them empty while still allowing incomplete *drafts*), **plus** an authoritative `beforeValidate` hook that throws one clear, aggregated error if `_status === 'published'` with any of them blank. The pure checker `findMissingLegalFields` is exported and unit-tested.
+- `src/access/publicRead.ts` — `readPublishedOrVerified` / `publicReadWhen(where)`: read access that returns `true` for a *fully 2FA-verified* admin (sees drafts/archived) and a query constraint (`_status: published`, or `status: active` for careers) for everyone else — anonymous public **and** password-only sessions. Deliberately mirrors the three checks in `requireTotpVerified` (the write boundary) so a password-only session can never see drafts through the read path either.
+- `src/payload.config.ts` — registers the three collections + two globals; localization expanded from `['en']` to `en`/`fr`/`de` (`defaultLocale: 'en'`, `fallback: true`) **now**, so localized fields have their final shape and FR/DE going live in Phase 5 needs no schema migration.
+- `src/payload-types.ts` — regenerated (now includes `services`/`projects`/`career-listings`/`company-info`/`legal-info`).
+- `tests/int/content.int.spec.ts` — Local-API integration coverage (see Verification).
+- `tests/int/rest.int.spec.ts` — **HTTP-boundary** coverage: invokes the real Payload REST route handler (`REST_GET(config)`) with hand-built `Request`s + cookies, asserting the actual `/api/services` and `/api/career-listings` responses hide drafts/archived from anonymous **and** password-only sessions while a verified-admin cookie sees drafts. Added after a browser `GET /api/services` (from a logged-in, TOTP-verified admin) appeared to leak drafts — it was the correct "verified admin sees everything" path, but the confusion was legitimate and the public HTTP path deserved its own explicit test. Also asserts the **localization fallback** at the serve layer: `?locale=de` returns the EN title for an untranslated field (`localization.fallback: true`), while `?locale=de&fallback-locale=none` returns it empty — the counterpart to the admin editor deliberately showing raw (empty) per-locale values, which surfaced as a second point of confusion during manual testing.
+
+### Decisions worth a fresh session knowing
+
+- **Native localization for all three locales from day one**, not just EN. Enabling FR/DE later would be a data-structure change on every localized field (Payload warns existing data is lost when toggling `localized`), so paying that cost now — while the tables are empty — is the cheap, correct time. FR/DE simply fall back to EN until Phase 5 populates them.
+- **`orderable: true` over a manual `order` field.** Payload's built-in fractional-index ordering is the current best practice (verified against the 3.x docs at build time) and gives drag-and-drop in the admin for free; a hand-rolled integer `order` was the older pattern.
+- **Careers uses `status`, Services/Projects use drafts.** Different requirements: services/projects are authored-then-published content (drafts + preview fit); a job listing is just shown or hidden (a select fits, and needs no version history).
+- **`Translations` deferred to Phase 5** (see "What is NOT done yet"). This is a deliberate scoping call, recorded in `TECHSPEC.md` §5.
+- **Publish gate = `required: true` + a hook**, not one or the other: `required` gives clean per-field admin errors and the drafts-bypass-required behaviour we want; the hook guarantees the gate (with one clear message) even if a `required` flag is ever removed, which is what §6.9 literally asks for ("a validation hook prevents…").
+
+### The migrations gap (the headline finding)
+
+This slice is the first to add tables, and doing so surfaced that **the deploy path has no schema-migration step** — documented in full at the top of this file and in "Immediate next steps". It is not a bug in this slice; it's a pre-existing gap that only a schema-changing slice could reveal. Local dev/CI are unaffected (Payload pushes on boot when `NODE_ENV !== 'production'`); only the Lambda staging deploy is blocked.
+
+### Verification (what was actually run, and where)
+
+Sandbox constraints (documented under "Environment quirks") mean the normal toolchain (`npm run generate:types`, `vitest`, `next build`) can't run against the Windows-mounted `node_modules` directly — its native binaries (esbuild/SWC) are Windows-only, and Turbopack has no sandbox bindings. So verification was done on a **sandbox-local copy** of `src`/`tests` with a fresh Linux resolution path:
+
+- **Typecheck — clean (`tsc --noEmit`, exit 0)** across the new collections, globals, access helper, config, and `content.int.spec.ts`, **after** regenerating `payload-types.ts`. (Before regenerating, the only errors were the stale generated types not knowing the new slugs — expected; they all cleared on regeneration.)
+- **Runtime integration — 16/16 assertions pass** against a **real Payload boot on a real Postgres** (Postgres 18 via `embedded-postgres`; Payload's TypeScript loaded through Node 22's native `--experimental-strip-types` with a small `@/`-path resolve hook, so no esbuild was needed — Payload/`pg`/Drizzle are pure JS). Covered: EN/FR per-locale storage + DE→EN fallback; the draft/published read gate (public blocked, verified admin allowed, public visible after publish); careers active vs archived; public `CompanyInfo`; and the full `LegalInfo` publish gate (blocked incomplete → allowed as draft → publishes when complete → readable publicly). The committed `tests/int/content.int.spec.ts` mirrors these exactly and will run in CI's real vitest+Postgres job.
+- **HTTP boundary — 7/7 assertions pass** against the **real REST route handler** (`REST_GET(config)`, the same one Next serves at `/api/*`), invoked in-process with constructed `Request`s and a real `payload-token` JWT from `payload.login`: anonymous `GET /api/services` and `/api/career-listings` return only published/active; a verified-admin cookie sees drafts; a password-only cookie (stolen password, no TOTP step-up) is treated exactly like the public. `tsc` on `tests/int/rest.int.spec.ts` is clean. This closes the one coverage gap surfaced this session — the tests now cover the public read gate at both the access-rule layer (Local API) **and** the real HTTP layer.
+- **`payload-types.ts` was regenerated via Payload's own `generateTypes(config)`** (deterministic from config, identical to `npm run generate:types`) and copied into the repo. `importMap.js` is **unchanged** and needs no regeneration — this slice adds no custom admin components (all fields are built-in types).
+- **Not run in-sandbox, validated by CI on push:** `next build` (needs the Linux Next/SWC binary) and the Playwright e2e suite (no new public pages yet — Phase 2). Filip should let CI confirm both, and can re-run `npm run test:int` locally to see `content.int.spec.ts` green in the real harness.
+
+**Environment quirk hit again:** mid-slice, the Linux side of the mount served a **truncated** copy of `payload.config.ts` (125 lines) while the authoritative Windows-side file (via the `Read`/`Edit` tools, and git) was complete and correct (151 lines). This is the same Windows↔Linux sync flakiness noted below — the fix was to reconstruct the sandbox test copy from authoritative content (heredoc) and trust `Read`/`Edit` for the deliverable, exactly as "Environment quirks" prescribes. The committed files are correct; the truncation was only ever the sandbox's stale view.
 
 ---
 
@@ -97,8 +142,16 @@ Scaffolding (Next.js 16.2 + Payload 3.85 + Postgres/Drizzle + SST v4/OpenNext + 
 
 ## Immediate next steps
 
-1. **Re-confirm the full 6/6 e2e run**, then commit this slice (Filip; the sandbox can't). Delete the untracked `smoke-test-tmp.mjs` while committing.
-2. **Reconcile the other docs to reality**: `docs/TECHSPEC.md` §12 roadmap + status headers, and `docs/FUNCTIONALITY.md`'s status note, to record that Phase 1's 2FA shipped. (Only `docs/PROGRESS.md` was updated with this slice.)
-3. **Continue Phase 1**: define the remaining Payload collections (`Services`, `Projects`, `CareerListings`, `CompanyInfo`, `LegalInfo`, `Translations`) per `TECHSPEC.md` §5, with the standing workflow (research current best practices first, implement, full manual+automated test guide in-conversation, sign-off, then update docs).
-4. **IAM Access Analyzer pass** on the staging deploy role once it has real CloudTrail history (carried over from Phase 0; still not done).
-5. Provide the client's real Legal Notice details (legal form, RCS Luxembourg number, VAT number, registered address) whenever available — gates Phase 6 production sign-off (`TECHSPEC.md` §6.9), an external dependency worth surfacing early.
+1. **Commit the content-model slice** (Filip; the sandbox can't commit — see "Environment quirks"). New files: `src/collections/{Services,Projects,CareerListings}.ts`, `src/globals/{CompanyInfo,LegalInfo}.ts`, `src/access/publicRead.ts`, `tests/int/content.int.spec.ts`, `tests/int/rest.int.spec.ts`. Modified: `src/payload.config.ts`, `src/payload-types.ts` (already regenerated). Before committing, from the repo on Windows: `npm run generate:types` (should be a no-op/identical — it was regenerated in-sandbox with Payload's own generator, but re-run to be certain it matches your toolchain) and `npm run generate:importmap` (a no-op — no custom admin components were added). Then let CI run `test:int` (incl. the new `content.int.spec.ts`), `test:e2e`, `typecheck`, and `build`.
+
+2. **Adopt a DB migrations workflow — the blocker before the next staging deploy.** Payload/Drizzle only auto-`push`es schema in dev; on Lambda (`NODE_ENV=production`) it does not, and CI's `deploy-staging` has no migrate step, so the new tables won't exist on staging after a deploy. Concrete plan (needs Neon access, so it's Filip's to run — it could not be end-to-end tested from the sandbox):
+   - Add a `migrationDir` to the `postgresAdapter` config (default `src/migrations`) and keep dev/CI on push (fast iteration; unchanged). Generate migrations locally with `npm run payload -- migrate:create` — this produces SQL for the **full current schema** (Users + Media + TOTP fields + the new content model).
+   - **Baseline the existing staging DB.** Staging's schema was created by an initial dev-push and has no migration history, so a plain `migrate` would try to recreate existing tables. Because staging holds **no real data yet** (pre-launch), the clean path is to rebuild it from migrations: run `payload migrate:fresh` against the staging Neon branch **once** (drops + recreates from the migration files). After that, staging tracks migrations normally.
+   - Add a **`npx payload migrate` step to the `deploy-staging` job, before `npx sst deploy`**, using the staging `DATABASE_URL` (surface it to that job via a GitHub Environment secret or read the SST secret). From then on every deploy applies pending migrations first.
+   - Do the same before a future `deploy-production` job. (Prod must be migrations-only — never push.)
+
+3. **Begin Phase 2** (public site wired to CMS) once the above is committed and staging is confirmed green — per the standing workflow: research current best practices first, implement a slice, full manual+automated test guide in-conversation, sign-off, then update docs. Phase 2 also owns two items this slice deliberately left as data-only: the Projects "retain service label after delete" snapshot (§7) and the sitewide default estimate disclaimer.
+
+4. **IAM Access Analyzer pass** on the staging deploy role once it has real CloudTrail history (carried over from Phase 0; still not done). Fold in the new `payload migrate` step's permissions if it assumes the same role.
+
+5. Provide the client's real Legal Notice details (legal form, RCS Luxembourg number, VAT number, registered address) whenever available — the `LegalInfo` publish gate (`TECHSPEC.md` §6.9) is now built and enforced, so the page **cannot** be published until these are entered; this remains a hard gate on Phase 6 production sign-off.

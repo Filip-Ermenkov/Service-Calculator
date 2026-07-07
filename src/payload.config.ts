@@ -7,6 +7,11 @@ import { fileURLToPath } from 'url'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
+import { Services } from './collections/Services'
+import { Projects } from './collections/Projects'
+import { CareerListings } from './collections/CareerListings'
+import { CompanyInfo } from './globals/CompanyInfo'
+import { LegalInfo } from './globals/LegalInfo'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -40,7 +45,8 @@ export default buildConfig({
       },
     },
   },
-  collections: [Users, Media],
+  collections: [Users, Media, Services, Projects, CareerListings],
+  globals: [CompanyInfo, LegalInfo],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
@@ -127,9 +133,18 @@ export default buildConfig({
       },
     }),
   ],
+  // EN is the authoring source; FR/DE are populated by the translation
+  // pipeline in Phase 5 (TECHSPEC §5, §6.7). All three locales are enabled now
+  // so localized fields have their final shape and no schema migration is
+  // needed when FR/DE go live. `fallback: true` means a locale with no value
+  // yet falls back to the EN source, so the site is coherent before Phase 5.
   localization: {
-    locales: ['en'],
-    fallback: true,
+    locales: [
+      { code: 'en', label: 'English' },
+      { code: 'fr', label: 'Français' },
+      { code: 'de', label: 'Deutsch' },
+    ],
     defaultLocale: 'en',
+    fallback: true,
   },
 })
