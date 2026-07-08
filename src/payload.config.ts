@@ -60,6 +60,27 @@ export default buildConfig({
       // Safe locally too — Postgres/Neon both handle a handful of connections fine.
       max: process.env.NODE_ENV === 'production' ? 3 : 10,
     },
+    // Where `payload migrate:create` writes and `payload migrate` reads. Set
+    // explicitly (rather than relying on Payload's best-effort default search)
+    // so the CLI resolves the same directory regardless of the cwd it's invoked
+    // from — local shell, CI, or a future container. Tracked migrations live in
+    // src/migrations/ (committed to the repo).
+    migrationDir: path.resolve(dirname, 'migrations'),
+    // Schema-management strategy (see docs/PROGRESS.md "DB migrations workflow"):
+    //   • Local dev + CI tests (NODE_ENV !== 'production'): Drizzle `push` is ON.
+    //     The dev DB / ephemeral CI Postgres is a sandbox — Payload syncs the
+    //     schema to the config on boot, so no migration run is needed there.
+    //   • Deployed (Lambda, NODE_ENV === 'production'): `push` is OFF. The schema
+    //     is changed ONLY by tracked migrations, applied by `payload migrate` in
+    //     the CI deploy job BEFORE `sst deploy` (see .github/workflows/ci.yml).
+    // This is Payload's own default (push⇔dev); we set it explicitly so the
+    // boundary is documented and can't drift silently.
+    push: process.env.NODE_ENV !== 'production',
+    // NOTE: `prodMigrations` is deliberately NOT set. That option runs pending
+    // migrations at Payload init (server startup), which is correct for a
+    // long-running container but wrong for Lambda: it would run on every cold
+    // start and let concurrent cold starts race on the same DDL. On serverless,
+    // migrations must run once per deploy in CI, not per invocation at runtime.
   }),
   // sharp intentionally omitted: it's optional as of Payload 3.x, and the
   // Media collection (src/collections/Media.ts) doesn't configure any

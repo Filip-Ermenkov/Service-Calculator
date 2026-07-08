@@ -109,6 +109,29 @@ jobs:
 
       - run: npm ci --legacy-peer-deps
 
+      # Apply tracked DB migrations to staging BEFORE deploying the new code, so
+      # the schema is never older than the code that will run against it. Payload
+      # on Lambda runs with push OFF, so a deploy alone never creates/updates
+      # tables — this step is what does. If it fails, the job stops here and no
+      # code is deployed (a bad migration can't reach a live app).
+      #
+      #   • DATABASE_URL is the DIRECT (unpooled) Neon URL — DDL must NOT go
+      #     through Neon's PgBouncer pooler (transaction pooling breaks schema
+      #     changes). This is a different value from the app's runtime DatabaseUrl
+      #     SST secret (which is the -pooler URL). Store it as the staging
+      #     Environment secret STAGING_DATABASE_URL_UNPOOLED.
+      #   • NODE_ENV=production forces Drizzle `push` off so ONLY migrations touch
+      #     the schema (see src/payload.config.ts).
+      #   • PAYLOAD_SECRET only has to be non-empty here: `payload migrate` does
+      #     DDL, not token signing. It intentionally does not reuse the app's real
+      #     secret (kept as the single-source SST secret), avoiding secret sprawl.
+      - name: Run database migrations (staging)
+        run: npm run migrate
+        env:
+          NODE_ENV: production
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_UNPOOLED }}
+          PAYLOAD_SECRET: migrate-only-no-token-ops
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -120,6 +143,8 @@ jobs:
           CI: true
 
   # TODO (once staging is verified stable, Phase 2+): a `deploy-production`
-  # job gated on a GitHub Environment manual approval, running
-  # `sst deploy --stage production` — deliberately not added yet so an empty
+  # job gated on a GitHub Environment manual approval, running the SAME
+  # "Run database migrations" step first (against the production DIRECT/unpooled
+  # URL) and then `sst deploy --stage production`. Production must be
+  # migrations-only — never push. Deliberately not added yet so an empty
   # placeholder gate doesn't create a false sense of coverage.

@@ -26,6 +26,19 @@ export default $config({
     // Never hardcoded here — see README.md "Deploying" section.
     const databaseUrl = new sst.Secret('DatabaseUrl')
     const payloadSecret = new sst.Secret('PayloadSecret')
+    // Required at runtime by the mandatory TOTP 2FA (src/lib/totp/keys.ts throws
+    // if it's missing, which would break the admin panel on first load). It is a
+    // SEPARATE secret from PayloadSecret on purpose (key separation) and MUST be
+    // set before deploying, or `sst deploy` will fail — that hard failure is the
+    // point: it makes "2FA has no key on this stage" impossible to ship silently.
+    const totpEncryptionKey = new sst.Secret('TotpEncryptionKey')
+    // Rate limiting for the 2FA verify endpoint (src/lib/totp/rateLimit.ts).
+    // Given a default of '' so they're OPTIONAL: if unset, the limiter falls back
+    // to its in-memory limiter (fine for a single warm instance pre-launch). Set
+    // real Upstash values before production, where multiple Lambda instances make
+    // the in-memory fallback unsafe (it can't share counters across instances).
+    const upstashRedisRestUrl = new sst.Secret('UpstashRedisRestUrl', '')
+    const upstashRedisRestToken = new sst.Secret('UpstashRedisRestToken', '')
 
     const media = new sst.aws.Bucket('Media', {
       access: 'cloudfront',
@@ -44,10 +57,15 @@ export default $config({
       // spike notes). Costs a small, fixed number of extra invocations every
       // few minutes; free-tier covers it at this traffic level.
       warm: 1,
-      link: [media, databaseUrl, payloadSecret],
+      link: [media, databaseUrl, payloadSecret, totpEncryptionKey, upstashRedisRestUrl, upstashRedisRestToken],
       environment: {
         DATABASE_URL: databaseUrl.value,
         PAYLOAD_SECRET: payloadSecret.value,
+        // 2FA (see src/lib/totp/*). TOTP_ENCRYPTION_KEY is required; the Upstash
+        // pair is optional (empty => in-memory rate-limit fallback).
+        TOTP_ENCRYPTION_KEY: totpEncryptionKey.value,
+        UPSTASH_REDIS_REST_URL: upstashRedisRestUrl.value,
+        UPSTASH_REDIS_REST_TOKEN: upstashRedisRestToken.value,
         // Read by the s3Storage plugin in src/payload.config.ts. No explicit
         // AWS credentials are passed to that plugin — the Lambda's own
         // execution role (granted S3 access here via `link: [media, ...]`)

@@ -93,25 +93,62 @@ npm run test:e2e     # Playwright — needs `npm run build && npm start` or `nex
 npm run test         # both of the above
 ```
 
+## Database migrations
+
+Payload/Drizzle **push** mode (schema auto-synced on boot) is ON in local dev
+and CI tests, and OFF on deployed stages (`NODE_ENV=production`). So the dev DB
+and the ephemeral CI Postgres never need a migration run — but deployed stages
+(Lambda) change schema **only** through tracked migrations in `src/migrations/`.
+See `docs/TECHSPEC.md` §10.5 and `docs/PROGRESS.md` for the full rationale.
+
+Workflow when you change a collection, field, or global:
+
+```bash
+# 1. Build the feature in dev (push keeps your local DB in sync as you go).
+# 2. When the schema is settled, generate a migration and review the SQL:
+npm run migrate:create my_change      # writes src/migrations/<ts>_my_change.{ts,json}
+# 3. Commit the generated files. CI applies them to staging before deploying.
+
+npm run migrate:status                # which migrations have/haven't run
+npm run migrate                       # apply pending migrations to DATABASE_URL
+```
+
+**Neon note:** run migrations against the **direct (unpooled)** connection
+string — the one **without** `-pooler` in the hostname. DDL breaks through
+Neon's PgBouncer pooler (transaction pooling). The app's *runtime* `DATABASE_URL`
+stays the pooled URL; only migrations use the direct one. CI does this for you
+(the `STAGING_DATABASE_URL_UNPOOLED` Environment secret, below).
+
 ## Deploying
 
 Infrastructure is defined in `sst.config.ts` (SST v4 / Ion engine) and
 deployed via GitHub Actions (`.github/workflows/ci.yml`) — pushes to `main`
-deploy to the `staging` stage automatically after tests pass. There is no
-production deploy job yet (added once staging has been verified stable).
+deploy to the `staging` stage automatically after tests pass. The deploy job
+runs `npm run migrate` against staging **before** `sst deploy`, so the schema
+is always at least as new as the code. There is no production deploy job yet
+(added once staging has been verified stable).
 
 Secrets are never stored in this repo or in GitHub Actions secrets directly
-for app-level config — they're SST secrets, scoped per stage:
+for app-level config — they're SST secrets, scoped per stage. All four of the
+first block are required before the first deploy; the Upstash pair is optional
+(unset ⇒ in-memory rate-limit fallback, fine pre-launch):
 
 ```bash
-npx sst secret set DatabaseUrl "postgresql://...-pooler..." --stage staging
-npx sst secret set PayloadSecret "$(openssl rand -base64 32)" --stage staging
+npx sst secret set DatabaseUrl   "postgresql://...-pooler..." --stage staging   # POOLED (runtime)
+npx sst secret set PayloadSecret "$(openssl rand -base64 32)"  --stage staging
+npx sst secret set TotpEncryptionKey "$(openssl rand -base64 32)" --stage staging  # required — 2FA breaks without it
+# Optional (recommended before production):
+npx sst secret set UpstashRedisRestUrl   "https://xxx.upstash.io" --stage staging
+npx sst secret set UpstashRedisRestToken "your-upstash-token"     --stage staging
 ```
 
-The GitHub Actions AWS credentials themselves use OIDC federation (a
-short-lived assumed role, not a stored access key) — see the repo's GitHub
-Environment settings for the `AWS_DEPLOY_ROLE_ARN` secret (an IAM role ARN,
-not a credential) and `docs/TECHSPEC.md` §10 for the trust policy.
+Two GitHub **Environment** (`staging`) secrets are also needed, set in the repo
+settings (not via SST):
+
+- `AWS_DEPLOY_ROLE_ARN` — the OIDC deploy role (short-lived assumed role, not a
+  stored access key); see `docs/TECHSPEC.md` §10 for the trust policy.
+- `STAGING_DATABASE_URL_UNPOOLED` — the **direct** Neon URL used by the CI
+  migrate step (see "Database migrations" above).
 
 ## Project structure
 
