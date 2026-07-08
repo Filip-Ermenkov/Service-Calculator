@@ -126,7 +126,12 @@ jobs:
       #     DDL, not token signing. It intentionally does not reuse the app's real
       #     secret (kept as the single-source SST secret), avoiding secret sprawl.
       - name: Run database migrations (staging)
-        run: npm run migrate
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error title=Staging DB URL missing::STAGING_DATABASE_URL_UNPOOLED is not set on the 'staging' GitHub Environment. Set it to the staging Neon branch's DIRECT (unpooled, no '-pooler' in the host) connection string, then re-run. One-time cutover runbook: docs/PROGRESS.md → 'Immediate next steps'. (An empty URL makes pg fall back to localhost:5432 — the ECONNREFUSED you may have just seen.)"
+            exit 1
+          fi
+          npm run migrate
         env:
           NODE_ENV: production
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_UNPOOLED }}
