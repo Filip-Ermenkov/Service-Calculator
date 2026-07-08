@@ -10,4 +10,4 @@ One-time AWS bootstrap so `.github/workflows/ci.yml`'s `deploy-staging` job can 
 
 ## Before this is "done"
 
-Per SST's own "Minimize permissions" guidance: once staging has run for a few weeks, run IAM Access Analyzer against its CloudTrail activity and replace `DeploymentsScopedToRegion` with the generated least-privilege policy before this pattern is reused for a `production` role. Tracked as a follow-up, not a blocker for the Phase 0 spike.
+Per SST's own "Minimize permissions" guidance: once staging has run for a few weeks, run IAM Access Analyzer against its CloudTrail activity and replace `DeploymentsScopedToRegion` with the generated least-privilege policy before this pattern is reused for a `production` role. **Status (2026-07-08): staging is live and has run real migrated deploys, so CloudTrail history now exists.** This is an active follow-up tracked in `docs/PROGRESS.md` → "Immediate next steps" — not a blocker for current work. The CI database-migration step (added 2026-07-07) assumes no AWS role — it connects to Neon directly — so it adds nothing to this policy's surface.

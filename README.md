@@ -6,6 +6,11 @@ the same app. See `docs/FUNCTIONALITY.md` (the "what") and
 `docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
 day-to-day commands.
 
+**Status (2026-07-08):** Phase 0 + Phase 1 are complete and live on staging —
+admin panel, mandatory 2FA, the full content model, and the DB-migrations
+workflow. **Phase 2** (the public site wired to the CMS) is the current focus.
+`docs/PROGRESS.md` is the source of truth for progress and next steps.
+
 ## Requirements
 
 - Node.js 20.9+ (24.x LTS recommended; CI runs on 24)
