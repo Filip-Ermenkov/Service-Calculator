@@ -1,32 +1,13 @@
-import { headers as getHeaders } from 'next/headers.js'
-import { getPayload } from 'payload'
-import React from 'react'
+import { redirect } from 'next/navigation'
 
-import config from '@/payload.config'
-import './styles.css'
+import { routing } from '@/i18n/routing'
 
-export default async function HomePage() {
-  const headers = await getHeaders()
-  const payloadConfig = await config
-  const payload = await getPayload({ config: payloadConfig })
-  const { user } = await payload.auth({ headers })
-
-  return (
-    <div className="home">
-      <div className="content">
-        <h1>bulbau.lu</h1>
-        <p>Phase 0 scaffold — Next.js + Payload CMS.</p>
-        {!user || !('email' in user) ? (
-          <p>No admin user yet.</p>
-        ) : (
-          <p>Signed in as {user.email}</p>
-        )}
-        <div className="links">
-          <a className="admin" href={payloadConfig.routes.admin} rel="noopener noreferrer">
-            Go to admin panel
-          </a>
-        </div>
-      </div>
-    </div>
-  )
+/**
+ * `/` → default locale. The proxy (src/proxy.ts) already redirects `/` to the
+ * visitor's best-matching locale (Accept-Language, then cookie) before this
+ * renders; this is the no-JS / proxy-bypassed fallback so `/` is never a dead
+ * end.
+ */
+export default function RootPage() {
+  redirect(`/${routing.defaultLocale}`)
 }

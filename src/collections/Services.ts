@@ -2,6 +2,10 @@ import type { CollectionConfig } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
 import { readPublishedOrVerified } from '@/access/publicRead'
+import {
+  revalidateContentAfterChange,
+  revalidateContentAfterDelete,
+} from '@/lib/revalidate'
 
 /**
  * Services — the core product offering (FUNCTIONALITY.md §3.3, §5.3;
@@ -39,6 +43,12 @@ export const Services: CollectionConfig = {
   },
   versions: {
     drafts: true,
+  },
+  // Publishing/editing/deleting a service invalidates the cached public pages
+  // (Home cards + this service's page) — see src/lib/revalidate.ts.
+  hooks: {
+    afterChange: [revalidateContentAfterChange],
+    afterDelete: [revalidateContentAfterDelete],
   },
   fields: [
     {

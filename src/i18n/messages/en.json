@@ -1,0 +1,133 @@
+{
+  "Metadata": {
+    "siteName": "Bulbau",
+    "defaultTitle": "Bulbau — Energy & Building Services · Luxembourg",
+    "titleTemplate": "{title} — Bulbau",
+    "defaultDescription": "Precision-engineered energy and building services in Luxembourg — photovoltaic systems, electrical installations, building automation, and heat pump solutions."
+  },
+  "Nav": {
+    "home": "Home",
+    "projects": "Projects",
+    "about": "About Us",
+    "careers": "Careers"
+  },
+  "LanguageSwitcher": {
+    "label": "Change language",
+    "en": "EN",
+    "fr": "FR",
+    "de": "DE"
+  },
+  "Header": {
+    "skipToContent": "Skip to main content",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "homeAria": "Bulbau — go to home page"
+  },
+  "Footer": {
+    "tagline": "Professional energy and building services across Luxembourg. Precise engineering, reliable execution.",
+    "navigation": "Navigation",
+    "services": "Services",
+    "contact": "Contact",
+    "legal": "Legal",
+    "privacyPolicy": "Privacy Policy",
+    "legalNotice": "Legal Notice",
+    "facebook": "Facebook",
+    "instagram": "Instagram",
+    "rights": "© {year} {name} · Luxembourg"
+  },
+  "Home": {
+    "heroBadge": "Luxembourg · Since 2015",
+    "heroTitleLine1": "Engineering",
+    "heroTitleAccent": "Better",
+    "heroTitleLine3": "Buildings",
+    "heroSubtitle": "Precision-engineered energy and building services — from photovoltaic systems and electrical installations to building automation and heat pump solutions.",
+    "heroGetInTouch": "Get in Touch",
+    "heroViewProjects": "View Projects",
+    "servicesEyebrow": "What We Do",
+    "servicesTitle": "Our Services",
+    "servicesSubtitle": "Each service includes an online price estimator. Fill in your parameters and receive an instant quote — then contact us for a precise offer.",
+    "servicesEmpty": "Our services are being prepared. Please check back soon or contact us directly.",
+    "cardCalculate": "Calculate estimate",
+    "statProjects": "250+",
+    "statProjectsLabel": "Projects completed",
+    "statYears": "10+",
+    "statYearsLabel": "Years in Luxembourg",
+    "statCertified": "100%",
+    "statCertifiedLabel": "Certified & insured",
+    "ctaEyebrow": "Ready to start?",
+    "ctaTitle": "Have a project in mind?",
+    "ctaSubtitle": "Use our online calculators to get an instant estimate, then contact us for a precise quote tailored to your needs.",
+    "ctaContact": "Contact Us",
+    "ctaSeeWork": "See Our Work"
+  },
+  "Service": {
+    "backToServices": "All Services",
+    "eyebrow": "Service",
+    "estimatorEyebrow": "Price Estimator",
+    "estimatorTitle": "Configure Your System",
+    "calcHeaderLabel": "Input Parameters",
+    "calcHeaderHint": "Live pricing is being finalised",
+    "disclaimerDefault": "<strong>Estimate only.</strong> Prices generated here are automated estimates and may differ from the final price. Contact us at {phone} or {email} for a precise, binding quotation.",
+    "noCalculator": "This service does not use an online estimator. Contact us for a tailored quote.",
+    "estimatorComingSoonTitle": "Interactive pricing arrives shortly",
+    "estimatorComingSoonBody": "The live calculator for this service is being finalised. The parameters below show how your estimate will be configured. In the meantime, contact us for a precise quote.",
+    "fieldTypeNumber": "Number",
+    "fieldTypeDropdown": "Choice",
+    "fieldTypeToggle": "Yes / No",
+    "requiredMark": "required",
+    "contactForQuote": "Contact us for a price",
+    "priceTag": "Estimated Total Price"
+  },
+  "Projects": {
+    "eyebrow": "Our Portfolio",
+    "title": "Completed Projects",
+    "subtitle": "A selection of installations across Luxembourg — each one engineered to specification and delivered on time.",
+    "searchPlaceholder": "Search projects by title or description…",
+    "allCategories": "All Categories",
+    "resultCount": "{count, plural, =0 {No projects} one {# project} other {# projects}}",
+    "emptyTitle": "No projects found",
+    "emptyBody": "Try adjusting your search or filter.",
+    "emptyStateTitle": "No projects yet",
+    "emptyStateBody": "Our portfolio is being prepared. Please check back soon.",
+    "untitledService": "Uncategorised"
+  },
+  "About": {
+    "eyebrow": "About Us",
+    "title": "About Bulbau",
+    "contactEyebrow": "Get in Touch",
+    "contactTitle": "Contact Us",
+    "phoneLabel": "Phone",
+    "emailLabel": "Email",
+    "facebookLabel": "Facebook",
+    "instagramLabel": "Instagram",
+    "emptyContent": "Company information is being prepared. Please check back soon or contact us directly.",
+    "formComingSoon": "An online contact form is coming soon. In the meantime, reach us directly using the details above."
+  },
+  "Careers": {
+    "eyebrow": "Join the Team",
+    "title": "Careers at Bulbau",
+    "subtitle": "We're a growing team of engineers and technicians building Luxembourg's clean energy future. Precision, reliability, and continuous learning are at the heart of everything we do.",
+    "applyNotice": "To apply for any position, contact us at {email} or call {phone}. Online applications are not available — reach out directly and we'll guide you through the next steps.",
+    "openPositions": "Open Positions",
+    "roleCount": "{count, plural, =0 {No open roles} one {# role available} other {# roles available}}",
+    "badgeOpen": "Open",
+    "emptyTitle": "There are currently no open positions",
+    "emptyBody": "Check back later or contact us — we are always open to great people.",
+    "spontaneousEyebrow": "Don't see your role?",
+    "spontaneousTitle": "We're Always Open to Great People",
+    "spontaneousBody": "Send us your CV and a short introduction — we'll keep your profile on file and contact you when a suitable position opens.",
+    "spontaneousCta": "Contact Us"
+  },
+  "Legal": {
+    "legalNoticeTitle": "Legal Notice",
+    "privacyTitle": "Privacy Policy",
+    "notAvailableTitle": "Not yet available",
+    "notAvailableBody": "This page is being prepared and will be published shortly.",
+    "legalNameLabel": "Registered name",
+    "legalFormLabel": "Legal form",
+    "addressLabel": "Registered office",
+    "rcsLabel": "RCS Luxembourg number",
+    "vatLabel": "VAT number",
+    "legalEmailLabel": "Legal enquiries"
+  }
+}

@@ -6,10 +6,15 @@ the same app. See `docs/FUNCTIONALITY.md` (the "what") and
 `docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
 day-to-day commands.
 
-**Status (2026-07-08):** Phase 0 + Phase 1 are complete and live on staging —
+**Status (2026-07-11):** Phase 0 + Phase 1 are complete and live on staging —
 admin panel, mandatory 2FA, the full content model, and the DB-migrations
-workflow. **Phase 2** (the public site wired to the CMS) is the current focus.
-`docs/PROGRESS.md` is the source of truth for progress and next steps.
+workflow. **Phase 2 part 1 (the public site) is built and awaiting verification** —
+next-intl URL-based i18n (`/en`, `/fr`, `/de`), a CMS-driven shell, and the
+Home / Service / Projects / About / Careers / Legal / Privacy pages rendering
+real content via ISR, with SEO and an accessibility baseline. Visit
+`http://localhost:3000` (redirects to `/en`); the admin panel stays at `/admin`
+(unlocalized). `docs/PROGRESS.md` is the source of truth for progress and next
+steps.
 
 ## Requirements
 
@@ -145,7 +150,20 @@ npx sst secret set TotpEncryptionKey "$(openssl rand -base64 32)" --stage stagin
 # Optional (recommended before production):
 npx sst secret set UpstashRedisRestUrl   "https://xxx.upstash.io" --stage staging
 npx sst secret set UpstashRedisRestToken "your-upstash-token"     --stage staging
+# Optional public-site config (safe defaults if unset — see src/lib/seo.ts):
+#   SiteUrl        — the stage's canonical origin (canonical tags, hreflang, OG,
+#                    sitemap). On staging set it to the CloudFront URL for accurate
+#                    canonicals; unset ⇒ falls back to the production domain.
+#   AllowIndexing  — set to "true" ONLY on production at launch; otherwise search
+#                    engines are told noindex (keeps the staging URL out of search).
+npx sst secret set SiteUrl       "https://d2mj4ke0wr57lb.cloudfront.net" --stage staging
+# npx sst secret set AllowIndexing "true" --stage production   # production launch only
 ```
+
+The staging **`deploy-staging`** job also passes the (already-existing)
+`STAGING_DATABASE_URL_UNPOOLED` secret to the `sst deploy` build step, so the
+public pages are statically pre-rendered with real CMS content at deploy time
+(not empty until the first ISR revalidation).
 
 Two GitHub **Environment** (`staging`) secrets are also needed, set in the repo
 settings (not via SST):

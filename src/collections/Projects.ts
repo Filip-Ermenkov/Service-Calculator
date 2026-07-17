@@ -2,6 +2,10 @@ import type { CollectionConfig } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
 import { readPublishedOrVerified } from '@/access/publicRead'
+import {
+  revalidateContentAfterChange,
+  revalidateContentAfterDelete,
+} from '@/lib/revalidate'
 
 /**
  * Projects — the company's portfolio (FUNCTIONALITY.md §3.2, §5.4).
@@ -25,6 +29,10 @@ export const Projects: CollectionConfig = {
   },
   versions: {
     drafts: true,
+  },
+  hooks: {
+    afterChange: [revalidateContentAfterChange],
+    afterDelete: [revalidateContentAfterDelete],
   },
   fields: [
     {

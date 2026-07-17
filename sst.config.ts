@@ -39,6 +39,15 @@ export default $config({
     // the in-memory fallback unsafe (it can't share counters across instances).
     const upstashRedisRestUrl = new sst.Secret('UpstashRedisRestUrl', '')
     const upstashRedisRestToken = new sst.Secret('UpstashRedisRestToken', '')
+    // Public site origin + search-indexing gate (Phase 2). Both OPTIONAL with
+    // safe defaults: an unset SiteUrl falls back to the production domain for
+    // canonical/OG/sitemap URLs (src/lib/seo.ts), and indexing stays OFF unless
+    // AllowIndexing is explicitly 'true' — so the staging CloudFront URL is never
+    // indexed. Set SiteUrl to the stage's real origin (e.g. the CloudFront URL on
+    // staging) for accurate canonicals; set AllowIndexing='true' only on
+    // production at launch. NEXT_PUBLIC_* ⇒ inlined at build by SST/OpenNext.
+    const siteUrl = new sst.Secret('SiteUrl', '')
+    const allowIndexing = new sst.Secret('AllowIndexing', '')
 
     const media = new sst.aws.Bucket('Media', {
       access: 'cloudfront',
@@ -57,10 +66,14 @@ export default $config({
       // spike notes). Costs a small, fixed number of extra invocations every
       // few minutes; free-tier covers it at this traffic level.
       warm: 1,
-      link: [media, databaseUrl, payloadSecret, totpEncryptionKey, upstashRedisRestUrl, upstashRedisRestToken],
+      link: [media, databaseUrl, payloadSecret, totpEncryptionKey, upstashRedisRestUrl, upstashRedisRestToken, siteUrl, allowIndexing],
       environment: {
         DATABASE_URL: databaseUrl.value,
         PAYLOAD_SECRET: payloadSecret.value,
+        // Public site origin + indexing gate (see src/lib/seo.ts). Empty ⇒ safe
+        // defaults (prod-domain canonicals, indexing off).
+        NEXT_PUBLIC_SITE_URL: siteUrl.value,
+        NEXT_PUBLIC_ALLOW_INDEXING: allowIndexing.value,
         // 2FA (see src/lib/totp/*). TOTP_ENCRYPTION_KEY is required; the Upstash
         // pair is optional (empty => in-memory rate-limit fallback).
         TOTP_ENCRYPTION_KEY: totpEncryptionKey.value,

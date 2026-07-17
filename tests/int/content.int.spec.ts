@@ -234,11 +234,25 @@ describe('Phase 1 content model (Local API, real Postgres)', () => {
   })
 
   it('enforces the LegalInfo publish gate but allows incomplete drafts', async () => {
-    // Publishing with missing identity fields must be rejected (§6.9).
+    // Publishing with blank identity fields must be rejected (§6.9). The other
+    // fields are passed EXPLICITLY blank rather than merely omitted: LegalInfo is
+    // a singleton global and `updateGlobal` MERGES with whatever is already
+    // stored, so on a dev DB where the global was previously populated (e.g. by
+    // manual admin testing) an omitted field would inherit the stored value and
+    // the gate would — correctly — let the publish through. Passing them blank
+    // makes this assert exactly "publishing while required fields are empty is
+    // blocked", deterministically and independent of pre-existing state.
     await expect(
       payload.updateGlobal({
         slug: 'legal-info',
-        data: { _status: 'published', legalName: 'Bulbau (only)' },
+        data: {
+          _status: 'published',
+          legalName: 'Bulbau (only)',
+          legalForm: '',
+          registeredAddress: '',
+          rcsNumber: '',
+          vatNumber: '',
+        },
       }),
     ).rejects.toThrow(/Cannot publish the Legal Notice/)
 

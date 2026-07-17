@@ -9,7 +9,16 @@
 
 import { SignJWT } from 'jose'
 import { NextRequest } from 'next/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+// next-intl's middleware (pulled in transitively by src/proxy.ts) imports
+// `next/server` extensionless, which Vitest's resolver can't handle outside
+// Next's bundler. The admin-gate tests below only exercise `/admin/*` paths,
+// which dispatch to the TOTP gate and never call the i18n middleware — so we
+// stub it out entirely. The i18n routing itself (/, Accept-Language, no leak
+// into admin) is covered end-to-end in tests/e2e/frontend.e2e.spec.ts against a
+// real Next server, which is the only place next-intl's middleware truly runs.
+vi.mock('next-intl/middleware', () => ({ default: () => () => ({}) }))
 
 import { payloadJwtKey, proxy } from '@/proxy'
 import { STEP_UP_COOKIE_NAME, signStepUpToken } from '@/lib/totp/stepUpToken'

@@ -1,0 +1,133 @@
+{
+  "Metadata": {
+    "siteName": "Bulbau",
+    "defaultTitle": "Bulbau — Services énergétiques et du bâtiment · Luxembourg",
+    "titleTemplate": "{title} — Bulbau",
+    "defaultDescription": "Services énergétiques et du bâtiment conçus avec précision au Luxembourg — systèmes photovoltaïques, installations électriques, automatisation du bâtiment et solutions de pompes à chaleur."
+  },
+  "Nav": {
+    "home": "Accueil",
+    "projects": "Réalisations",
+    "about": "À propos",
+    "careers": "Carrières"
+  },
+  "LanguageSwitcher": {
+    "label": "Changer de langue",
+    "en": "EN",
+    "fr": "FR",
+    "de": "DE"
+  },
+  "Header": {
+    "skipToContent": "Aller au contenu principal",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
+    "homeAria": "Bulbau — aller à la page d'accueil"
+  },
+  "Footer": {
+    "tagline": "Services énergétiques et du bâtiment professionnels dans tout le Luxembourg. Ingénierie précise, exécution fiable.",
+    "navigation": "Navigation",
+    "services": "Services",
+    "contact": "Contact",
+    "legal": "Informations légales",
+    "privacyPolicy": "Politique de confidentialité",
+    "legalNotice": "Mentions légales",
+    "facebook": "Facebook",
+    "instagram": "Instagram",
+    "rights": "© {year} {name} · Luxembourg"
+  },
+  "Home": {
+    "heroBadge": "Luxembourg · Depuis 2015",
+    "heroTitleLine1": "Concevoir de",
+    "heroTitleAccent": "Meilleurs",
+    "heroTitleLine3": "Bâtiments",
+    "heroSubtitle": "Services énergétiques et du bâtiment conçus avec précision — des systèmes photovoltaïques et installations électriques à l'automatisation du bâtiment et aux pompes à chaleur.",
+    "heroGetInTouch": "Nous contacter",
+    "heroViewProjects": "Voir les réalisations",
+    "servicesEyebrow": "Ce que nous faisons",
+    "servicesTitle": "Nos services",
+    "servicesSubtitle": "Chaque service comprend un estimateur de prix en ligne. Renseignez vos paramètres et recevez une estimation instantanée — puis contactez-nous pour une offre précise.",
+    "servicesEmpty": "Nos services sont en cours de préparation. Revenez bientôt ou contactez-nous directement.",
+    "cardCalculate": "Calculer une estimation",
+    "statProjects": "250+",
+    "statProjectsLabel": "Projets réalisés",
+    "statYears": "10+",
+    "statYearsLabel": "Ans au Luxembourg",
+    "statCertified": "100%",
+    "statCertifiedLabel": "Certifié et assuré",
+    "ctaEyebrow": "Prêt à commencer ?",
+    "ctaTitle": "Un projet en tête ?",
+    "ctaSubtitle": "Utilisez nos calculateurs en ligne pour obtenir une estimation instantanée, puis contactez-nous pour un devis précis adapté à vos besoins.",
+    "ctaContact": "Nous contacter",
+    "ctaSeeWork": "Voir nos réalisations"
+  },
+  "Service": {
+    "backToServices": "Tous les services",
+    "eyebrow": "Service",
+    "estimatorEyebrow": "Estimateur de prix",
+    "estimatorTitle": "Configurez votre système",
+    "calcHeaderLabel": "Paramètres",
+    "calcHeaderHint": "Le calcul en direct est en cours de finalisation",
+    "disclaimerDefault": "<strong>Estimation uniquement.</strong> Les prix générés ici sont des estimations automatiques et peuvent différer du prix final. Contactez-nous au {phone} ou à {email} pour un devis précis et contractuel.",
+    "noCalculator": "Ce service n'utilise pas d'estimateur en ligne. Contactez-nous pour un devis personnalisé.",
+    "estimatorComingSoonTitle": "La tarification interactive arrive bientôt",
+    "estimatorComingSoonBody": "Le calculateur en direct de ce service est en cours de finalisation. Les paramètres ci-dessous montrent comment votre estimation sera configurée. En attendant, contactez-nous pour un devis précis.",
+    "fieldTypeNumber": "Nombre",
+    "fieldTypeDropdown": "Choix",
+    "fieldTypeToggle": "Oui / Non",
+    "requiredMark": "requis",
+    "contactForQuote": "Contactez-nous pour un prix",
+    "priceTag": "Prix total estimé"
+  },
+  "Projects": {
+    "eyebrow": "Notre portfolio",
+    "title": "Projets réalisés",
+    "subtitle": "Une sélection d'installations à travers le Luxembourg — chacune conçue selon le cahier des charges et livrée dans les délais.",
+    "searchPlaceholder": "Rechercher par titre ou description…",
+    "allCategories": "Toutes les catégories",
+    "resultCount": "{count, plural, =0 {Aucun projet} one {# projet} other {# projets}}",
+    "emptyTitle": "Aucun projet trouvé",
+    "emptyBody": "Essayez d'ajuster votre recherche ou votre filtre.",
+    "emptyStateTitle": "Pas encore de projets",
+    "emptyStateBody": "Notre portfolio est en cours de préparation. Revenez bientôt.",
+    "untitledService": "Non catégorisé"
+  },
+  "About": {
+    "eyebrow": "À propos",
+    "title": "À propos de Bulbau",
+    "contactEyebrow": "Nous joindre",
+    "contactTitle": "Contactez-nous",
+    "phoneLabel": "Téléphone",
+    "emailLabel": "E-mail",
+    "facebookLabel": "Facebook",
+    "instagramLabel": "Instagram",
+    "emptyContent": "Les informations sur l'entreprise sont en cours de préparation. Revenez bientôt ou contactez-nous directement.",
+    "formComingSoon": "Un formulaire de contact en ligne arrive bientôt. En attendant, contactez-nous directement à l'aide des coordonnées ci-dessus."
+  },
+  "Careers": {
+    "eyebrow": "Rejoignez l'équipe",
+    "title": "Carrières chez Bulbau",
+    "subtitle": "Nous sommes une équipe grandissante d'ingénieurs et de techniciens qui construisent l'avenir énergétique propre du Luxembourg. La précision, la fiabilité et l'apprentissage continu sont au cœur de tout ce que nous faisons.",
+    "applyNotice": "Pour postuler à un poste, contactez-nous à {email} ou appelez le {phone}. Les candidatures en ligne ne sont pas disponibles — contactez-nous directement et nous vous guiderons.",
+    "openPositions": "Postes ouverts",
+    "roleCount": "{count, plural, =0 {Aucun poste ouvert} one {# poste disponible} other {# postes disponibles}}",
+    "badgeOpen": "Ouvert",
+    "emptyTitle": "Aucun poste ouvert actuellement",
+    "emptyBody": "Revenez plus tard ou contactez-nous — nous sommes toujours ouverts aux belles rencontres.",
+    "spontaneousEyebrow": "Vous ne voyez pas votre poste ?",
+    "spontaneousTitle": "Nous sommes toujours ouverts aux talents",
+    "spontaneousBody": "Envoyez-nous votre CV et une courte présentation — nous conserverons votre profil et vous contacterons dès qu'un poste adapté s'ouvrira.",
+    "spontaneousCta": "Nous contacter"
+  },
+  "Legal": {
+    "legalNoticeTitle": "Mentions légales",
+    "privacyTitle": "Politique de confidentialité",
+    "notAvailableTitle": "Pas encore disponible",
+    "notAvailableBody": "Cette page est en cours de préparation et sera publiée prochainement.",
+    "legalNameLabel": "Dénomination",
+    "legalFormLabel": "Forme juridique",
+    "addressLabel": "Siège social",
+    "rcsLabel": "Numéro RCS Luxembourg",
+    "vatLabel": "Numéro de TVA",
+    "legalEmailLabel": "Contact juridique"
+  }
+}

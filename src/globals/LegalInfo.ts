@@ -2,6 +2,7 @@ import type { GlobalConfig } from 'payload'
 import { APIError } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
+import { revalidateGlobalAfterChange } from '@/lib/revalidate'
 
 /**
  * The registration-identity fields that must all be present before the Legal
@@ -22,7 +23,10 @@ export const REQUIRED_LEGAL_FIELDS = [
  * when the document is being *published* — callers decide when to enforce.
  */
 export function findMissingLegalFields(
-  data: Record<string, unknown> | undefined | null,
+  data:
+    | Partial<Record<(typeof REQUIRED_LEGAL_FIELDS)[number], unknown>>
+    | undefined
+    | null,
 ): string[] {
   if (!data) return [...REQUIRED_LEGAL_FIELDS]
   return REQUIRED_LEGAL_FIELDS.filter((field) => {
@@ -55,6 +59,9 @@ export const LegalInfo: GlobalConfig = {
     drafts: true,
   },
   hooks: {
+    // Publishing the Legal Notice / Privacy Policy revalidates the public pages
+    // that render them (and the footer links to them).
+    afterChange: [revalidateGlobalAfterChange],
     // Primary, explicit §6.9 safeguard. `required: true` on the fields below
     // already blocks publishing empty values with per-field UI errors (draft
     // saves bypass required, so incomplete drafts are still allowed); this

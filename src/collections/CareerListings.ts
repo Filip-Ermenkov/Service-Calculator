@@ -2,6 +2,10 @@ import type { CollectionConfig } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
 import { publicReadWhen } from '@/access/publicRead'
+import {
+  revalidateContentAfterChange,
+  revalidateContentAfterDelete,
+} from '@/lib/revalidate'
 
 /**
  * Career listings — open job positions (FUNCTIONALITY.md §3.5, §5.5).
@@ -36,6 +40,10 @@ export const CareerListings: CollectionConfig = {
     create: requireTotpVerified(() => true),
     update: requireTotpVerified(() => true),
     delete: requireTotpVerified(() => true),
+  },
+  hooks: {
+    afterChange: [revalidateContentAfterChange],
+    afterDelete: [revalidateContentAfterDelete],
   },
   fields: [
     {

@@ -85,10 +85,11 @@ jobs:
 
       - run: npm run test:e2e
 
-      # TODO (Phase 2+): axe-core accessibility checks and Lighthouse CI
-      # against a running build, once there's real page content to audit
-      # (docs/TECHSPEC.md §6.11, §7B). Wiring an empty check now would just
-      # be theatre — added when Phase 2 ships real pages.
+      # TODO (Phase 2, Part 2): now that the public pages render real content,
+      # add axe-core accessibility checks and Lighthouse CI against the running
+      # build (docs/TECHSPEC.md §6.11, §7B). Deferred from Part 1 (i18n/pages
+      # foundation) to keep that slice testable; a manual keyboard/contrast pass
+      # was done at Part 1 sign-off (see docs/PROGRESS.md).
 
   deploy-staging:
     name: Deploy to staging
@@ -146,6 +147,13 @@ jobs:
       - run: npx sst deploy --stage staging
         env:
           CI: true
+          # Build-time static generation (ISR) reads published CMS content so the
+          # deployed public pages ship populated, not empty-until-first-revalidate.
+          # Uses the staging DIRECT/unpooled URL (same secret as the migrate step);
+          # the Lambda's RUNTIME DATABASE_URL is the pooled SST secret set in
+          # sst.config.ts and is unaffected by this build-only value. Reads are
+          # resilient (src/lib/content.ts) so a cold/empty DB still builds.
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_UNPOOLED }}
 
   # TODO (once staging is verified stable, Phase 2+): a `deploy-production`
   # job gated on a GitHub Environment manual approval, running the SAME

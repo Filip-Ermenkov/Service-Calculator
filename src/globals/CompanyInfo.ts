@@ -1,6 +1,7 @@
 import type { GlobalConfig } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
+import { revalidateGlobalAfterChange } from '@/lib/revalidate'
 
 /**
  * Single source of truth for the company's contact details and About Us copy.
@@ -25,6 +26,11 @@ export const CompanyInfo: GlobalConfig = {
     // 2FA-gated like every other admin mutation.
     read: () => true,
     update: requireTotpVerified(() => true),
+  },
+  // Contact details/About copy appear site-wide (header, footer, About, service
+  // pages), so a change here revalidates the whole public site.
+  hooks: {
+    afterChange: [revalidateGlobalAfterChange],
   },
   fields: [
     {

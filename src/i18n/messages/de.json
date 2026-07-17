@@ -1,0 +1,133 @@
+{
+  "Metadata": {
+    "siteName": "Bulbau",
+    "defaultTitle": "Bulbau — Energie- und Gebäudedienstleistungen · Luxemburg",
+    "titleTemplate": "{title} — Bulbau",
+    "defaultDescription": "Präzise entwickelte Energie- und Gebäudedienstleistungen in Luxemburg — Photovoltaikanlagen, Elektroinstallationen, Gebäudeautomation und Wärmepumpenlösungen."
+  },
+  "Nav": {
+    "home": "Startseite",
+    "projects": "Projekte",
+    "about": "Über uns",
+    "careers": "Karriere"
+  },
+  "LanguageSwitcher": {
+    "label": "Sprache ändern",
+    "en": "EN",
+    "fr": "FR",
+    "de": "DE"
+  },
+  "Header": {
+    "skipToContent": "Zum Hauptinhalt springen",
+    "openMenu": "Menü öffnen",
+    "closeMenu": "Menü schließen",
+    "homeAria": "Bulbau — zur Startseite"
+  },
+  "Footer": {
+    "tagline": "Professionelle Energie- und Gebäudedienstleistungen in ganz Luxemburg. Präzise Technik, zuverlässige Umsetzung.",
+    "navigation": "Navigation",
+    "services": "Leistungen",
+    "contact": "Kontakt",
+    "legal": "Rechtliches",
+    "privacyPolicy": "Datenschutzerklärung",
+    "legalNotice": "Impressum",
+    "facebook": "Facebook",
+    "instagram": "Instagram",
+    "rights": "© {year} {name} · Luxemburg"
+  },
+  "Home": {
+    "heroBadge": "Luxemburg · Seit 2015",
+    "heroTitleLine1": "Bessere",
+    "heroTitleAccent": "Gebäude",
+    "heroTitleLine3": "bauen",
+    "heroSubtitle": "Präzise entwickelte Energie- und Gebäudedienstleistungen — von Photovoltaikanlagen und Elektroinstallationen bis hin zu Gebäudeautomation und Wärmepumpenlösungen.",
+    "heroGetInTouch": "Kontakt aufnehmen",
+    "heroViewProjects": "Projekte ansehen",
+    "servicesEyebrow": "Was wir tun",
+    "servicesTitle": "Unsere Leistungen",
+    "servicesSubtitle": "Jede Leistung enthält einen Online-Preisrechner. Geben Sie Ihre Parameter ein und erhalten Sie sofort eine Schätzung — kontaktieren Sie uns anschließend für ein genaues Angebot.",
+    "servicesEmpty": "Unsere Leistungen werden gerade vorbereitet. Schauen Sie bald wieder vorbei oder kontaktieren Sie uns direkt.",
+    "cardCalculate": "Schätzung berechnen",
+    "statProjects": "250+",
+    "statProjectsLabel": "Abgeschlossene Projekte",
+    "statYears": "10+",
+    "statYearsLabel": "Jahre in Luxemburg",
+    "statCertified": "100%",
+    "statCertifiedLabel": "Zertifiziert & versichert",
+    "ctaEyebrow": "Bereit zu starten?",
+    "ctaTitle": "Haben Sie ein Projekt im Sinn?",
+    "ctaSubtitle": "Nutzen Sie unsere Online-Rechner für eine sofortige Schätzung und kontaktieren Sie uns anschließend für ein genaues, auf Ihre Bedürfnisse zugeschnittenes Angebot.",
+    "ctaContact": "Kontakt",
+    "ctaSeeWork": "Unsere Arbeit ansehen"
+  },
+  "Service": {
+    "backToServices": "Alle Leistungen",
+    "eyebrow": "Leistung",
+    "estimatorEyebrow": "Preisrechner",
+    "estimatorTitle": "Konfigurieren Sie Ihr System",
+    "calcHeaderLabel": "Parameter",
+    "calcHeaderHint": "Die Live-Preisberechnung wird finalisiert",
+    "disclaimerDefault": "<strong>Nur eine Schätzung.</strong> Die hier erzeugten Preise sind automatische Schätzungen und können vom Endpreis abweichen. Kontaktieren Sie uns unter {phone} oder {email} für ein genaues, verbindliches Angebot.",
+    "noCalculator": "Diese Leistung verwendet keinen Online-Rechner. Kontaktieren Sie uns für ein individuelles Angebot.",
+    "estimatorComingSoonTitle": "Die interaktive Preisberechnung kommt in Kürze",
+    "estimatorComingSoonBody": "Der Live-Rechner für diese Leistung wird gerade finalisiert. Die Parameter unten zeigen, wie Ihre Schätzung konfiguriert wird. Kontaktieren Sie uns in der Zwischenzeit für ein genaues Angebot.",
+    "fieldTypeNumber": "Zahl",
+    "fieldTypeDropdown": "Auswahl",
+    "fieldTypeToggle": "Ja / Nein",
+    "requiredMark": "erforderlich",
+    "contactForQuote": "Kontaktieren Sie uns für einen Preis",
+    "priceTag": "Geschätzter Gesamtpreis"
+  },
+  "Projects": {
+    "eyebrow": "Unser Portfolio",
+    "title": "Abgeschlossene Projekte",
+    "subtitle": "Eine Auswahl von Installationen in ganz Luxemburg — jede nach Spezifikation entwickelt und termingerecht geliefert.",
+    "searchPlaceholder": "Projekte nach Titel oder Beschreibung suchen…",
+    "allCategories": "Alle Kategorien",
+    "resultCount": "{count, plural, =0 {Keine Projekte} one {# Projekt} other {# Projekte}}",
+    "emptyTitle": "Keine Projekte gefunden",
+    "emptyBody": "Passen Sie Ihre Suche oder Ihren Filter an.",
+    "emptyStateTitle": "Noch keine Projekte",
+    "emptyStateBody": "Unser Portfolio wird gerade vorbereitet. Schauen Sie bald wieder vorbei.",
+    "untitledService": "Nicht kategorisiert"
+  },
+  "About": {
+    "eyebrow": "Über uns",
+    "title": "Über Bulbau",
+    "contactEyebrow": "Kontakt aufnehmen",
+    "contactTitle": "Kontaktieren Sie uns",
+    "phoneLabel": "Telefon",
+    "emailLabel": "E-Mail",
+    "facebookLabel": "Facebook",
+    "instagramLabel": "Instagram",
+    "emptyContent": "Die Unternehmensinformationen werden gerade vorbereitet. Schauen Sie bald wieder vorbei oder kontaktieren Sie uns direkt.",
+    "formComingSoon": "Ein Online-Kontaktformular folgt in Kürze. Kontaktieren Sie uns in der Zwischenzeit direkt über die oben genannten Angaben."
+  },
+  "Careers": {
+    "eyebrow": "Werden Sie Teil des Teams",
+    "title": "Karriere bei Bulbau",
+    "subtitle": "Wir sind ein wachsendes Team von Ingenieuren und Technikern, das Luxemburgs saubere Energiezukunft aufbaut. Präzision, Zuverlässigkeit und kontinuierliches Lernen stehen im Mittelpunkt unseres Handelns.",
+    "applyNotice": "Um sich auf eine Stelle zu bewerben, kontaktieren Sie uns unter {email} oder rufen Sie {phone} an. Online-Bewerbungen sind nicht verfügbar — kontaktieren Sie uns direkt, und wir begleiten Sie durch die nächsten Schritte.",
+    "openPositions": "Offene Stellen",
+    "roleCount": "{count, plural, =0 {Keine offenen Stellen} one {# Stelle verfügbar} other {# Stellen verfügbar}}",
+    "badgeOpen": "Offen",
+    "emptyTitle": "Derzeit keine offenen Stellen",
+    "emptyBody": "Schauen Sie später wieder vorbei oder kontaktieren Sie uns — wir sind immer offen für großartige Menschen.",
+    "spontaneousEyebrow": "Ihre Stelle nicht dabei?",
+    "spontaneousTitle": "Wir sind immer offen für großartige Menschen",
+    "spontaneousBody": "Senden Sie uns Ihren Lebenslauf und eine kurze Vorstellung — wir behalten Ihr Profil und melden uns, sobald eine passende Stelle frei wird.",
+    "spontaneousCta": "Kontakt"
+  },
+  "Legal": {
+    "legalNoticeTitle": "Impressum",
+    "privacyTitle": "Datenschutzerklärung",
+    "notAvailableTitle": "Noch nicht verfügbar",
+    "notAvailableBody": "Diese Seite wird gerade vorbereitet und in Kürze veröffentlicht.",
+    "legalNameLabel": "Eingetragener Name",
+    "legalFormLabel": "Rechtsform",
+    "addressLabel": "Eingetragener Sitz",
+    "rcsLabel": "RCS-Luxemburg-Nummer",
+    "vatLabel": "USt-IdNr.",
+    "legalEmailLabel": "Rechtliche Anfragen"
+  }
+}
