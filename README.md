@@ -6,9 +6,9 @@ the same app. See `docs/FUNCTIONALITY.md` (the "what") and
 `docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
 day-to-day commands.
 
-**Status (2026-07-11):** Phase 0 + Phase 1 are complete and live on staging —
+**Status (2026-07-17):** Phase 0 + Phase 1 are complete and live on staging —
 admin panel, mandatory 2FA, the full content model, and the DB-migrations
-workflow. **Phase 2 part 1 (the public site) is built and awaiting verification** —
+workflow. **Phase 2 part 1 (the public site) is complete and live on staging** —
 next-intl URL-based i18n (`/en`, `/fr`, `/de`), a CMS-driven shell, and the
 Home / Service / Projects / About / Careers / Legal / Privacy pages rendering
 real content via ISR, with SEO and an accessibility baseline. Visit
@@ -54,8 +54,11 @@ needs network access but no AWS credentials. If you ever see TypeScript
 errors pointing at `sst.config.ts` (`Cannot find name '$config'`, etc.), it
 means that hook didn't run — just run `npx sst install` once by hand.
 
-Visit `http://localhost:3000` for the public site placeholder, and
-`http://localhost:3000/admin` to create the first admin user.
+Visit `http://localhost:3000` — it redirects to the locale-prefixed public
+site (`/en`, `/fr`, or `/de` per your browser). The admin panel is at
+`http://localhost:3000/admin` (unlocalized); on a fresh database, go there to
+create the first admin user. Public pages read from the CMS, so they show
+empty states until you add content in the admin.
 
 **Two-factor authentication is mandatory, not optional** (`docs/FUNCTIONALITY.md`
 §5.1): the first time you log in, you're redirected to `/admin/totp-setup` to
@@ -177,11 +180,18 @@ settings (not via SST):
 
 See `docs/TECHSPEC.md` §4 for the full layout and reasoning. Quick pointers:
 
-- `src/app/(payload)/` and `src/app/(frontend)/` follow Payload's own
-  official route-group convention — the `(payload)` files (including
-  `admin/importMap.js`) are generated and must not be hand-edited.
+- `src/app/[locale]/` is the **public site** (Phase 2): the localized root
+  layout (`<html lang>`), the pages, and `globals.css` (the prototype's design
+  system, ported). i18n lives in `src/i18n/` (routing/request/navigation +
+  `messages/{en,fr,de}.json`); `src/proxy.ts` composes next-intl's routing with
+  the TOTP admin gate; data access is `src/lib/content.ts`.
+- `src/app/(payload)/` is Payload's admin UI + REST/GraphQL (`/admin`, `/api`) —
+  its `admin/importMap.js` is generated and must not be hand-edited. `/admin`
+  is **not** localized.
+- `src/app/(frontend)/` is now just the bare `/ → /<locale>` redirect (the
+  repurposed Phase 0 placeholder — the real site is under `[locale]/`).
 - `prototype/` is the static, client-approved design reference (zero
-  backend logic) — not to be confused with the real frontend above.
+  backend logic) — the source the `[locale]/globals.css` design system came from.
 - `infra/aws/` holds the one-time IAM bootstrap for GitHub Actions OIDC —
   see its own README. Everything else AWS-related lives in `sst.config.ts`
   at the repo root (not `infra/` — the SST CLI requires this).
