@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 import { routing } from '@/i18n/routing'
-import { getPublishedServiceIds } from '@/lib/content'
+import { getPublishedServiceSlugs } from '@/lib/content'
 import { SITE_URL } from '@/lib/seo'
 
 // Regenerate hourly so newly-published services appear without a redeploy.
@@ -16,8 +16,8 @@ const STATIC_PATHS = ['', '/projects', '/about', '/careers', '/legal', '/privacy
  * just the static pages rather than failing the build).
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const ids = await getPublishedServiceIds()
-  const paths = [...STATIC_PATHS, ...ids.map((id) => `/services/${id}`)]
+  const slugs = await getPublishedServiceSlugs()
+  const paths = [...STATIC_PATHS, ...slugs.map((slug) => `/services/${slug}`)]
   const now = new Date()
 
   return paths.flatMap((path) =>

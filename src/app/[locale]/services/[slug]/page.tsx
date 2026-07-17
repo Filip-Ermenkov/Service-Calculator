@@ -9,35 +9,36 @@ import { Link } from '@/i18n/navigation'
 import { routing, type Locale } from '@/i18n/routing'
 import {
   getCompanyInfo,
-  getPublishedServiceIds,
-  getServiceById,
+  getPublishedServiceSlugs,
+  getServiceBySlug,
   mediaProps,
 } from '@/lib/content'
+import { lexicalToPlainText } from '@/lib/lexical'
 import { SITE_URL, pageMetadata } from '@/lib/seo'
 
 export const revalidate = 300
 
-// Pre-render published services per locale; unknown/new ids are generated
+// Pre-render published services per locale; unknown/new slugs are generated
 // on-demand (dynamicParams defaults to true) and then cached.
 export async function generateStaticParams() {
-  const ids = await getPublishedServiceIds()
+  const slugs = await getPublishedServiceSlugs()
   return routing.locales.flatMap((locale) =>
-    ids.map((id) => ({ locale, id: String(id) })),
+    slugs.map((slug) => ({ locale, slug })),
   )
 }
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ locale: string; id: string }>
+  params: Promise<{ locale: string; slug: string }>
 }): Promise<Metadata> {
-  const { locale, id } = await params
-  const service = await getServiceById(Number(id), locale as Locale)
+  const { locale, slug } = await params
+  const service = await getServiceBySlug(slug, locale as Locale)
   if (!service) return {}
   const img = mediaProps(service.heroImage)
   return pageMetadata({
     locale: locale as Locale,
-    path: `/services/${service.id}`,
+    path: `/services/${service.slug}`,
     title: service.title,
     description: service.card?.cardDescription ?? undefined,
     images: img ? [img.url] : undefined,
@@ -47,15 +48,12 @@ export async function generateMetadata({
 export default async function ServicePage({
   params,
 }: {
-  params: Promise<{ locale: string; id: string }>
+  params: Promise<{ locale: string; slug: string }>
 }) {
-  const { locale, id } = await params
+  const { locale, slug } = await params
   setRequestLocale(locale)
 
-  const numericId = Number(id)
-  if (!Number.isInteger(numericId)) notFound()
-
-  const service = await getServiceById(numericId, locale as Locale)
+  const service = await getServiceBySlug(slug, locale as Locale)
   if (!service) notFound()
 
   const t = await getTranslations({ locale, namespace: 'Service' })
@@ -63,6 +61,11 @@ export default async function ServicePage({
   const hero = mediaProps(service.heroImage)
   const fields = service.calculatorFields ?? []
   const hasCalculator = fields.length > 0
+  // A rich-text field that's been *cleared* in the admin isn't null — Lexical
+  // stores an empty document (a truthy object), so presence alone isn't enough.
+  // Fall back to the sitewide default unless the disclaimer has real text.
+  const hasOwnDisclaimer =
+    !!service.disclaimer && lexicalToPlainText(service.disclaimer).trim().length > 0
 
   const typeLabel: Record<string, string> = {
     number: t('fieldTypeNumber'),
@@ -76,7 +79,7 @@ export default async function ServicePage({
     name: service.title,
     areaServed: 'LU',
     provider: { '@type': 'LocalBusiness', name: 'Bulbau' },
-    url: `${SITE_URL}/${locale}/services/${service.id}`,
+    url: `${SITE_URL}/${locale}/services/${service.slug}`,
   }
 
   return (
@@ -110,12 +113,14 @@ export default async function ServicePage({
         </div>
       </section>
 
-      {/* Estimate disclaimer (prominent, before the calculator — FUNCTIONALITY §3.3) */}
+      {/* Estimate disclaimer (prominent, before the calculator — FUNCTIONALITY §3.3).
+          Priority: this service's own disclaimer → the sitewide default estimate
+          notice (trilingual message catalog, with live contact details injected). */}
       <div className="container" style={{ marginTop: '2rem' }}>
         <div className="disclaimer">
           <Info />
           <div className="disclaimer-text">
-            {service.disclaimer ? (
+            {hasOwnDisclaimer ? (
               <RichText data={service.disclaimer} />
             ) : (
               t.rich('disclaimerDefault', {

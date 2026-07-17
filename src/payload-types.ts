@@ -187,6 +187,10 @@ export interface Service {
   _order?: string | null;
   title: string;
   /**
+   * URL path for this item, e.g. "solar-panels" → /services/solar-panels. Auto-filled from the title; edit to customise. Must be unique.
+   */
+  slug?: string | null;
+  /**
    * Detailed description shown on the service page.
    */
   description?: {
@@ -317,6 +321,10 @@ export interface Project {
    * Service category this project belongs to (for filtering).
    */
   service?: (number | null) | Service;
+  /**
+   * Auto-filled from the linked service. Kept even if that service is later deleted, so this project keeps its category label.
+   */
+  serviceName?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -493,6 +501,7 @@ export interface MediaSelect<T extends boolean = true> {
 export interface ServicesSelect<T extends boolean = true> {
   _order?: T;
   title?: T;
+  slug?: T;
   description?: T;
   heroImage?: T;
   card?:
@@ -536,6 +545,7 @@ export interface ProjectsSelect<T extends boolean = true> {
   photo?: T;
   completionDate?: T;
   service?: T;
+  serviceName?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;

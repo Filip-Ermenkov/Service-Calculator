@@ -71,29 +71,30 @@ export async function getServices(locale: Locale): Promise<Service[]> {
   }
 }
 
-export async function getServiceById(
-  id: number,
+/** Look up one published service by its URL slug (→ null for draft/unknown). */
+export async function getServiceBySlug(
+  slug: string,
   locale: Locale,
 ): Promise<Service | null> {
   try {
     const payload = await getPayloadClient()
-    const doc = await payload.findByID({
+    const res = await payload.find({
       collection: 'services',
-      id,
+      where: { slug: { equals: slug } },
       locale,
       depth: 2, // populate hero/card media + any uploads inside rich text
-      overrideAccess: false,
-      disableErrors: true, // a draft/unknown id resolves to null (→ notFound), never throws
+      limit: 1,
+      overrideAccess: false, // drafts stay invisible — same policy as the REST boundary
     })
-    return doc ?? null
+    return res.docs[0] ?? null
   } catch (err) {
-    console.error(`[content] getServiceById(${id}) failed:`, err)
+    console.error(`[content] getServiceBySlug(${slug}) failed:`, err)
     return null
   }
 }
 
-/** Published service ids for generateStaticParams (resilient → [] on failure). */
-export async function getPublishedServiceIds(): Promise<number[]> {
+/** Published service slugs for generateStaticParams/sitemap (resilient → []). */
+export async function getPublishedServiceSlugs(): Promise<string[]> {
   try {
     const payload = await getPayloadClient()
     const res = await payload.find({
@@ -102,11 +103,13 @@ export async function getPublishedServiceIds(): Promise<number[]> {
       limit: 500,
       pagination: false,
       overrideAccess: false,
-      select: {},
+      select: { slug: true },
     })
-    return res.docs.map((d) => d.id)
+    return res.docs
+      .map((d) => d.slug)
+      .filter((s): s is string => typeof s === 'string' && s.length > 0)
   } catch (err) {
-    console.error('[content] getPublishedServiceIds failed:', err)
+    console.error('[content] getPublishedServiceSlugs failed:', err)
     return []
   }
 }

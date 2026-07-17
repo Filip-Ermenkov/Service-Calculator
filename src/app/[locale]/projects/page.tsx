@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
-import { Bolt } from '@/components/site/icons'
+import { ProjectsBrowser } from '@/components/site/ProjectsBrowser'
 import type { Locale } from '@/i18n/routing'
 import { getProjects, mediaProps } from '@/lib/content'
 import { lexicalToPlainText } from '@/lib/lexical'
+import type { ProjectCard } from '@/lib/projects'
 import { pageMetadata } from '@/lib/seo'
 
 export const revalidate = 300
@@ -36,6 +37,30 @@ export default async function ProjectsPage({
   const projects = await getProjects(locale as Locale)
   const dateFmt = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' })
 
+  // Map each CMS project to a lightweight, serialisable card for the client
+  // component. The category label is the LIVE service title while the service
+  // exists, or the retained `serviceName` snapshot once it's deleted
+  // (FUNCTIONALITY.md §7); falling back to the "uncategorised" label otherwise.
+  const cards: ProjectCard[] = projects.map((project) => {
+    const img = mediaProps(project.photo)
+    const liveTitle =
+      project.service && typeof project.service === 'object'
+        ? project.service.title
+        : null
+    const category = liveTitle ?? project.serviceName ?? ''
+    return {
+      id: project.id,
+      title: project.title,
+      blurb: lexicalToPlainText(project.description, 130),
+      dateLabel: project.completionDate
+        ? dateFmt.format(new Date(project.completionDate))
+        : '',
+      imageUrl: img?.url ?? null,
+      imageAlt: img?.alt ?? '',
+      category,
+    }
+  })
+
   return (
     <>
       <section className="grid-bg" style={{ padding: '4rem 0 3rem' }}>
@@ -52,50 +77,15 @@ export default async function ProjectsPage({
 
       <section className="section bg-white">
         <div className="container">
-          {projects.length === 0 ? (
+          {cards.length === 0 ? (
+            // No projects at all → the friendly "empty portfolio" state, rendered
+            // server-side (no search/filter to show when there's nothing yet).
             <div className="empty-state">
               <p className="empty-state-title">{t('emptyStateTitle')}</p>
               <p className="empty-state-body">{t('emptyStateBody')}</p>
             </div>
           ) : (
-            <>
-              <p style={{ fontSize: '0.8rem', color: 'var(--g500)', fontWeight: 500, marginBottom: '1.25rem' }}>
-                {t('resultCount', { count: projects.length })}
-              </p>
-              <div className="projects-grid">
-                {projects.map((project) => {
-                  const img = mediaProps(project.photo)
-                  const serviceName =
-                    project.service && typeof project.service === 'object'
-                      ? project.service.title
-                      : t('untitledService')
-                  const blurb = lexicalToPlainText(project.description, 130)
-                  return (
-                    <article className="project-card" key={project.id}>
-                      <div className="project-card-img">
-                        <div className="card-img-inner img-ph" style={{ height: 180 }}>
-                          {img ? (
-                            <img src={img.url} alt={img.alt} className="media-cover" loading="lazy" />
-                          ) : (
-                            <Bolt style={{ width: 40, height: 40 }} />
-                          )}
-                        </div>
-                      </div>
-                      <div className="project-card-body">
-                        <h2 className="project-card-title">{project.title}</h2>
-                        {blurb && <p className="project-card-desc">{blurb}</p>}
-                        <div className="project-meta">
-                          <span className="project-date">
-                            {project.completionDate ? dateFmt.format(new Date(project.completionDate)) : ''}
-                          </span>
-                          <span className="project-tag">{serviceName}</span>
-                        </div>
-                      </div>
-                    </article>
-                  )
-                })}
-              </div>
-            </>
+            <ProjectsBrowser items={cards} />
           )}
         </div>
       </section>

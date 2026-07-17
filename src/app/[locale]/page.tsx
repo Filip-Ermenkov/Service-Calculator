@@ -104,7 +104,7 @@ export default async function HomePage({
                 const img = mediaProps(service.card?.cardImage ?? service.heroImage)
                 const title = service.card?.cardTitle || service.title
                 return (
-                  <Link key={service.id} href={`/services/${service.id}`} className="service-card">
+                  <Link key={service.id} href={`/services/${service.slug ?? service.id}`} className="service-card">
                     <div className="service-card-img">
                       <div className="card-img-inner img-ph" style={{ height: 200 }}>
                         {img ? (

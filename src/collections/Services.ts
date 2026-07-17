@@ -6,6 +6,7 @@ import {
   revalidateContentAfterChange,
   revalidateContentAfterDelete,
 } from '@/lib/revalidate'
+import { slugField } from '@/lib/slug'
 
 /**
  * Services — the core product offering (FUNCTIONALITY.md §3.3, §5.3;
@@ -57,6 +58,9 @@ export const Services: CollectionConfig = {
       required: true,
       localized: true,
     },
+    // Clean, stable public URL: /services/<slug> (Phase 2b). Locale-independent,
+    // auto-generated from the title, unique. See src/lib/slug.ts.
+    slugField('title'),
     {
       name: 'description',
       type: 'richText',
