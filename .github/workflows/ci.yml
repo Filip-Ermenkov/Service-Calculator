@@ -6,6 +6,13 @@ on:
   push:
     branches: [main]
 
+# Cancel superseded PR runs to save minutes, but NEVER cancel a push-to-main run
+# mid-flight — that job migrates the DB and deploys, and interrupting it could
+# leave a partial deploy. So cancel-in-progress is scoped to pull_request only.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -60,9 +67,17 @@ jobs:
       S3_ACCESS_KEY_ID: test
       S3_SECRET_ACCESS_KEY: test
     steps:
-      - uses: actions/checkout@v5
+      # Pinned to a full commit SHA (supply-chain hardening — a mutable tag could
+      # be repointed by a compromised maintainer, and this workflow can assume the
+      # AWS deploy role via OIDC). Dependabot (github-actions ecosystem) keeps the
+      # SHA current and updates the version comment.
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          # Don't leave the GITHUB_TOKEN in .git/config after checkout — no step
+          # here pushes back to the repo, so the credential is never needed.
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24'
           cache: npm
@@ -101,9 +116,17 @@ jobs:
       id-token: write # required for AWS OIDC — no stored AWS keys
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      # Pinned to a full commit SHA (supply-chain hardening — a mutable tag could
+      # be repointed by a compromised maintainer, and this workflow can assume the
+      # AWS deploy role via OIDC). Dependabot (github-actions ecosystem) keeps the
+      # SHA current and updates the version comment.
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          # Don't leave the GITHUB_TOKEN in .git/config after checkout — no step
+          # here pushes back to the repo, so the credential is never needed.
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24'
           cache: npm
@@ -139,7 +162,7 @@ jobs:
           PAYLOAD_SECRET: migrate-only-no-token-ops
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: eu-central-1
