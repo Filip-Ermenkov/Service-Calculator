@@ -456,6 +456,7 @@ textarea:focus-visible {
 
 /* ---- Calculator (static preview in Phase 2; live in Phase 3) ---- */
 .calc-wrapper { border: 1px solid var(--g200); background: var(--white); overflow: hidden; }
+.calc-breakdown { border: 1px solid var(--g200); background: var(--white); overflow: hidden; }
 .calc-header { background: var(--g900); color: var(--white); padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
 .calc-header-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--g400); }
 .calc-row { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; border-bottom: 1px solid var(--g200); gap: 1rem; flex-wrap: wrap; }
@@ -476,6 +477,7 @@ textarea:focus-visible {
 .toggle input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; inset: 0; background: var(--g300); cursor: pointer; transition: 0.3s; }
 .toggle-slider::before { content: ''; position: absolute; height: 18px; width: 18px; left: 4px; bottom: 4px; background: var(--white); transition: 0.3s; }
+.toggle input:focus-visible + .toggle-slider { outline: 3px solid var(--orange); outline-offset: 2px; }
 .toggle input:checked + .toggle-slider { background: var(--orange); }
 .toggle input:checked + .toggle-slider::before { transform: translateX(22px); }
 .price-box { background: var(--g900); padding: 2rem 1.5rem; }

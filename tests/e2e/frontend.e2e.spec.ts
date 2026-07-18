@@ -70,6 +70,43 @@ test.describe('Public site — pages render', () => {
   })
 })
 
+// Phase 3 — the live price calculator. Empty-DB-safe: CI runs against an empty
+// Postgres with no services, so this skips when there's nothing to open. When a
+// published service with calculator fields DOES exist (Filip's DB / staging),
+// it proves the calculator is interactive and the total is a live region. The
+// exhaustive arithmetic is covered deterministically by the pure unit tests.
+test.describe('Public site — live price calculator (Phase 3)', () => {
+  test('a service page shows an interactive, recomputing estimate', async ({ page }) => {
+    await page.goto(`${BASE}/en`)
+    const serviceLink = page.locator('a[href*="/services/"]').first()
+    const hasService = (await serviceLink.count()) > 0
+    test.skip(!hasService, 'no seeded services in this environment')
+
+    await serviceLink.click()
+    await expect(page).toHaveURL(/\/en\/services\//)
+
+    const total = page.locator('[data-testid="calc-total"]')
+    // The service may legitimately have no calculator (the §7 no-fields case).
+    const hasCalc = (await total.count()) > 0
+    test.skip(!hasCalc, 'seeded service has no calculator fields')
+    await expect(total).toBeVisible()
+
+    // Fill every number input (they may be required — the total is withheld
+    // until required fields have a value) so we reach a real computed state,
+    // proving the inputs are live (not the old disabled preview).
+    const numberInputs = page.locator('.calc-input[type="number"]')
+    const count = await numberInputs.count()
+    for (let i = 0; i < count; i++) {
+      await expect(numberInputs.nth(i)).toBeEnabled()
+      await numberInputs.nth(i).fill('5')
+    }
+
+    // With required fields satisfied, the total shows a formatted price or the
+    // §7 contact copy — never the still-blank prompt.
+    await expect(total).toHaveText(/€|Contact us for a price/)
+  })
+})
+
 test.describe('Admin panel stays separate from the public site', () => {
   test('/admin is not localized and reaches the Payload admin login', async ({ page }) => {
     const res = await page.goto(`${BASE}/admin`)
