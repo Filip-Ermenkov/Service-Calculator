@@ -7,6 +7,16 @@ import { lexicalToPlainText } from '@/lib/lexical'
 import { filterProjects, projectCategories, type ProjectCard } from '@/lib/projects'
 import { buildAlternates, pageMetadata } from '@/lib/seo'
 import { formatSlug } from '@/lib/slug'
+import {
+  coerceFieldValue,
+  coerceInputs,
+  computePrice,
+  fieldContribution,
+  formatCurrency,
+  toPricingFields,
+  type PricingField,
+} from '@/lib/pricing'
+import { evaluateJsonLogic, isUsableFormula, type JsonLogic } from '@/lib/pricing/jsonlogic'
 
 // Phase 2 (public site) coverage. Two parts:
 //   1. Pure helpers (no DB) — plain-text extraction, media resolution, and the
@@ -80,6 +90,138 @@ describe('SEO alternates/metadata (src/lib/seo.ts)', () => {
     expect(meta.title).toBe('Über uns')
     expect((meta.alternates?.canonical as string)).toBe('/de/about')
     expect(meta.openGraph).toMatchObject({ title: 'Über uns', locale: 'de', siteName: 'Bulbau' })
+  })
+})
+
+// ---- pricing evaluator (Phase 3, src/lib/pricing) — pure, no DB ------------
+
+describe('evaluateJsonLogic (src/lib/pricing/jsonlogic.ts)', () => {
+  it('reads variables, with a default for missing keys', () => {
+    expect(evaluateJsonLogic({ var: 'a' }, { a: 7 })).toBe(7)
+    expect(evaluateJsonLogic({ var: 'missing' }, {})).toBe(0)
+    expect(evaluateJsonLogic({ var: ['missing', 42] }, {})).toBe(42)
+  })
+
+  it('does arithmetic with correct order of operations via nesting', () => {
+    // (a + b) * c
+    const rule: JsonLogic = { '*': [{ '+': [{ var: 'a' }, { var: 'b' }] }, { var: 'c' }] }
+    expect(evaluateJsonLogic(rule, { a: 2, b: 3, c: 4 })).toBe(20)
+  })
+
+  it('supports +, -, *, /, unary -, min, max', () => {
+    expect(evaluateJsonLogic({ '+': [1, 2, 3] }, {})).toBe(6)
+    expect(evaluateJsonLogic({ '-': [10, 3, 2] }, {})).toBe(5)
+    expect(evaluateJsonLogic({ '-': [5] }, {})).toBe(-5)
+    expect(evaluateJsonLogic({ '*': [2, 3, 4] }, {})).toBe(24)
+    expect(evaluateJsonLogic({ '/': [10, 4] }, {})).toBe(2.5)
+    expect(evaluateJsonLogic({ min: [{ max: [10, 5] }, 8] }, {})).toBe(8)
+  })
+
+  it('division by zero yields a non-finite number (caller handles it)', () => {
+    expect(Number.isFinite(evaluateJsonLogic({ '/': [5, 0] }, {}))).toBe(false)
+  })
+
+  it('throws on an unsupported operator or malformed rule', () => {
+    expect(() => evaluateJsonLogic({ pow: [2, 3] } as never, {})).toThrow()
+    expect(() => evaluateJsonLogic({ '+': [1], '*': [2] } as never, {})).toThrow()
+  })
+
+  it('isUsableFormula distinguishes real formulas from empty/absent', () => {
+    expect(isUsableFormula(null)).toBe(false)
+    expect(isUsableFormula(undefined)).toBe(false)
+    expect(isUsableFormula({})).toBe(false)
+    expect(isUsableFormula([])).toBe(false)
+    expect(isUsableFormula({ '+': [1, 2] })).toBe(true)
+  })
+})
+
+describe('computePrice + helpers (src/lib/pricing/index.ts)', () => {
+  const fields: PricingField[] = toPricingFields([
+    { fieldKey: 'area', label: 'Roof area', type: 'number', unitPrice: 150, sign: 'add', required: true },
+    { fieldKey: 'panels', label: 'Panels', type: 'number', unitPrice: 200, sign: 'add' },
+    { fieldKey: 'loyalty', label: 'Loyalty discount', type: 'toggle', unitPrice: 500, sign: 'subtract' },
+    {
+      fieldKey: 'grade', label: 'Grade', type: 'dropdown', unitPrice: 1, sign: 'add',
+      options: [ { optionLabel: 'Standard', value: 0 }, { optionLabel: 'Premium', value: 1000 } ],
+    },
+  ])
+
+  it('toPricingFields projects the CMS shape (defaults, options, sign)', () => {
+    expect(fields[0]).toMatchObject({ fieldKey: 'area', type: 'number', unitPrice: 150, sign: 'add', required: true })
+    expect(fields[2].sign).toBe('subtract')
+    expect(fields[3].options).toEqual([{ label: 'Standard', value: 0 }, { label: 'Premium', value: 1000 }])
+  })
+
+  it('coerces number/dropdown/toggle raw inputs', () => {
+    expect(coerceFieldValue(fields[0], '12.5')).toBe(12.5)
+    expect(coerceFieldValue(fields[0], '')).toBe(0)
+    expect(coerceFieldValue(fields[0], 'abc')).toBe(0)
+    expect(coerceFieldValue(fields[2], true)).toBe(1)
+    expect(coerceFieldValue(fields[2], false)).toBe(0)
+    expect(coerceFieldValue(fields[3], '1000')).toBe(1000)
+  })
+
+  it('default path: total is the sum of signed contributions', () => {
+    const inputs = coerceInputs(fields, { area: '10', panels: '4', loyalty: false, grade: '0' })
+    const r = computePrice({ fields, inputs })
+    expect(r.kind).toBe('price')
+    if (r.kind === 'price') {
+      expect(r.total).toBe(10 * 150 + 4 * 200) // 2300
+      expect(r.usedFormula).toBe(false)
+    }
+  })
+
+  it('honours sign (subtract) and dropdown values', () => {
+    const inputs = coerceInputs(fields, { area: '10', panels: '0', loyalty: true, grade: '1000' })
+    const r = computePrice({ fields, inputs })
+    expect(r.kind === 'price' && r.total).toBe(10 * 150 - 500 + 1000) // 2000
+  })
+
+  it('§7: a non-positive total resolves to "contact"', () => {
+    const inputs = coerceInputs(fields, { area: '0', panels: '0', loyalty: true, grade: '0' })
+    const r = computePrice({ fields, inputs })
+    expect(r.kind).toBe('contact')
+  })
+
+  it('a custom formula is authoritative and evaluated over raw values', () => {
+    const formula = { '*': [{ '+': [{ var: 'area' }, { var: 'panels' }] }, 10] }
+    const inputs = coerceInputs(fields, { area: '10', panels: '4' })
+    const r = computePrice({ fields, formula, inputs })
+    expect(r.kind === 'price' && r.total).toBe(140)
+    expect(r.kind === 'price' && r.usedFormula).toBe(true)
+  })
+
+  it('a percentage adjustment (VAT) works via the formula', () => {
+    const formula = { '*': [{ var: 'area' }, 1.17] }
+    const r = computePrice({ fields, formula, inputs: coerceInputs(fields, { area: '100' }) })
+    expect(r.kind === 'price' && r.total).toBe(117)
+  })
+
+  it('never throws — a bad/unsupported formula resolves to "contact"', () => {
+    const r1 = computePrice({ fields, formula: { pow: [2, 3] } as never, inputs: {} })
+    expect(r1.kind).toBe('contact')
+    const r2 = computePrice({ fields, formula: { '/': [{ var: 'area' }, 0] }, inputs: coerceInputs(fields, { area: '5' }) })
+    expect(r2.kind).toBe('contact')
+  })
+
+  it('rounds money to 2 decimals (guards float error)', () => {
+    const one: PricingField[] = toPricingFields([
+      { fieldKey: 'x', label: 'x', type: 'number', unitPrice: 0.1, sign: 'add' },
+    ])
+    const r = computePrice({ fields: one, inputs: { x: 3 } })
+    expect(r.kind === 'price' && r.total).toBe(0.3) // not 0.30000000000000004
+  })
+
+  it('fieldContribution is null when a field has no unitPrice', () => {
+    const noPrice = toPricingFields([{ fieldKey: 'n', label: 'n', type: 'number' }])[0]
+    expect(fieldContribution(noPrice, 5)).toBeNull()
+  })
+
+  it('formatCurrency renders EUR for the active locale', () => {
+    // Non-breaking spaces vary by ICU build; assert the essentials.
+    expect(formatCurrency(1234.5, 'en')).toContain('€')
+    expect(formatCurrency(1234.5, 'en')).toContain('1,234.5')
+    expect(formatCurrency(1234.5, 'de')).toContain('€')
   })
 })
 
