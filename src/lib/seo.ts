@@ -48,12 +48,18 @@ export function pageMetadata(opts: {
   images?: string[]
 }): Metadata {
   const alternates = buildAlternates(opts.locale, opts.path)
+  // Only emit a `title` when the page actually has one. Returning
+  // `title: undefined` here does NOT inherit the layout's `title.default` — it
+  // OVERRIDES it, leaving the page with no <title> (a WCAG 2.4.2 failure caught
+  // by the axe gate on the home page, which passes no title). Omitting the key
+  // lets the layout default ("%s — Bulbau" template / defaultTitle) apply, while
+  // pages that do pass a title still get it (with the template suffix).
   return {
-    title: opts.title,
+    ...(opts.title ? { title: opts.title } : {}),
     description: opts.description,
     alternates,
     openGraph: {
-      title: opts.title,
+      ...(opts.title ? { title: opts.title } : {}),
       description: opts.description,
       url: alternates.canonical as string,
       siteName: 'Bulbau',
