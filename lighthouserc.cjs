@@ -58,36 +58,37 @@ module.exports = {
       },
     },
     assert: {
-      // FIRST-LANDING POSTURE: all four categories are tracked WARNs, not hard
-      // gates. Rationale — the accessibility HARD gate already lives in axe
-      // (tests/e2e/accessibility.e2e.spec.ts, serious/critical = build failure);
-      // Lighthouse's job here is to establish a perf/SEO/best-practices BASELINE.
-      // Setting error thresholds we haven't measured in CI would be a flaky gate
-      // (and would false-fail for by-design reasons — see SEO below). The plan is
-      // a two-step ratchet: (1) this run reports the real CI category scores;
-      // (2) a follow-up flips the stable categories to `error` at a calibrated
-      // minScore, and turns the intentional-noindex SEO audit off (below).
+      // Thresholds CALIBRATED against the first CI (Linux) baseline: accessibility,
+      // best-practices, and performance each cleared these values on all 4 URLs ×
+      // 3 runs (12/12) with margin, so they are now HARD gates — a regression below
+      // them fails the build. SEO stays a WARN by design (see below). Metrics stay
+      // WARN (noisier than category scores; the performance category already gates
+      // overall speed). This complements the axe WCAG hard gate in
+      // tests/e2e/accessibility.e2e.spec.ts.
       assertions: {
-        // WARN for now; ratchet to `error` once the CI baseline is known.
-        // a11y is redundant here with the axe gate, so it stays a soft signal.
-        'categories:accessibility': ['warn', { minScore: 0.9 }],
-        'categories:best-practices': ['warn', { minScore: 0.9 }],
+        // Hard gates — proven to pass 12/12 in CI at these thresholds.
+        'categories:accessibility': ['error', { minScore: 0.9 }],
+        'categories:best-practices': ['error', { minScore: 0.9 }],
+        // Performance floor. Passed 12/12 at 0.8 with no single-run dip, so 0.8 is
+        // a safe regression floor. Tighten once the `<img>`→`next/image` perf pass
+        // lands (docs/PROGRESS.md) and a higher baseline is confirmed.
+        'categories:performance': ['error', { minScore: 0.8 }],
 
-        // SEO must NOT be a hard gate while the build is noindex. Outside the
-        // production stage the site is intentionally `noindex`
-        // (NEXT_PUBLIC_ALLOW_INDEXING opt-in — src/lib/seo.ts), which Lighthouse
-        // correctly penalises via `is-crawlable`. So `is-crawlable` is turned OFF
-        // here (its "failure" is by design), and the SEO category is a WARN until
-        // the ratchet, when it can gate the structural audits (title, meta
-        // description, hreflang, canonical) that don't depend on indexing.
+        // SEO stays a WARN. The ~0.5–0.58 baseline is only PARTLY by design: the
+        // biggest hit is the intentional `noindex` outside production
+        // (NEXT_PUBLIC_ALLOW_INDEXING opt-in — src/lib/seo.ts; `is-crawlable` is
+        // turned off below since its "failure" is deliberate). But real audits
+        // also fail underneath it — confirmed `meta-description` gaps (/legal,
+        // /privacy have none; /about's is empty until the CMS is populated), and
+        // very likely `legible-font-size` / `tap-targets` from the design's small
+        // uppercase labels. So enabling indexing at launch will NOT alone reach
+        // 0.9 — SEO becomes a hard gate only AFTER the pre-launch SEO/mobile
+        // polish slice (docs/PROGRESS.md → "Immediate next steps") fixes those.
         'categories:seo': ['warn', { minScore: 0.9 }],
         'is-crawlable': 'off',
 
-        // Performance WARN — sensitive to hydration JS + the still-open
-        // `<img>`→`next/image` perf item (docs/PROGRESS.md). Ratchet after baseline.
-        'categories:performance': ['warn', { minScore: 0.8 }],
-
-        // Core Web Vitals as tracked WARNs — visible trend without blocking.
+        // Core Web Vitals as tracked WARNs — visible trend without blocking on
+        // per-run metric variance (the performance category is the hard gate).
         'largest-contentful-paint': ['warn', { maxNumericValue: 4000 }],
         'cumulative-layout-shift': ['warn', { maxNumericValue: 0.1 }],
         'total-blocking-time': ['warn', { maxNumericValue: 600 }],
