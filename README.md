@@ -6,15 +6,19 @@ the same app. See `docs/FUNCTIONALITY.md` (the "what") and
 `docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
 day-to-day commands.
 
-**Status (2026-07-17):** Phase 0 + Phase 1 are complete and live on staging —
-admin panel, mandatory 2FA, the full content model, and the DB-migrations
-workflow. **Phase 2 part 1 (the public site) is complete and live on staging** —
-next-intl URL-based i18n (`/en`, `/fr`, `/de`), a CMS-driven shell, and the
-Home / Service / Projects / About / Careers / Legal / Privacy pages rendering
-real content via ISR, with SEO and an accessibility baseline. Visit
-`http://localhost:3000` (redirects to `/en`); the admin panel stays at `/admin`
-(unlocalized). `docs/PROGRESS.md` is the source of truth for progress and next
-steps.
+**Status (2026-07-18):** Phase 0, Phase 1, and the DB-migrations workflow (1.5)
+are complete and live on staging — admin panel, mandatory 2FA, the full content
+model, and per-deploy migrations. **Phase 2 (the public site) is complete and
+live on staging** — next-intl URL-based i18n (`/en`, `/fr`, `/de`), a CMS-driven
+shell, the Home / Service / Projects / About / Careers / Legal / Privacy pages
+rendering real content via ISR, clean service slugs, the Projects search/category
+filter, the §7 service-label snapshot, SEO, and an accessibility baseline with
+CI axe (WCAG 2.2 AA) + Lighthouse gates. Web analytics was evaluated and
+**deliberately left out of scope** (see below) — the site stays cookieless with
+no consent banner. **Next up is Phase 3** (the visual calculator/formula builder
++ live price evaluator). Visit `http://localhost:3000` (redirects to `/en`); the
+admin panel stays at `/admin` (unlocalized). `docs/PROGRESS.md` is the source of
+truth for progress and next steps.
 
 ## Requirements
 
@@ -162,6 +166,15 @@ npx sst secret set UpstashRedisRestToken "your-upstash-token"     --stage stagin
 npx sst secret set SiteUrl       "https://d2mj4ke0wr57lb.cloudfront.net" --stage staging
 # npx sst secret set AllowIndexing "true" --stage production   # production launch only
 ```
+
+**No web analytics, and no cookie-consent banner — by design.** The site sets a
+single strictly-functional cookie (the visitor's language preference) and no
+tracking cookies, so it is exempt from GDPR/ePrivacy consent and ships with no
+banner. Visitor analytics were evaluated and deliberately left out of scope: they
+serve the site owner (traffic/source insight), not any technical or SEO
+requirement, and add a subscription or an always-on service for no launch-critical
+benefit. If a site owner later wants stats, add a cookieless tool (self-hosted
+Umami, or a client-owned Plausible account) as a small dedicated slice.
 
 The staging **`deploy-staging`** job also passes the (already-existing)
 `STAGING_DATABASE_URL_UNPOOLED` secret to the `sst deploy` build step, so the
