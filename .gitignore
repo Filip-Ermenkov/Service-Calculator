@@ -48,6 +48,7 @@ playwright-report/
 test-results/
 blob-report/
 playwright/.cache/
+.lighthouseci/
 
 # Uploaded media (local dev only — production media lives in S3)
 /media

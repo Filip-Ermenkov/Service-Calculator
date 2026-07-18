@@ -27,6 +27,7 @@
     "test": "npm run test:int && npm run test:e2e",
     "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts",
     "test:e2e": "cross-env NODE_OPTIONS=\"--no-deprecation --import=tsx/esm\" playwright test --config=playwright.config.ts",
+    "lhci": "lhci autorun",
     "deploy:staging": "sst deploy --stage staging",
     "deploy:production": "sst deploy --stage production"
   },
@@ -52,7 +53,9 @@
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1079.0",
+    "@axe-core/playwright": "4.12.1",
     "@eslint/compat": "2.1.0",
+    "@lhci/cli": "0.15.1",
     "@playwright/test": "^1.59.1",
     "@testing-library/react": "^16.3.0",
     "@types/node": "24.12.3",
@@ -60,6 +63,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^4.5.2",
+    "axe-core": "4.12.1",
     "eslint": "^9.16.0",
     "eslint-config-next": "16.2.10",
     "jsdom": "^28.0.0",
@@ -69,5 +73,8 @@
     "typescript": "6.0.3",
     "vite-tsconfig-paths": "^6.0.5",
     "vitest": "^4.1.6"
+  },
+  "overrides": {
+    "tmp": "^0.2.7"
   }
 }

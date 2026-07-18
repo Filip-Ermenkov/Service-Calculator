@@ -98,13 +98,29 @@ jobs:
 
       - run: npm run build
 
-      - run: npm run test:e2e
+      # Lighthouse CI (TECHSPEC §6.11 / §7B) — the perf/SEO/best-practices
+      # counterpart to the axe gate in the e2e suite below. Audits a PRODUCTION
+      # build (`lhci` boots `npm run start` against the `next build` from the step
+      # above and the CI Postgres), asserting the budgets in lighthouserc.cjs.
+      # Accessibility / SEO / best-practices are hard gates; performance currently
+      # WARNs until its first CI baseline is observed and the threshold calibrated
+      # (see the config for the full rationale). Chrome is preinstalled on
+      # ubuntu-latest, so chrome-launcher finds it with no extra step.
+      #
+      # ORDER MATTERS: this runs BEFORE test:e2e. The e2e step's Playwright
+      # webServer is `next dev`, which overwrites the `.next` production build in
+      # place — a later `next start` would then fail with "no production build".
+      # So Lighthouse (needs the production build) goes first; the dev server can
+      # clobber `.next` afterwards. Payload's schema already exists on the CI
+      # Postgres from the earlier `test:int` boot (push-on), so pages render.
+      - name: Lighthouse CI (performance / SEO / a11y budgets)
+        run: npm run lhci
 
-      # TODO (Phase 2, Part 2): now that the public pages render real content,
-      # add axe-core accessibility checks and Lighthouse CI against the running
-      # build (docs/TECHSPEC.md §6.11, §7B). Deferred from Part 1 (i18n/pages
-      # foundation) to keep that slice testable; a manual keyboard/contrast pass
-      # was done at Part 1 sign-off (see docs/PROGRESS.md).
+      # Runs the full Playwright suite, which now INCLUDES the axe-core WCAG 2.2
+      # AA accessibility gate (tests/e2e/accessibility.e2e.spec.ts) — a failing
+      # serious/critical violation fails this step, with the offending rule +
+      # element selectors printed in the test output.
+      - run: npm run test:e2e
 
   deploy-staging:
     name: Deploy to staging
