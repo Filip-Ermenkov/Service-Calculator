@@ -15,7 +15,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params
   const t = await getTranslations({ locale, namespace: 'Legal' })
-  return pageMetadata({ locale: locale as Locale, path: '/legal', title: t('legalNoticeTitle') })
+  const tm = await getTranslations({ locale, namespace: 'Metadata' })
+  return pageMetadata({
+    locale: locale as Locale,
+    path: '/legal',
+    title: t('legalNoticeTitle'),
+    description: tm('legalDescription'),
+  })
 }
 
 export default async function LegalNoticePage({

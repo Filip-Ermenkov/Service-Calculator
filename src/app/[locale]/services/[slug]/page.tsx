@@ -37,12 +37,16 @@ export async function generateMetadata({
   const { locale, slug } = await params
   const service = await getServiceBySlug(slug, locale as Locale)
   if (!service) return {}
+  const tm = await getTranslations({ locale, namespace: 'Metadata' })
   const img = mediaProps(service.heroImage)
   return pageMetadata({
     locale: locale as Locale,
     path: `/services/${service.slug}`,
     title: service.title,
-    description: service.card?.cardDescription ?? undefined,
+    // Prefer the service's own card description; else a localized fallback that
+    // names the service, so every service page has a non-empty, unique
+    // <meta description> (Lighthouse SEO). `||` also covers an empty-string card.
+    description: service.card?.cardDescription || tm('serviceDescription', { service: service.title }),
     images: img ? [img.url] : undefined,
   })
 }

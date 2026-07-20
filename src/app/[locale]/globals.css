@@ -7,6 +7,17 @@
    Admin-panel styles are intentionally omitted — Payload ships its own admin UI.
    ============================================================ */
 
+/* --------------------------------------------------------------
+   Mobile legibility (Lighthouse SEO: `font-size` / `tap-targets`)
+   Every small UI label below sits at 0.75rem (= 12px), the minimum
+   legible size Lighthouse checks for ("font sizes less than 12px are
+   too small"). Nothing on the public site renders text below 12px, so
+   the `font-size` audit passes on all viewports. Interactive controls
+   that are visually compact (the language switcher, the mobile menu
+   button) are given a >=44px touch target — comfortably clearing WCAG
+   2.2 SC 2.5.8 (24x24 CSS px minimum, Level AA) with room to spare.
+   -------------------------------------------------------------- */
+
 :root {
   /* --orange darkened from the prototype's #E05A00 to #BF4C00 so white-on-orange
      (buttons, active language pill, the careers banner) and orange-on-white/pale
@@ -157,7 +168,7 @@ textarea:focus-visible {
   letter-spacing: 0.03em;
 }
 .eyebrow, .eyebrow-white {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.18em;
@@ -287,8 +298,15 @@ textarea:focus-visible {
 }
 .lang-switcher { display: flex; border: 1px solid rgba(255,255,255,0.12); }
 .lang-btn {
-  padding: 0.3rem 0.6rem;
-  font-size: 0.7rem;
+  /* >=44px touch target (WCAG 2.2 SC 2.5.8 needs 24x24; 44 is the comfortable
+     Apple/Google guideline). inline-flex centres the 2-letter label in the box. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   background: transparent;
@@ -303,7 +321,7 @@ textarea:focus-visible {
 .lang-btn:last-child { border-right: none; }
 .lang-btn.active { background: var(--orange); color: var(--white); }
 .lang-btn:not(.active):hover { color: var(--white); background: rgba(255,255,255,0.06); }
-.hamburger { display: none; background: none; border: none; color: var(--white); padding: 0.25rem; cursor: pointer; }
+.hamburger { display: none; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; background: none; border: none; color: var(--white); padding: 0.25rem; cursor: pointer; }
 .mobile-menu { display: none; flex-direction: column; background: var(--g900); border-top: 1px solid rgba(255,255,255,0.06); }
 .mobile-menu.open { display: flex; }
 .mobile-menu a {
@@ -319,7 +337,7 @@ textarea:focus-visible {
 .mobile-menu a:hover, .mobile-menu a.active { color: var(--white); }
 @media (max-width: 768px) {
   .nav-links { display: none; }
-  .hamburger { display: block; }
+  .hamburger { display: inline-flex; }
 }
 
 /* ---- Footer ---- */
@@ -338,12 +356,14 @@ textarea:focus-visible {
   font-size: 0.75rem; color: var(--g400);
 }
 .footer-col h4 {
-  font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.12em; color: var(--white); margin-bottom: 1rem;
 }
 .footer-col ul { list-style: none; }
-.footer-col ul li { margin-bottom: 0.5rem; }
-.footer-col ul a { font-size: 0.875rem; color: var(--g400); transition: color var(--transition); }
+.footer-col ul li { margin-bottom: 0.35rem; }
+/* inline-block + padding gives each footer link a taller tap target and keeps
+   adjacent links comfortably spaced on touch (Lighthouse `tap-targets`). */
+.footer-col ul a { display: inline-block; padding: 0.3rem 0; font-size: 0.875rem; color: var(--g400); transition: color var(--transition); }
 .footer-col ul a:hover { color: var(--orange); }
 .footer-col p { font-size: 0.875rem; line-height: 1.7; }
 .footer-social { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
@@ -364,7 +384,7 @@ textarea:focus-visible {
   display: inline-flex; align-items: center; gap: 0.5rem;
   background: rgba(224,90,0,0.15); border: 1px solid rgba(224,90,0,0.3);
   color: var(--orange);
-  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
   padding: 0.4rem 0.9rem; margin-bottom: 2rem;
 }
 .hero-badge::before { content: ''; width: 6px; height: 6px; background: var(--orange); border-radius: 50%; }
@@ -417,7 +437,7 @@ textarea:focus-visible {
 }
 .project-date { font-size: 0.75rem; font-weight: 600; color: var(--g500); letter-spacing: 0.04em; }
 .project-tag {
-  font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
   padding: 0.2rem 0.6rem; background: var(--orange-bg); color: var(--orange);
 }
 
@@ -458,11 +478,11 @@ textarea:focus-visible {
 .calc-wrapper { border: 1px solid var(--g200); background: var(--white); overflow: hidden; }
 .calc-breakdown { border: 1px solid var(--g200); background: var(--white); overflow: hidden; }
 .calc-header { background: var(--g900); color: var(--white); padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
-.calc-header-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--g400); }
+.calc-header-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--g400); }
 .calc-row { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; border-bottom: 1px solid var(--g200); gap: 1rem; flex-wrap: wrap; }
 .calc-row:nth-child(even) { background: var(--g100); }
 .calc-label { font-size: 0.875rem; font-weight: 500; color: var(--g700); flex: 1; min-width: 160px; }
-.calc-label span { display: block; font-size: 0.7rem; font-weight: 400; color: var(--g400); margin-top: 0.1rem; letter-spacing: 0.03em; }
+.calc-label span { display: block; font-size: 0.75rem; font-weight: 400; color: var(--g400); margin-top: 0.1rem; letter-spacing: 0.03em; }
 .calc-control { display: flex; align-items: center; gap: 0.75rem; }
 .calc-input { border: 1px solid var(--g300); padding: 0.55rem 0.875rem; font-size: 0.9rem; color: var(--g900); background: var(--white); outline: none; width: 160px; transition: border-color var(--transition); }
 .calc-input:focus { border-color: var(--orange); }
@@ -482,14 +502,14 @@ textarea:focus-visible {
 .toggle input:checked + .toggle-slider::before { transform: translateX(22px); }
 .price-box { background: var(--g900); padding: 2rem 1.5rem; }
 /* g400 (not g500) throughout the dark price box (bg g900 #1F1F1F): g500 was ~3.5:1, under AA. */
-.price-tag { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em; color: var(--g400); margin-bottom: 0.5rem; }
+.price-tag { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em; color: var(--g400); margin-bottom: 0.5rem; }
 .price-amount { font-family: var(--font-display); font-size: 3.5rem; font-weight: 900; color: var(--white); line-height: 1; letter-spacing: -0.01em; }
 .price-amount span { font-size: 1.75rem; font-weight: 500; color: var(--g400); margin-right: 0.25rem; vertical-align: super; }
 .price-note { margin-top: 0.75rem; font-size: 0.75rem; color: var(--g400); line-height: 1.5; }
 
 /* ---- Forms ---- */
 .form-field { display: flex; flex-direction: column; gap: 0.4rem; }
-.form-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--g600); }
+.form-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--g600); }
 .form-required { color: var(--orange); margin-left: 0.15rem; }
 .form-input, .form-select, .form-textarea {
   border: 1px solid var(--g300); padding: 0.75rem 1rem; font-size: 0.875rem;
@@ -503,7 +523,7 @@ textarea:focus-visible {
 .contact-item:last-child { border-bottom: none; }
 .contact-icon { width: 40px; height: 40px; background: var(--orange-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .contact-icon svg { width: 18px; height: 18px; color: var(--orange); }
-.contact-meta { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--g500); margin-bottom: 0.25rem; }
+.contact-meta { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--g500); margin-bottom: 0.25rem; }
 .contact-value { font-size: 0.9375rem; font-weight: 500; color: var(--g900); }
 .contact-value a { color: var(--g900); transition: color var(--transition); }
 .contact-value a:hover { color: var(--orange); }
@@ -520,7 +540,7 @@ textarea:focus-visible {
 .career-card-desc { font-size: 0.875rem; color: var(--g600); line-height: 1.65; }
 .career-card-footer { padding: 1rem 1.5rem; background: var(--g100); border-top: 1px solid var(--g200); font-size: 0.75rem; color: var(--g600); font-weight: 500; }
 
-.badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.2rem 0.65rem; }
+.badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.2rem 0.65rem; }
 .badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .badge-green  { background: #DCFCE7; color: #166534; }
 

@@ -3,7 +3,11 @@
     "siteName": "Bulbau",
     "defaultTitle": "Bulbau — Energie- und Gebäudedienstleistungen · Luxemburg",
     "titleTemplate": "{title} — Bulbau",
-    "defaultDescription": "Präzise entwickelte Energie- und Gebäudedienstleistungen in Luxemburg — Photovoltaikanlagen, Elektroinstallationen, Gebäudeautomation und Wärmepumpenlösungen."
+    "defaultDescription": "Präzise entwickelte Energie- und Gebäudedienstleistungen in Luxemburg — Photovoltaikanlagen, Elektroinstallationen, Gebäudeautomation und Wärmepumpenlösungen.",
+    "legalDescription": "Impressum von Bulbau — Angaben zur Handelsregistereintragung, Rechtsform, RCS-Luxemburg- und USt-IdNr. sowie Geschäftssitz in Luxemburg.",
+    "privacyDescription": "Datenschutzerklärung von Bulbau — wie wir Ihre personenbezogenen Daten gemäß der EU-DSGVO erheben, verwenden und schützen.",
+    "aboutDescription": "Bulbau ist ein luxemburgisches Unternehmen für Energie- und Gebäudetechnik: Photovoltaik, Elektroinstallationen, Gebäudeautomation und Wärmepumpen.",
+    "serviceDescription": "Erhalten Sie sofort eine Online-Preisschätzung für {service} von Bulbau — präzise Energie- und Gebäudedienstleistungen in Luxemburg."
   },
   "Nav": {
     "home": "Startseite",

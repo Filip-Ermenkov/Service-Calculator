@@ -74,16 +74,34 @@ module.exports = {
         // lands (docs/PROGRESS.md) and a higher baseline is confirmed.
         'categories:performance': ['error', { minScore: 0.8 }],
 
-        // SEO stays a WARN. The ~0.5–0.58 baseline is only PARTLY by design: the
-        // biggest hit is the intentional `noindex` outside production
-        // (NEXT_PUBLIC_ALLOW_INDEXING opt-in — src/lib/seo.ts; `is-crawlable` is
-        // turned off below since its "failure" is deliberate). But real audits
-        // also fail underneath it — confirmed `meta-description` gaps (/legal,
-        // /privacy have none; /about's is empty until the CMS is populated), and
-        // very likely `legible-font-size` / `tap-targets` from the design's small
-        // uppercase labels. So enabling indexing at launch will NOT alone reach
-        // 0.9 — SEO becomes a hard gate only AFTER the pre-launch SEO/mobile
-        // polish slice (docs/PROGRESS.md → "Immediate next steps") fixes those.
+        // SEO — the pre-launch SEO/mobile-legibility polish slice (2026-07-21)
+        // fixed the real audits that were failing UNDER the composite score, and
+        // now gates them individually as HARD errors so they can't regress:
+        //   • meta-description — every static page now emits a non-empty,
+        //     localized description (/legal + /privacy had none; /about and
+        //     /services/[slug] fall back to a localized string when the CMS is
+        //     empty). Deterministic pass/fail, so it's a hard gate.
+        //   • font-size (legible-font-size) — no public text renders below 12px
+        //     anymore (all sub-12px labels raised to 0.75rem in globals.css).
+        // These are deterministic DOM audits (unlike noisy metric/category
+        // scores), so gating them on `error` is safe, not a guessed threshold.
+        'meta-description': ['error', { minScore: 1 }],
+        'font-size': ['error', { minScore: 1 }],
+        // tap-targets — the compact language switcher / mobile menu button were
+        // enlarged to a 44px touch target (clears WCAG 2.2 SC 2.5.8's 24px AA
+        // minimum; axe is the authoritative a11y HARD gate). Kept a tracked WARN
+        // rather than a hard gate: Lighthouse prefers 48px with spacing, which a
+        // deliberately compact segmented switcher can't fully satisfy without a
+        // design change — flip to `error` only if a future CI baseline shows it
+        // green across all URLs.
+        'tap-targets': ['warn', { minScore: 1 }],
+
+        // The COMPOSITE SEO category stays a WARN for one reason only now: the
+        // intentional `noindex` outside production (NEXT_PUBLIC_ALLOW_INDEXING
+        // opt-in — src/lib/seo.ts). `is-crawlable` is turned off since its
+        // "failure" is deliberate. With the audits above fixed, enabling indexing
+        // at launch is expected to lift this to >=0.9 — at which point it becomes
+        // a hard gate (a Phase 7 launch step).
         'categories:seo': ['warn', { minScore: 0.9 }],
         'is-crawlable': 'off',
 
