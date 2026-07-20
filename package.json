@@ -69,7 +69,7 @@
     "axe-core": "4.12.1",
     "eslint": "^9.16.0",
     "eslint-config-next": "16.2.10",
-    "jsdom": "^28.0.0",
+    "jsdom": "^29.1.1",
     "prettier": "^3.4.2",
     "sst": "4.17.0",
     "tsx": "^4.22.4",
