@@ -32,7 +32,7 @@
     "deploy:production": "sst deploy --stage production"
   },
   "dependencies": {
-    "@aws-sdk/client-lambda": "^3.1079.0",
+    "@aws-sdk/client-lambda": "^3.1091.0",
     "@payloadcms/db-postgres": "3.86.0",
     "@payloadcms/next": "3.86.0",
     "@payloadcms/richtext-lexical": "3.86.0",
