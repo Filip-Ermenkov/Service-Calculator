@@ -53,6 +53,30 @@ export default $config({
       access: 'cloudfront',
     })
 
+    // Isolated PDF-rendering function (Phase 4 — TECHSPEC §6.5/§13). Kept SEPARATE
+    // from the Next/Payload Web function on purpose: bundling headless Chromium
+    // into the hot-path app function is exactly the risk §13 calls out. This
+    // function carries no Payload and no DB access — the Web function assembles
+    // the quote HTML and invokes this to render it (see src/lib/pdf/render.ts).
+    //
+    // x86_64 (not arm64 like Web): the npm `@sparticuz/chromium` ships x64
+    // binaries only; arm64 would need the -min package + a self-hosted remote
+    // pack tar (an extra artifact to version + download at cold start). The two
+    // functions are isolated, so the architecture mismatch is irrelevant and
+    // this stays self-contained (the Chromium binary is bundled, nothing is
+    // fetched at runtime). `nodejs.install` keeps @sparticuz/chromium as a real
+    // node_module (its binary + relative path resolution break under esbuild).
+    const pdf = new sst.aws.Function('Pdf', {
+      handler: 'src/functions/pdf/handler.handler',
+      runtime: 'nodejs22.x',
+      architecture: 'x86_64',
+      memory: '1600 MB',
+      timeout: '60 seconds',
+      nodejs: {
+        install: ['@sparticuz/chromium', 'puppeteer-core'],
+      },
+    })
+
     const web = new sst.aws.Nextjs('Web', {
       // Graviton (arm64) is cheaper and at least as fast as x86_64 for
       // Node.js Lambda workloads — no reason to pay for x86_64 here.
@@ -66,10 +90,15 @@ export default $config({
       // spike notes). Costs a small, fixed number of extra invocations every
       // few minutes; free-tier covers it at this traffic level.
       warm: 1,
-      link: [media, databaseUrl, payloadSecret, totpEncryptionKey, upstashRedisRestUrl, upstashRedisRestToken, siteUrl, allowIndexing],
+      // Linking `pdf` grants the Web function permission to invoke it; its name
+      // is passed explicitly as PDF_FUNCTION_NAME (read by src/lib/pdf/render.ts).
+      link: [media, databaseUrl, payloadSecret, totpEncryptionKey, upstashRedisRestUrl, upstashRedisRestToken, siteUrl, allowIndexing, pdf],
       environment: {
         DATABASE_URL: databaseUrl.value,
         PAYLOAD_SECRET: payloadSecret.value,
+        // Isolated PDF renderer (Phase 4). Unset ⇒ src/lib/pdf/render.ts falls
+        // back to serving the quote HTML (local dev / CI have no Chromium Lambda).
+        PDF_FUNCTION_NAME: pdf.name,
         // Public site origin + indexing gate (see src/lib/seo.ts). Empty ⇒ safe
         // defaults (prod-domain canonicals, indexing off).
         NEXT_PUBLIC_SITE_URL: siteUrl.value,
@@ -96,6 +125,7 @@ export default $config({
     return {
       url: web.url,
       mediaBucket: media.name,
+      pdfFunction: pdf.name,
     }
   },
 })

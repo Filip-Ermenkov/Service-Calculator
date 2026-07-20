@@ -76,7 +76,28 @@
     "contactNote": "Für diese Werte konnten wir keine Schätzung erstellen. Kontaktieren Sie uns für ein genaues Angebot.",
     "breakdownTitle": "Aufschlüsselung der Schätzung",
     "enterRequired": "Füllen Sie die Pflichtfelder (*) aus, um Ihre Schätzung zu sehen.",
-    "estimateAfterNote": "Alle angezeigten Preise sind nur automatische Schätzungen. Kontaktieren Sie uns für ein genaues, verbindliches Angebot."
+    "estimateAfterNote": "Alle angezeigten Preise sind nur automatische Schätzungen. Kontaktieren Sie uns für ein genaues, verbindliches Angebot.",
+    "downloadPdf": "PDF-Angebot herunterladen",
+    "downloadPreparing": "Ihr Angebot wird vorbereitet…",
+    "downloadError": "Wir konnten Ihr PDF gerade nicht erstellen. Bitte versuchen Sie es erneut oder kontaktieren Sie uns direkt unter {phone} oder {email}."
+  },
+  "Quote": {
+    "title": "Preisschätzung",
+    "disclaimerTitle": "Nur Schätzung",
+    "disclaimerBody": "Dieses Angebot ist eine automatische Schätzung und stellt kein verbindliches Angebot dar. Bitte kontaktieren Sie uns für einen genauen und endgültigen Preis.",
+    "serviceLabel": "Dienstleistung",
+    "dateLabel": "Datum",
+    "paramColumn": "Parameter",
+    "valueColumn": "Ihre Eingabe",
+    "priceColumn": "Betrag",
+    "totalLabel": "Geschätzter Gesamtpreis",
+    "contactForPrice": "Kontaktieren Sie uns für einen Preis",
+    "footerNote": "Dies ist eine automatische Schätzung. Kontaktieren Sie uns für ein genaues, verbindliches Angebot für Ihr Projekt.",
+    "phoneLabel": "Telefon",
+    "emailLabel": "E-Mail",
+    "notSpecified": "—",
+    "yes": "Ja",
+    "no": "Nein"
   },
   "Projects": {
     "eyebrow": "Unser Portfolio",

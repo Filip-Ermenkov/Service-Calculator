@@ -76,7 +76,28 @@
     "contactNote": "Nous n'avons pas pu établir d'estimation pour ces valeurs. Contactez-nous pour un devis précis.",
     "breakdownTitle": "Détail de l'estimation",
     "enterRequired": "Complétez les champs obligatoires (*) pour voir votre estimation.",
-    "estimateAfterNote": "Tous les prix affichés sont uniquement des estimations automatiques. Contactez-nous pour un devis précis et contractuel."
+    "estimateAfterNote": "Tous les prix affichés sont uniquement des estimations automatiques. Contactez-nous pour un devis précis et contractuel.",
+    "downloadPdf": "Télécharger le devis PDF",
+    "downloadPreparing": "Préparation de votre devis…",
+    "downloadError": "Nous n'avons pas pu générer votre PDF pour le moment. Veuillez réessayer ou nous contacter directement au {phone} ou à {email}."
+  },
+  "Quote": {
+    "title": "Estimation de prix",
+    "disclaimerTitle": "Estimation uniquement",
+    "disclaimerBody": "Ce devis est une estimation automatique et ne constitue pas une offre contractuelle. Veuillez nous contacter pour obtenir un prix exact et définitif.",
+    "serviceLabel": "Service",
+    "dateLabel": "Date",
+    "paramColumn": "Paramètre",
+    "valueColumn": "Votre saisie",
+    "priceColumn": "Montant",
+    "totalLabel": "Prix total estimé",
+    "contactForPrice": "Contactez-nous pour un prix",
+    "footerNote": "Ceci est une estimation automatique. Contactez-nous pour un devis précis et contractuel adapté à votre projet.",
+    "phoneLabel": "Téléphone",
+    "emailLabel": "E-mail",
+    "notSpecified": "—",
+    "yes": "Oui",
+    "no": "Non"
   },
   "Projects": {
     "eyebrow": "Notre portfolio",

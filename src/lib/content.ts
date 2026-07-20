@@ -88,7 +88,7 @@ export async function getServiceBySlug(
     })
     return res.docs[0] ?? null
   } catch (err) {
-    console.error(`[content] getServiceBySlug(${slug}) failed:`, err)
+    console.error('[content] getServiceBySlug(%s) failed:', slug, err)
     return null
   }
 }
