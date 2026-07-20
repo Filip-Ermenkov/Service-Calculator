@@ -17,6 +17,12 @@ import {
   type PricingField,
 } from '@/lib/pricing'
 import { evaluateJsonLogic, isUsableFormula, type JsonLogic } from '@/lib/pricing/jsonlogic'
+import {
+  compileFormula,
+  parseFormula,
+  emptyFormula,
+  type BuilderFormula,
+} from '@/lib/pricing/formulaBuilder'
 
 // Phase 2 (public site) coverage. Two parts:
 //   1. Pure helpers (no DB) — plain-text extraction, media resolution, and the
@@ -222,6 +228,130 @@ describe('computePrice + helpers (src/lib/pricing/index.ts)', () => {
     expect(formatCurrency(1234.5, 'en')).toContain('€')
     expect(formatCurrency(1234.5, 'en')).toContain('1,234.5')
     expect(formatCurrency(1234.5, 'de')).toContain('€')
+  })
+})
+
+describe('Formula Builder compile/parse (src/lib/pricing/formulaBuilder.ts)', () => {
+  // The visual builder (Phase 3 part 2) is a view over canonical JSONLogic: it
+  // must compile to the exact shape the shared evaluator runs, and parse that
+  // shape back losslessly so an existing formula re-opens in the builder.
+  const roundtrips = (m: BuilderFormula) =>
+    expect(parseFormula(compileFormula(m))).toEqual(m)
+
+  it('an empty model compiles to null (⇒ default per-field summation path)', () => {
+    expect(compileFormula(emptyFormula())).toBeNull()
+    expect(parseFormula(null)).toEqual(emptyFormula())
+    expect(parseFormula({})).toEqual(emptyFormula())
+  })
+
+  it('compiles a field term to {var}×multiplier and round-trips', () => {
+    const m: BuilderFormula = {
+      terms: [{ kind: 'field', sign: 'add', fieldKey: 'area', multiplier: 12 }],
+      adjustments: [],
+    }
+    expect(compileFormula(m)).toEqual({ '+': [{ '*': [{ var: 'area' }, 12] }] })
+    roundtrips(m)
+  })
+
+  it('round-trips mixed +/− field and fixed terms', () => {
+    roundtrips({
+      terms: [
+        { kind: 'field', sign: 'add', fieldKey: 'area', multiplier: 12 },
+        { kind: 'field', sign: 'subtract', fieldKey: 'rebateArea', multiplier: 5 },
+        { kind: 'fixed', sign: 'add', amount: 100 },
+        { kind: 'fixed', sign: 'subtract', amount: 20 },
+      ],
+      adjustments: [],
+    })
+  })
+
+  it('compiles a +10% VAT adjustment as ×1.1 and parses the percent back', () => {
+    const m: BuilderFormula = {
+      terms: [{ kind: 'field', sign: 'add', fieldKey: 'area', multiplier: 12 }],
+      adjustments: [{ sign: 'add', percent: 10, label: '' }],
+    }
+    expect(compileFormula(m)).toEqual({
+      '*': [{ '+': [{ '*': [{ var: 'area' }, 12] }] }, 1.1],
+    })
+    const back = parseFormula(compileFormula(m))!
+    expect(back.adjustments).toEqual([{ sign: 'add', percent: 10, label: '' }])
+  })
+
+  it('compiles a −10% discount as ×0.9 and preserves adjustment order', () => {
+    const m: BuilderFormula = {
+      terms: [{ kind: 'fixed', sign: 'add', amount: 100 }],
+      adjustments: [
+        { sign: 'add', percent: 5, label: '' },
+        { sign: 'subtract', percent: 10, label: '' },
+      ],
+    }
+    const back = parseFormula(compileFormula(m))!
+    expect(back.adjustments.map((a) => `${a.sign}${a.percent}`)).toEqual([
+      'add5',
+      'subtract10',
+    ])
+  })
+
+  it('round-trips a group "(A + B) × field" and a "(…) × constant" subtract group', () => {
+    roundtrips({
+      terms: [
+        {
+          kind: 'group',
+          sign: 'add',
+          members: [
+            { kind: 'field', fieldKey: 'a', multiplier: 1 },
+            { kind: 'field', fieldKey: 'b', multiplier: 1 },
+          ],
+          factorType: 'field',
+          factorConstant: 1,
+          factorField: 'c',
+        },
+      ],
+      adjustments: [],
+    })
+    roundtrips({
+      terms: [
+        {
+          kind: 'group',
+          sign: 'subtract',
+          members: [
+            { kind: 'field', fieldKey: 'a', multiplier: 2 },
+            { kind: 'fixed', amount: 50 },
+          ],
+          factorType: 'constant',
+          factorConstant: 3,
+          factorField: '',
+        },
+      ],
+      adjustments: [],
+    })
+  })
+
+  it('returns null for non-builder formulas (min / division) ⇒ raw-JSON fallback', () => {
+    expect(parseFormula({ min: [{ var: 'a' }, 100] })).toBeNull()
+    expect(parseFormula({ '/': [{ var: 'a' }, 2] })).toBeNull()
+  })
+
+  it('the compiled formula evaluates to the same total the builder implies', () => {
+    // (a + b) × 2, +10% VAT, a=3 b=7 ⇒ (10)×2=20 ⇒ ×1.1 = 22
+    const m: BuilderFormula = {
+      terms: [
+        {
+          kind: 'group',
+          sign: 'add',
+          members: [
+            { kind: 'field', fieldKey: 'a', multiplier: 1 },
+            { kind: 'field', fieldKey: 'b', multiplier: 1 },
+          ],
+          factorType: 'constant',
+          factorConstant: 2,
+          factorField: '',
+        },
+      ],
+      adjustments: [{ sign: 'add', percent: 10, label: 'VAT' }],
+    }
+    const jl = compileFormula(m) as JsonLogic
+    expect(evaluateJsonLogic(jl, { a: 3, b: 7 })).toBeCloseTo(22, 6)
   })
 })
 
