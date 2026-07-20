@@ -5,6 +5,20 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    # Held-back MAJORS — both are gated on eslint-config-next@16.2.10, which
+    # bundles typescript-eslint@8 (owns @typescript-eslint/typescript-estree) and
+    # eslint-plugin-react@7.37, neither of which supports these majors yet:
+    #   - eslint 10 removed `context.getFilename()`; eslint-plugin-react@7.37 still
+    #     calls it → "getFilename is not a function" (rule react/display-name).
+    #   - typescript 7 (native port) changed internals typescript-estree@8 reads
+    #     (`ModuleKind.Cjs` → undefined); Next/Payload don't target TS7 yet either.
+    # These only become safe once a newer eslint-config-next ships updated plugins
+    # (or the project moves off it). Revisit then. Minor/patch keep flowing.
+    ignore:
+      - dependency-name: 'eslint'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
     groups:
       payload:
         patterns:

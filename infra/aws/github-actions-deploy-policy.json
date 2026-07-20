@@ -78,6 +78,27 @@
       "Resource": "*"
     },
     {
+      "Sid": "ManageAppIamRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:ListRoleTags",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:PassRole"
+      ],
+      "Resource": ["arn:aws:iam::176971015975:role/bulbau-lu-staging-*"]
+    },
+    {
       "Sid": "ExplicitDenyHighRiskActions",
       "Effect": "Deny",
       "Action": [
