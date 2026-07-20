@@ -6,19 +6,24 @@ the same app. See `docs/FUNCTIONALITY.md` (the "what") and
 `docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
 day-to-day commands.
 
-**Status (2026-07-18):** Phase 0, Phase 1, and the DB-migrations workflow (1.5)
-are complete and live on staging — admin panel, mandatory 2FA, the full content
-model, and per-deploy migrations. **Phase 2 (the public site) is complete and
-live on staging** — next-intl URL-based i18n (`/en`, `/fr`, `/de`), a CMS-driven
-shell, the Home / Service / Projects / About / Careers / Legal / Privacy pages
-rendering real content via ISR, clean service slugs, the Projects search/category
-filter, the §7 service-label snapshot, SEO, and an accessibility baseline with
-CI axe (WCAG 2.2 AA) + Lighthouse gates. Web analytics was evaluated and
-**deliberately left out of scope** (see below) — the site stays cookieless with
-no consent banner. **Next up is Phase 3** (the visual calculator/formula builder
-+ live price evaluator). Visit `http://localhost:3000` (redirects to `/en`); the
-admin panel stays at `/admin` (unlocalized). `docs/PROGRESS.md` is the source of
-truth for progress and next steps.
+**Status (2026-07-20):** Phases 0–3 are complete and live on staging — admin
+panel, mandatory 2FA, the full content model, per-deploy migrations, the public
+site (next-intl `/en|/fr|/de` i18n, CMS-driven shell, all content pages via ISR,
+clean service slugs, Projects search/filter, the §7 service-label snapshot, SEO,
+and a CI axe (WCAG 2.2 AA) + Lighthouse accessibility/perf baseline), the
+**real-time price calculator** + shared `src/lib/pricing/` evaluator (Phase 3
+part 1), and the **visual admin Formula Builder** (Phase 3 part 2). **Phase 4
+part 1 (PDF quote generation + Download) is built** — a "Download PDF quote"
+action posts inputs to `/api/quote`, which re-prices server-side and renders a
+branded, trilingual PDF via a **separate isolated Chromium Lambda** (never
+persisted); verified through the automated suite + a local HTML-preview pass,
+with the real Chromium-on-Lambda render pending a staging deploy (see
+`docs/PROGRESS.md`). **Next: confirm the PDF render on staging, then Phase 4
+part 2** (Send-to-Email via SES, gated on the `bulbau.lu` domain / a verified SES
+identity). Web analytics was evaluated and **deliberately left out of scope**
+(see below) — the site stays cookieless with no consent banner. Visit
+`http://localhost:3000` (redirects to `/en`); the admin panel stays at `/admin`
+(unlocalized). `docs/PROGRESS.md` is the source of truth for progress and next steps.
 
 ## Requirements
 
