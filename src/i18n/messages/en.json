@@ -3,7 +3,11 @@
     "siteName": "Bulbau",
     "defaultTitle": "Bulbau — Energy & Building Services · Luxembourg",
     "titleTemplate": "{title} — Bulbau",
-    "defaultDescription": "Precision-engineered energy and building services in Luxembourg — photovoltaic systems, electrical installations, building automation, and heat pump solutions."
+    "defaultDescription": "Precision-engineered energy and building services in Luxembourg — photovoltaic systems, electrical installations, building automation, and heat pump solutions.",
+    "legalDescription": "Legal notice for Bulbau — company registration details, legal form, RCS Luxembourg and VAT numbers, and registered office in Luxembourg.",
+    "privacyDescription": "Privacy policy for Bulbau — how we collect, use, and protect your personal data in line with the EU GDPR.",
+    "aboutDescription": "Bulbau is a Luxembourg energy and building services company delivering photovoltaic, electrical, building-automation, and heat pump solutions.",
+    "serviceDescription": "Get an instant online price estimate for {service} from Bulbau — precision energy and building services in Luxembourg."
   },
   "Nav": {
     "home": "Home",

@@ -3,7 +3,11 @@
     "siteName": "Bulbau",
     "defaultTitle": "Bulbau — Services énergétiques et du bâtiment · Luxembourg",
     "titleTemplate": "{title} — Bulbau",
-    "defaultDescription": "Services énergétiques et du bâtiment conçus avec précision au Luxembourg — systèmes photovoltaïques, installations électriques, automatisation du bâtiment et solutions de pompes à chaleur."
+    "defaultDescription": "Services énergétiques et du bâtiment conçus avec précision au Luxembourg — systèmes photovoltaïques, installations électriques, automatisation du bâtiment et solutions de pompes à chaleur.",
+    "legalDescription": "Mentions légales de Bulbau — informations d'immatriculation, forme juridique, numéros RCS Luxembourg et TVA, et siège social au Luxembourg.",
+    "privacyDescription": "Politique de confidentialité de Bulbau — comment nous collectons, utilisons et protégeons vos données personnelles conformément au RGPD de l'UE.",
+    "aboutDescription": "Bulbau est une société luxembourgeoise de services énergétiques et du bâtiment : photovoltaïque, installations électriques, automatisation du bâtiment et pompes à chaleur.",
+    "serviceDescription": "Obtenez une estimation de prix en ligne instantanée pour {service} chez Bulbau — services énergétiques et du bâtiment de précision au Luxembourg."
   },
   "Nav": {
     "home": "Accueil",

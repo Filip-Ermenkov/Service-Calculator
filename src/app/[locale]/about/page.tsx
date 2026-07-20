@@ -17,12 +17,16 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params
   const t = await getTranslations({ locale, namespace: 'About' })
+  const tm = await getTranslations({ locale, namespace: 'Metadata' })
   const company = await getCompanyInfo(locale as Locale)
   return pageMetadata({
     locale: locale as Locale,
     path: '/about',
     title: t('title'),
-    description: lexicalToPlainText(company?.aboutUsContent, 155) || undefined,
+    // Prefer the CMS "about" content; fall back to a localized static description
+    // so the page always has a non-empty <meta description> (Lighthouse SEO),
+    // even before the CMS is populated / while FR·DE fall back to EN (Phase 5).
+    description: lexicalToPlainText(company?.aboutUsContent, 155) || tm('aboutDescription'),
   })
 }
 
