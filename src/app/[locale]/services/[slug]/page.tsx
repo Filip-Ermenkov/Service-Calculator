@@ -149,7 +149,13 @@ export default async function ServicePage({
               <p className="empty-state-title">{t('noCalculator')}</p>
             </div>
           ) : (
-            <ServiceCalculator fields={pricingFields} formula={formula} />
+            <ServiceCalculator
+              fields={pricingFields}
+              formula={formula}
+              slug={service.slug ?? slug}
+              phone={company?.phone ?? null}
+              email={company?.email ?? null}
+            />
           )}
         </div>
       </section>

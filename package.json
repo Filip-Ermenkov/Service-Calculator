@@ -32,6 +32,7 @@
     "deploy:production": "sst deploy --stage production"
   },
   "dependencies": {
+    "@aws-sdk/client-lambda": "^3.1079.0",
     "@payloadcms/db-postgres": "3.85.2",
     "@payloadcms/next": "3.85.2",
     "@payloadcms/richtext-lexical": "3.85.2",
@@ -47,9 +48,11 @@
     "next-intl": "^4.13.2",
     "otplib": "13.4.1",
     "payload": "3.85.2",
+    "puppeteer-core": "^23.11.1",
     "qrcode": "1.5.4",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "@sparticuz/chromium": "^131.0.1"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1079.0",

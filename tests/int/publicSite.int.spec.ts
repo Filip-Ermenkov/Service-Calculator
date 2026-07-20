@@ -23,6 +23,8 @@ import {
   emptyFormula,
   type BuilderFormula,
 } from '@/lib/pricing/formulaBuilder'
+import { buildQuoteModel, formatQuoteDate, type QuoteText } from '@/lib/pdf/quote'
+import { escapeHtml, renderQuoteHtml } from '@/lib/pdf/template'
 
 // Phase 2 (public site) coverage. Two parts:
 //   1. Pure helpers (no DB) — plain-text extraction, media resolution, and the
@@ -352,6 +354,93 @@ describe('Formula Builder compile/parse (src/lib/pricing/formulaBuilder.ts)', ()
     }
     const jl = compileFormula(m) as JsonLogic
     expect(evaluateJsonLogic(jl, { a: 3, b: 7 })).toBeCloseTo(22, 6)
+  })
+})
+
+describe('PDF quote assembly + template (src/lib/pdf/*)', () => {
+  const text: QuoteText = {
+    title: 'Price Estimate',
+    disclaimerTitle: 'Estimate only',
+    disclaimerBody: 'Automated estimate.',
+    serviceLabel: 'Service',
+    dateLabel: 'Date',
+    paramColumn: 'Parameter',
+    valueColumn: 'Your input',
+    priceColumn: 'Amount',
+    totalLabel: 'Total estimated price',
+    contactForPrice: 'Contact us for a price',
+    footerNote: 'Get in touch.',
+    phoneLabel: 'Phone',
+    emailLabel: 'Email',
+    notSpecified: '—',
+    yes: 'Yes',
+    no: 'No',
+  }
+  const company = { name: 'Bulbau', phone: '+352 123', email: 'hi@bulbau.lu' }
+  const now = new Date('2026-07-20T10:00:00Z')
+  const fields: PricingField[] = [
+    { fieldKey: 'area', label: 'Roof area', type: 'number', options: [], unitPrice: 50, sign: 'add', required: true },
+    { fieldKey: 'panels', label: 'Panels', type: 'number', options: [], unitPrice: 200, sign: 'add', required: false },
+    { fieldKey: 'grid', label: 'Grid tie', type: 'toggle', options: [], unitPrice: -100, sign: 'add', required: false },
+    { fieldKey: 'tier', label: 'Tier', type: 'dropdown', options: [{ label: 'Basic', value: 0 }, { label: 'Premium', value: 500 }], unitPrice: 1, sign: 'add', required: false },
+  ]
+
+  it('builds a priced model (default path) with contributions and formatted total', () => {
+    // 10*50 + 2*200 + 1*(-100) + 500*1 = 1300
+    const m = buildQuoteModel({ fields, formula: null, rawInputs: { area: '10', panels: '2', grid: true, tier: '500' }, locale: 'en', company, text, serviceTitle: 'Solar', now })
+    expect(m.hasTotal).toBe(true)
+    expect(m.totalDisplay).toContain('1,300')
+    expect(m.showContributions).toBe(true)
+    expect(m.lines.find((l) => l.label === 'Tier')?.valueDisplay).toBe('Premium')
+    expect(m.lines.find((l) => l.label === 'Grid tie')?.valueDisplay).toBe('Yes')
+    // the priced default path shows a contribution per field
+    expect(m.lines.find((l) => l.label === 'Roof area')?.contributionDisplay).toContain('500')
+  })
+
+  it('withholds the total when a required number field is blank (mirrors the page)', () => {
+    const m = buildQuoteModel({ fields, formula: null, rawInputs: { area: '', panels: '2' }, locale: 'en', company, text, serviceTitle: 'Solar', now })
+    expect(m.hasTotal).toBe(false)
+    expect(m.totalDisplay).toBeNull()
+    expect(m.showContributions).toBe(false)
+    expect(m.lines.find((l) => l.label === 'Roof area')?.valueDisplay).toBe('—')
+  })
+
+  it('uses a custom formula authoritatively and hides per-field contributions', () => {
+    const formula = { '+': [{ '*': [{ var: 'area' }, 50] }, 1000] } as JsonLogic
+    const m = buildQuoteModel({ fields, formula, rawInputs: { area: '10' }, locale: 'en', company, text, serviceTitle: 'Solar', now })
+    expect(m.totalDisplay).toContain('1,500')
+    expect(m.showContributions).toBe(false)
+  })
+
+  it('renders the §7 contact state for a non-positive total', () => {
+    const negField: PricingField[] = [{ fieldKey: 'x', label: 'X', type: 'number', options: [], unitPrice: -10, sign: 'add', required: true }]
+    const m = buildQuoteModel({ fields: negField, formula: null, rawInputs: { x: '5' }, locale: 'en', company, text, serviceTitle: 'S', now })
+    expect(m.hasTotal).toBe(false)
+    const html = renderQuoteHtml(m)
+    expect(html).toContain('Contact us for a price')
+  })
+
+  it('formats currency and date per locale (de)', () => {
+    const m = buildQuoteModel({ fields, formula: null, rawInputs: { area: '10', panels: '0', grid: false, tier: '0' }, locale: 'de', company, text, serviceTitle: 'Solar', now })
+    expect(m.totalDisplay).toMatch(/500/)
+    expect(m.totalDisplay).toContain('€')
+    expect(formatQuoteDate(now, 'de')).toContain('2026')
+  })
+
+  it('escapes all interpolated content (no HTML injection)', () => {
+    const xss = { ...text, title: '<script>x</script>' }
+    const f: PricingField[] = [{ fieldKey: 'a', label: '<b>Area</b>', type: 'number', options: [], unitPrice: 50, sign: 'add', required: true }]
+    const m = buildQuoteModel({ fields: f, formula: null, rawInputs: { a: '2' }, locale: 'en', company, text: xss, serviceTitle: 'S&Co', now })
+    const html = renderQuoteHtml(m)
+    expect(html.startsWith('<!DOCTYPE html>')).toBe(true)
+    expect(html).toContain('&lt;script&gt;')
+    expect(html).toContain('&lt;b&gt;Area&lt;/b&gt;')
+    expect(html).toContain('S&amp;Co')
+    expect(html).not.toContain('<script>x</script>')
+  })
+
+  it('escapeHtml handles the five significant characters', () => {
+    expect(escapeHtml(`&<>"'`)).toBe('&amp;&lt;&gt;&quot;&#39;')
   })
 })
 

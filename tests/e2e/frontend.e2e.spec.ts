@@ -114,6 +114,30 @@ test.describe('Public site — live price calculator (Phase 3)', () => {
     // §7 contact copy — never the still-blank prompt.
     await expect(total).toHaveText(/€|Contact us for a price/)
   })
+
+  test('a service page can generate a quote via /api/quote (Phase 4)', async ({ page }) => {
+    await page.goto(`${BASE}/en`)
+    const serviceCard = page.locator('a.service-card').first()
+    test.skip((await serviceCard.count()) === 0, 'no seeded services in this environment')
+    const href = await serviceCard.getAttribute('href')
+    test.skip(!href, 'service card has no href')
+    await page.goto(`${BASE}${href}`)
+
+    const button = page.getByRole('button', { name: /Download PDF/i })
+    test.skip((await button.count()) === 0, 'seeded service has no calculator (no quote button)')
+
+    // Clicking posts the current inputs to /api/quote. On a stage with no PDF
+    // Lambda (dev/CI) the route returns the quote HTML (X-Pdf-Preview: html);
+    // on a deployed stage it returns application/pdf. Either is a success.
+    const [resp] = await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes('/api/quote') && r.request().method() === 'POST',
+      ),
+      button.click(),
+    ])
+    expect(resp.status()).toBe(200)
+    expect(resp.headers()['content-type'] ?? '').toMatch(/application\/pdf|text\/html/)
+  })
 })
 
 test.describe('Admin panel stays separate from the public site', () => {

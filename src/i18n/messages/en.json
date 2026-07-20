@@ -76,7 +76,28 @@
     "contactNote": "We couldn't produce an estimate for these values. Contact us for a precise quote.",
     "breakdownTitle": "Estimate breakdown",
     "enterRequired": "Complete the required fields (*) to see your estimate.",
-    "estimateAfterNote": "All prices shown are automated estimates only. Contact us for a precise, binding quotation."
+    "estimateAfterNote": "All prices shown are automated estimates only. Contact us for a precise, binding quotation.",
+    "downloadPdf": "Download PDF quote",
+    "downloadPreparing": "Preparing your quote…",
+    "downloadError": "We couldn't generate your PDF just now. Please try again, or contact us directly at {phone} or {email}."
+  },
+  "Quote": {
+    "title": "Price Estimate",
+    "disclaimerTitle": "Estimate only",
+    "disclaimerBody": "This quote is an automated estimate and does not constitute a binding offer. Please contact us to receive an accurate and final price.",
+    "serviceLabel": "Service",
+    "dateLabel": "Date",
+    "paramColumn": "Parameter",
+    "valueColumn": "Your input",
+    "priceColumn": "Amount",
+    "totalLabel": "Total estimated price",
+    "contactForPrice": "Contact us for a price",
+    "footerNote": "This is an automated estimate. Get in touch for a precise, binding quotation tailored to your project.",
+    "phoneLabel": "Phone",
+    "emailLabel": "Email",
+    "notSpecified": "—",
+    "yes": "Yes",
+    "no": "No"
   },
   "Projects": {
     "eyebrow": "Our Portfolio",

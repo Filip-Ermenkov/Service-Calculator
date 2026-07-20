@@ -12,13 +12,17 @@
  * of a number. The price is an `aria-live` region so assistive tech announces
  * each recalculation. Inputs are keyboard-native (`<input>`/`<select>`/checkbox).
  *
- * Quote actions (Download / Email PDF) are Phase 4 and intentionally not here.
+ * The **Download PDF** action (Phase 4 part 1, FUNCTIONALITY §3.3/§4) posts the
+ * current inputs to `/api/quote`, which re-prices authoritatively server-side and
+ * returns a branded PDF. It's available regardless of whether every field is
+ * filled (§3.3); required gaps are already indicated by the total's gating.
+ * Send-to-Email is Phase 4 part 2 (blocked on a verified SES identity).
  */
 
 import { useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 
-import { Info } from '@/components/site/icons'
+import { Download, Info } from '@/components/site/icons'
 import {
   coerceInputs,
   computePrice,
@@ -41,18 +45,66 @@ function initialValues(fields: PricingField[]): Record<string, RawInput> {
 export function ServiceCalculator({
   fields,
   formula,
+  slug,
+  phone,
+  email,
 }: {
   fields: PricingField[]
   formula: JsonLogic | null
+  slug: string
+  phone?: string | null
+  email?: string | null
 }) {
   const t = useTranslations('Service')
   const locale = useLocale()
   const [values, setValues] = useState<Record<string, RawInput>>(() =>
     initialValues(fields),
   )
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState(false)
 
   const setField = (key: string, value: RawInput) =>
     setValues((prev) => ({ ...prev, [key]: value }))
+
+  async function handleDownload() {
+    if (downloading) return
+    setDownloading(true)
+    setDownloadError(false)
+    try {
+      const res = await fetch('/api/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, locale, inputs: values }),
+      })
+      if (!res.ok) throw new Error(`quote request failed: ${res.status}`)
+
+      const blob = await res.blob()
+      const contentType = res.headers.get('Content-Type') ?? ''
+      const url = URL.createObjectURL(blob)
+
+      if (contentType.includes('application/pdf')) {
+        // Parse the server-provided filename; fall back to a sensible default.
+        const disposition = res.headers.get('Content-Disposition') ?? ''
+        const match = /filename="([^"]+)"/.exec(disposition)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = match?.[1] ?? `quote-${slug}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      } else {
+        // Local/CI HTML-preview fallback (no PDF backend): open for inspection.
+        window.open(url, '_blank', 'noopener')
+      }
+      // Give the browser a tick to start the download before revoking.
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    } catch (err) {
+      console.error('[calculator] PDF download failed:', err)
+      setDownloadError(true)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   const inputs = useMemo(() => coerceInputs(fields, values), [fields, values])
   const result = useMemo(
@@ -174,6 +226,28 @@ export function ServiceCalculator({
               {result.kind === 'price' ? t('priceNote') : t('contactNote')}
             </p>
           </>
+        )}
+      </div>
+
+      {/* Quote actions (FUNCTIONALITY §3.3/§4). Download is available regardless of
+          field completeness; the server re-prices authoritatively and returns a
+          branded PDF (or, on a stage with no PDF backend, the HTML for preview). */}
+      <div className="calc-actions" style={{ marginTop: '1.5rem' }}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={handleDownload}
+          disabled={downloading}
+          aria-busy={downloading || undefined}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+        >
+          <Download width={16} height={16} strokeWidth={2} />
+          {downloading ? t('downloadPreparing') : t('downloadPdf')}
+        </button>
+        {downloadError && (
+          <p className="price-note" role="alert" style={{ color: 'var(--orange)', marginTop: '0.75rem' }}>
+            {t('downloadError', { phone: phone ?? '—', email: email ?? '—' })}
+          </p>
         )}
       </div>
 
