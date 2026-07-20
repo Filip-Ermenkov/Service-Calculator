@@ -75,7 +75,7 @@
     "tsx": "^4.22.4",
     "typescript": "6.0.3",
     "vite-tsconfig-paths": "^6.0.5",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "tmp": "^0.2.7"
