@@ -71,7 +71,7 @@ jobs:
       # be repointed by a compromised maintainer, and this workflow can assume the
       # AWS deploy role via OIDC). Dependabot (github-actions ecosystem) keeps the
       # SHA current and updates the version comment.
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Don't leave the GITHUB_TOKEN in .git/config after checkout — no step
           # here pushes back to the repo, so the credential is never needed.
@@ -136,7 +136,7 @@ jobs:
       # be repointed by a compromised maintainer, and this workflow can assume the
       # AWS deploy role via OIDC). Dependabot (github-actions ecosystem) keeps the
       # SHA current and updates the version comment.
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Don't leave the GITHUB_TOKEN in .git/config after checkout — no step
           # here pushes back to the repo, so the credential is never needed.
