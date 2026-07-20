@@ -24,6 +24,16 @@ updates:
         patterns:
           - '@payloadcms/*'
           - 'payload'
+      # The PDF Lambda's headless-browser pair is version-coupled: puppeteer-core
+      # speaks a Chromium-version-specific DevTools protocol, and @sparticuz/chromium
+      # tracks Chromium releases. Bump them in ONE PR so CI typecheck validates the
+      # pairing (a Chromium major can also change the module API — e.g. v133 dropped
+      # `defaultViewport`/`headless`). Runtime (Chromium-on-Lambda) is still only
+      # provable on a staging deploy, so review these before merging.
+      browser:
+        patterns:
+          - '@sparticuz/chromium'
+          - 'puppeteer-core'
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -39,9 +39,13 @@ export const handler = async (event: RenderPdfEvent): Promise<RenderPdfResult> =
 
   const browser = await puppeteer.launch({
     args: chromium.args,
-    defaultViewport: chromium.defaultViewport,
     executablePath: await chromium.executablePath(),
-    headless: chromium.headless,
+    // @sparticuz/chromium v133+ dropped the `defaultViewport`/`headless`
+    // convenience exports (removed from the module's types), so we pass the
+    // values directly instead of reading them off `chromium`. The build is
+    // headless_shell, so 'shell' is the correct headless mode; viewport is
+    // irrelevant for PDF output (page.pdf drives the A4 page sizing).
+    headless: 'shell',
   })
 
   try {

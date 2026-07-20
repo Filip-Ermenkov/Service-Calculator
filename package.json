@@ -48,11 +48,11 @@
     "next-intl": "^4.13.2",
     "otplib": "13.4.1",
     "payload": "3.86.0",
-    "puppeteer-core": "^23.11.1",
+    "puppeteer-core": "^25.3.0",
     "qrcode": "1.5.4",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "@sparticuz/chromium": "^131.0.1"
+    "@sparticuz/chromium": "^149.0.0"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1090.0",
@@ -67,17 +67,18 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "axe-core": "4.12.1",
-    "eslint": "^9.16.0",
+    "eslint": "^9.39.5",
     "eslint-config-next": "16.2.10",
     "jsdom": "^29.1.1",
-    "prettier": "^3.4.2",
+    "prettier": "^3.9.5",
     "sst": "4.17.0",
-    "tsx": "^4.22.4",
+    "tsx": "^4.23.1",
     "typescript": "6.0.3",
     "vite-tsconfig-paths": "^6.0.5",
     "vitest": "^4.1.10"
   },
   "overrides": {
-    "tmp": "^0.2.7"
+    "tmp": "^0.2.7",
+    "postcss": "^8.5.10"
   }
 }
