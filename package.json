@@ -48,7 +48,7 @@
     "next-intl": "^4.13.2",
     "otplib": "13.4.1",
     "payload": "3.86.0",
-    "puppeteer-core": "^23.11.1",
+    "puppeteer-core": "^25.3.0",
     "qrcode": "1.5.4",
     "react": "19.2.7",
     "react-dom": "19.2.7",
