@@ -200,8 +200,17 @@ export const Services: CollectionConfig = {
       type: 'json',
       admin: {
         description:
-          'Pricing formula as a JSONLogic structure. Authored via the visual ' +
-          'Formula Builder in Phase 3 (TECHSPEC §6.4); never executable code.',
+          'How this service’s price is calculated from its calculator fields. ' +
+          'Built visually below; stored as a JSONLogic structure (never ' +
+          'executable code). Leave empty to simply add up each field’s own ' +
+          'unit price.',
+        // Phase 3 part 2: the visual Formula Builder + live preview replaces raw
+        // JSON editing of this field (TECHSPEC §6.4). It compiles to the same
+        // JSONLogic the public calculator + shared evaluator already run, and
+        // falls back to a raw-JSON editor for any non-builder formula.
+        components: {
+          Field: '/components/admin/FormulaBuilder#FormulaBuilder',
+        },
       },
     },
     {

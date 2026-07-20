@@ -260,7 +260,7 @@ export interface Service {
       }[]
     | null;
   /**
-   * Pricing formula as a JSONLogic structure. Authored via the visual Formula Builder in Phase 3 (TECHSPEC §6.4); never executable code.
+   * How this service’s price is calculated from its calculator fields. Built visually below; stored as a JSONLogic structure (never executable code). Leave empty to simply add up each field’s own unit price.
    */
   formula?:
     | {

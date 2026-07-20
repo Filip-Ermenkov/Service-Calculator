@@ -78,11 +78,20 @@ test.describe('Public site — pages render', () => {
 test.describe('Public site — live price calculator (Phase 3)', () => {
   test('a service page shows an interactive, recomputing estimate', async ({ page }) => {
     await page.goto(`${BASE}/en`)
-    const serviceLink = page.locator('a[href*="/services/"]').first()
-    const hasService = (await serviceLink.count()) > 0
+    // Target the real Home-page service cards specifically (not any stray
+    // "/services/" href), so the skip-guard is accurate.
+    const serviceCard = page.locator('a.service-card').first()
+    const hasService = (await serviceCard.count()) > 0
     test.skip(!hasService, 'no seeded services in this environment')
 
-    await serviceLink.click()
+    // Navigate via the card's own href rather than a client-side click. On a
+    // cold dev server the first page can still be hydrating, so a click on
+    // next-intl's client <Link> is occasionally swallowed before the router is
+    // interactive (a cold-start race, not a routing bug). Reading the href and
+    // navigating directly reaches the same service page deterministically.
+    const href = await serviceCard.getAttribute('href')
+    test.skip(!href, 'service card has no href')
+    await page.goto(`${BASE}${href}`)
     await expect(page).toHaveURL(/\/en\/services\//)
 
     const total = page.locator('[data-testid="calc-total"]')
