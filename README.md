@@ -157,6 +157,8 @@ npm run migrate:status                # which migrations have/haven't run
 npm run migrate                       # apply pending migrations to DATABASE_URL
 ```
 
+**CI enforces this.** The `verify` job runs a schema-drift guard (`migrate:create --skip-empty`, the equivalent of Django's `makemigrations --check`): if you change a collection/field/global and forget to commit a migration, the build fails with a clear message rather than silently shipping code against a schema staging never got. Locally, `push` keeps your dev DB in sync so you won't notice the gap — the guard is what catches it before merge. If it fails, run `npm run migrate:create`, commit the generated `.ts`/`.json`, and push. (Details: `docs/TECHSPEC.md` §10.5 / `docs/PROGRESS.md`.)
+
 **Neon note:** run migrations against the **direct (unpooled)** connection
 string — the one **without** `-pooler` in the hostname. DDL breaks through
 Neon's PgBouncer pooler (transaction pooling). The app's *runtime* `DATABASE_URL`
