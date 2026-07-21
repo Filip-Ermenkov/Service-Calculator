@@ -28,14 +28,18 @@ module.exports = {
       startServerReadyPattern: 'Ready in',
       // Next + Payload cold boot can take a while; the 10s default is too tight.
       startServerReadyTimeout: 60000,
-      // Stable, always-present pages (render even against an empty database).
-      // Service detail (/services/[slug]) is omitted: no seeded services in CI
-      // means those URLs 404. English home/projects/about cover the three main
-      // page templates; /fr home guards locale-specific regressions.
+      // English home/projects/about cover the three main page templates; /fr home
+      // guards locale-specific regressions. The service-detail template
+      // (/services/ci-sample-service) is now audited too: the CI `verify` job
+      // seeds one published sample service (npm run seed:ci) before this step, so
+      // the page — the live calculator + Download-PDF surface — renders with real
+      // content instead of 404-ing on an empty DB. It brings the meta-description
+      // and legible-font-size hard gates onto that template as well.
       url: [
         'http://localhost:3000/en',
         'http://localhost:3000/en/projects',
         'http://localhost:3000/en/about',
+        'http://localhost:3000/en/services/ci-sample-service',
         'http://localhost:3000/fr',
       ],
       // Median of 3 runs — Google's own guidance: 3 runs cut single-run variance

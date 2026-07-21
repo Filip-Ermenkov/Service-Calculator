@@ -22,6 +22,7 @@
     "migrate:create": "cross-env NODE_OPTIONS=--no-deprecation payload migrate:create",
     "migrate:status": "cross-env NODE_OPTIONS=--no-deprecation payload migrate:status",
     "migrate:fresh": "cross-env NODE_OPTIONS=--no-deprecation payload migrate:fresh",
+    "seed:ci": "cross-env NODE_OPTIONS=--no-deprecation payload run tests/helpers/seedContent.run.ts",
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:int && npm run test:e2e",

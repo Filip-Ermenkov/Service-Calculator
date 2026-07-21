@@ -511,6 +511,13 @@ textarea:focus-visible {
 .form-field { display: flex; flex-direction: column; gap: 0.4rem; }
 .form-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--g600); }
 .form-required { color: var(--orange); margin-left: 0.15rem; }
+/* The required "*" is decorative (aria-hidden, paired with a visually-hidden
+   "(required)" for assistive tech). Keep it the accessible brand orange
+   (~4.9:1 on white, ~4.5:1 on the even-row g100) and inline — overriding the
+   grey, block `.calc-label span` sub-label styling, whose higher specificity
+   would otherwise capture it and drop it to ~2.5:1 (a color-contrast fail on
+   the now-audited service page). */
+.calc-label .form-required { color: var(--orange); font-size: inherit; display: inline; }
 .form-input, .form-select, .form-textarea {
   border: 1px solid var(--g300); padding: 0.75rem 1rem; font-size: 0.875rem;
   font-family: var(--font-body); color: var(--g900); background: var(--white);

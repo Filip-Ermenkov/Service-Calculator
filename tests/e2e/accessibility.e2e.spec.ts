@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import type { Result } from 'axe-core'
 
+import { SAMPLE_SERVICE_PATH_EN } from '../helpers/sampleContent'
+
 const BASE = 'http://localhost:3000'
 
 // Automated WCAG 2.2 AA accessibility gate for the public site (TECHSPEC §6.11 /
@@ -25,10 +27,10 @@ const BASE = 'http://localhost:3000'
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 const BLOCKING_IMPACTS = new Set(['serious', 'critical'])
 
-// Pages that render in every environment (no seeded content required). Service
-// detail (/services/[slug]) is intentionally omitted: with an empty CI database
-// there are no published services, so those URLs 404 — they'll be added to this
-// gate once CI can seed content.
+// Pages that render in every environment (no seeded content required). The
+// service-detail template (/services/[slug]) is covered separately below,
+// because it requires seeded content — CI seeds one sample service (npm run
+// seed:ci); locally the test skips if the DB has no such service.
 const EN_PAGES = ['/en', '/en/projects', '/en/about', '/en/careers', '/en/legal', '/en/privacy']
 // Home in the other two locales too — cheap, and catches locale-specific issues
 // (html lang, translated nav, the language switcher's active state).
@@ -78,4 +80,16 @@ test.describe('Accessibility — WCAG 2.2 AA (serious/critical)', () => {
       await auditPage(page, path)
     })
   }
+
+  // Service detail — the live calculator (number/select/toggle inputs, the
+  // aria-live total) and the Download-PDF button. This is the most
+  // interaction-heavy public surface, so it's exactly where axe adds the most
+  // value; it was previously unaudited because it 404s on an empty DB. CI seeds
+  // a sample service so it renders here; when unseeded (a local run against an
+  // empty DB) the test skips rather than failing on the 404.
+  test(`no serious/critical a11y violations on ${SAMPLE_SERVICE_PATH_EN}`, async ({ page }) => {
+    const res = await page.goto(`${BASE}${SAMPLE_SERVICE_PATH_EN}`)
+    test.skip(res?.status() === 404, 'no seeded sample service in this environment (empty DB)')
+    await auditPage(page, SAMPLE_SERVICE_PATH_EN)
+  })
 })

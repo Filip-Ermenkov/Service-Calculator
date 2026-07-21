@@ -93,6 +93,21 @@ jobs:
 
       - run: npm run test:int
 
+      # Seed ONE published sample service into the CI Postgres so the
+      # /services/[slug] template — the live price calculator + the Download-PDF
+      # action, i.e. the core interactive surface — is covered by the Lighthouse
+      # and axe gates and the calculator/quote e2e tests, instead of 404-ing on
+      # an empty database. The seeded row persists in this job's Postgres SERVICE
+      # container for every step below (the build's static generation, `lhci`,
+      # and the e2e `next dev` server), so a single seed call covers all three
+      # consumers. Runs BEFORE build so `generateStaticParams` pre-renders the
+      # service page just as production would. ALLOW_CONTENT_SEED gates the seed
+      # so it can never write to a real database (see tests/helpers/seedContent.ts).
+      - name: Seed sample CMS content (for /services/[slug] audits)
+        run: npm run seed:ci
+        env:
+          ALLOW_CONTENT_SEED: 'true'
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 

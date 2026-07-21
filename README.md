@@ -6,7 +6,7 @@ the same app. See `docs/FUNCTIONALITY.md` (the "what") and
 `docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
 day-to-day commands.
 
-**Status (2026-07-20):** Phases 0–3 are complete and live on staging — admin
+**Status (2026-07-21):** Phases 0–3 are complete and live on staging — admin
 panel, mandatory 2FA, the full content model, per-deploy migrations, the public
 site (next-intl `/en|/fr|/de` i18n, CMS-driven shell, all content pages via ISR,
 clean service slugs, Projects search/filter, the §7 service-label snapshot, SEO,
@@ -17,8 +17,10 @@ part 1 (PDF quote generation + Download) is built** — a "Download PDF quote"
 action posts inputs to `/api/quote`, which re-prices server-side and renders a
 branded, trilingual PDF via a **separate isolated Chromium Lambda** (never
 persisted); verified through the automated suite + a local HTML-preview pass,
-with the real Chromium-on-Lambda render pending a staging deploy (see
-`docs/PROGRESS.md`). **Next: confirm the PDF render on staging, then Phase 4
+and the real Chromium-on-Lambda render is **now live on staging** (the deploy-role
+IAM permission it needed — `ManageAppIamRoles` — has been applied). The CI axe +
+Lighthouse gates now also cover the **service-detail calculator page**, via a
+seeded sample service (see "Testing" and `docs/PROGRESS.md`). **Next: Phase 4
 part 2** (Send-to-Email via SES, gated on the `bulbau.lu` domain / a verified SES
 identity). Web analytics was evaluated and **deliberately left out of scope**
 (see below) — the site stays cookieless with no consent banner. Visit
@@ -114,6 +116,26 @@ npm run test:int     # Vitest — integration tests against DATABASE_URL
 npm run test:e2e     # Playwright — needs `npm run build && npm start` or `next dev` running
 npm run test         # both of the above
 ```
+
+### Seeding sample content for the `/services/[slug]` audits
+
+The service-detail page (the live calculator + Download-PDF button) is the core
+interactive surface, but it 404s on an empty database — so CI could not audit it
+with axe/Lighthouse and the calculator/quote e2e tests could only skip. The
+`verify` job now seeds one published sample service before building, so all three
+cover it. That seed is:
+
+```bash
+ALLOW_CONTENT_SEED=true npm run seed:ci   # idempotent; writes to your .env DATABASE_URL
+```
+
+`ALLOW_CONTENT_SEED=true` is a required opt-in guard so the seed can never write
+to a real (staging/prod) database by accident; without it the script refuses to
+run. It's idempotent (delete-then-create on a fixed slug, `ci-sample-service`).
+Run it locally only if you want the seeded page (`/en/services/ci-sample-service`)
+present for a local `npm run test:e2e` / `npm run lhci`; delete the "CI Sample
+Service" in the admin afterward if you don't want it in your dev DB. In CI the
+database is ephemeral, so nothing persists.
 
 ## Database migrations
 
