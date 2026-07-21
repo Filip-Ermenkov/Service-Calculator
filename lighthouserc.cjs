@@ -87,14 +87,13 @@ module.exports = {
         // scores), so gating them on `error` is safe, not a guessed threshold.
         'meta-description': ['error', { minScore: 1 }],
         'font-size': ['error', { minScore: 1 }],
-        // tap-targets — the compact language switcher / mobile menu button were
-        // enlarged to a 44px touch target (clears WCAG 2.2 SC 2.5.8's 24px AA
-        // minimum; axe is the authoritative a11y HARD gate). Kept a tracked WARN
-        // rather than a hard gate: Lighthouse prefers 48px with spacing, which a
-        // deliberately compact segmented switcher can't fully satisfy without a
-        // design change — flip to `error` only if a future CI baseline shows it
-        // green across all URLs.
-        'tap-targets': ['warn', { minScore: 1 }],
+        // NB: Lighthouse 12 REMOVED the `tap-targets` audit from the SEO category
+        // (asserting it here just raised a harmless "not a known audit" warning in
+        // CI, so it is intentionally not asserted). Target size is still handled —
+        // the compact language switcher / mobile menu button were enlarged to a
+        // 44px touch target (clears WCAG 2.2 SC 2.5.8's 24px AA minimum), and the
+        // axe-core WCAG gate (tests/e2e/accessibility.e2e.spec.ts) is the
+        // authoritative a11y gate for target size going forward.
 
         // The COMPOSITE SEO category stays a WARN for one reason only now: the
         // intentional `noindex` outside production (NEXT_PUBLIC_ALLOW_INDEXING
