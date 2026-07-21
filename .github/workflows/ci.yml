@@ -93,6 +93,50 @@ jobs:
 
       - run: npm run test:int
 
+      # Schema-drift guard (TECHSPEC §10.5 hardening) — the CI equivalent of
+      # Django's `makemigrations --check`. Fails the build if the committed
+      # migrations in src/migrations/ do NOT fully capture the current Payload
+      # schema (i.e. someone changed a collection/field and forgot to run
+      # `npm run migrate:create`). This closes a real gap: the `verify` job runs
+      # with Drizzle `push` ON (NODE_ENV unset), so it would happily pass on an
+      # un-migrated schema change — and then `deploy-staging`'s `payload migrate`
+      # (push OFF) would apply NOTHING, shipping code whose expected columns were
+      # never created on staging. This step catches that here, on every PR/push.
+      #
+      # HOW IT WORKS (verified against the installed payload@3.86 source —
+      # node_modules/@payloadcms/drizzle/.../buildCreateMigration.js):
+      #   • `migrate:create` inits Payload with disableDBConnect:true, so this
+      #     needs NO database connection and causes NO schema push — it only
+      #     diffs the schema built from the config against the snapshot (.json)
+      #     of the latest committed migration.
+      #   • With `--skip-empty` and NO changes, createMigration process.exit(0)s
+      #     WITHOUT writing a file or prompting → guard passes.
+      #   • With changes, it writes a new *.ts/*.json into src/migrations/ →
+      #     `git status --porcelain src/migrations` becomes non-empty → guard
+      #     fails. (git-status detection is version-independent — it doesn't rely
+      #     on the CLI's log wording.)
+      #   • `</dev/null` + `timeout` neutralize the one edge case where an
+      #     ambiguous enum/column RENAME drops drizzle-kit into an interactive
+      #     TUI (`--skip-empty` does not bypass that one): stdin reads EOF and the
+      #     command exits non-zero instead of hanging the runner — also treated
+      #     as drift (a rename genuinely needs a hand-authored migration).
+      # A fixed name (`ci_drift_check`) labels any file that WOULD be written, so
+      # a failure is self-explanatory; the file is never committed (the job fails).
+      - name: Schema drift guard (migrations capture the current schema)
+        run: |
+          set +e
+          timeout 180s npm run migrate:create -- ci_drift_check --skip-empty </dev/null 2>&1 | tee drift-check.log
+          status=${PIPESTATUS[0]}
+          set -e
+          drift="$(git status --porcelain src/migrations)"
+          if [ -n "$drift" ] || [ "$status" -ne 0 ]; then
+            echo "::error title=Schema drift — missing migration::The Payload schema changed but src/migrations/ was not updated. Run 'npm run migrate:create' locally, commit the generated migration (.ts + .json), and push. (An ambiguous enum/column rename can also trip this — those need a hand-written migration.) See docs/TECHSPEC.md §10.5."
+            echo "--- untracked/modified files under src/migrations ---"
+            git status --porcelain src/migrations
+            exit 1
+          fi
+          echo "✅ No schema drift — committed migrations fully capture the current schema."
+
       # Seed ONE published sample service into the CI Postgres so the
       # /services/[slug] template — the live price calculator + the Download-PDF
       # action, i.e. the core interactive surface — is covered by the Lighthouse
