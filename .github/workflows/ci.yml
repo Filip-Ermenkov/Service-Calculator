@@ -137,6 +137,49 @@ jobs:
           fi
           echo "✅ No schema drift — committed migrations fully capture the current schema."
 
+      # Generated-artifact drift guard (TECHSPEC §10.5 hardening) — the sibling
+      # of the schema-drift guard above, for Payload's OTHER two generated-but-
+      # committed files: src/payload-types.ts (`generate:types`) and
+      # src/app/(payload)/admin/importMap.js (`generate:importmap`). It fails the
+      # build if either is stale versus the current config (i.e. someone changed
+      # a collection/field/global — or added/removed a custom admin component —
+      # and forgot to regenerate). This closes a real, silent gap already noted
+      # in TECHSPEC §12: a stale importMap has "no build-time error" — the admin
+      # panel simply breaks at RUNTIME (a custom component like FormulaBuilder or
+      # the TOTP views resolves to nothing), and stale types let code compile
+      # against a schema that no longer matches. Nothing caught either before.
+      #
+      # HOW IT WORKS (verified against the installed payload@3.86 source —
+      # node_modules/payload/dist/bin/index.js + generateTypes.js +
+      # generateImportMap/index.js):
+      #   • Both commands run DIRECTLY on the config — index.js calls
+      #     generateTypes(config)/generateImportMap(config) WITHOUT getPayload(),
+      #     so neither connects to Postgres. No DB service is needed here (same as
+      #     the schema-drift guard) and this step can't flake on the DB.
+      #   • Both are IDEMPOTENT when in sync: generateTypes reads the existing
+      #     file and returns early without writing if the compiled output is
+      #     byte-identical; writeImportMap does the same (trim-compare, skip write
+      #     if unchanged). So an in-sync tree stays clean → no false positives.
+      #   • payload-types.ts is eslint-ignored and there is no prettier CI step,
+      #     so the committed files ARE the raw generator output — regenerating
+      #     with the same pinned payload version reproduces them exactly.
+      # Detection is `git status --porcelain` on the two exact paths (version-
+      # independent — doesn't depend on any CLI log wording); the diff is printed
+      # on failure so the fix is obvious. Runs before the seed/build so the tree
+      # is in a known-clean state and the later steps are unaffected.
+      - name: Generated-artifact drift guard (types + import map in sync)
+        run: |
+          npm run generate:types
+          npm run generate:importmap
+          drift="$(git status --porcelain -- src/payload-types.ts 'src/app/(payload)/admin/importMap.js')"
+          if [ -n "$drift" ]; then
+            echo "::error title=Generated artifacts out of date::src/payload-types.ts and/or src/app/(payload)/admin/importMap.js are stale. Run 'npm run generate:types' and 'npm run generate:importmap' locally, commit the results, and push. (A stale import map breaks the admin panel at runtime with no build error.) See docs/TECHSPEC.md §10.5."
+            echo "--- diff of stale generated files ---"
+            git --no-pager diff -- src/payload-types.ts 'src/app/(payload)/admin/importMap.js'
+            exit 1
+          fi
+          echo "✅ Generated artifacts up to date — payload-types.ts and importMap.js match the current config."
+
       # Seed ONE published sample service into the CI Postgres so the
       # /services/[slug] template — the live price calculator + the Download-PDF
       # action, i.e. the core interactive surface — is covered by the Lighthouse
