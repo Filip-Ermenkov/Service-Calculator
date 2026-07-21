@@ -83,10 +83,13 @@ rate-limiting/lockout notes.
 
 **If you change a collection, a field, or a plugin that contributes admin
 UI** (like `@payloadcms/storage-s3`'s upload handler), run
-`npm run generate:importmap` afterwards. Payload's admin route resolves
+`npm run generate:importmap` afterwards (and `npm run generate:types` when
+you change any collection/field/global). Payload's admin route resolves
 custom components through `src/app/(payload)/admin/importMap.js`, which is
 generated, not hand-written — it goes stale silently (no build error, just a
-broken admin page at runtime) if you skip this.
+broken admin page at runtime) if you skip this. **CI enforces this:** the
+`verify` job regenerates `payload-types.ts` + `importMap.js` and fails on any
+diff, so a stale copy of either can't reach a deploy (details: §10.5).
 
 **Do not run `npx sst deploy` from a native Windows shell.** OpenNext's
 build copies externalized packages into the Lambda bundle via symlinks,
@@ -157,7 +160,7 @@ npm run migrate:status                # which migrations have/haven't run
 npm run migrate                       # apply pending migrations to DATABASE_URL
 ```
 
-**CI enforces this.** The `verify` job runs a schema-drift guard (`migrate:create --skip-empty`, the equivalent of Django's `makemigrations --check`): if you change a collection/field/global and forget to commit a migration, the build fails with a clear message rather than silently shipping code against a schema staging never got. Locally, `push` keeps your dev DB in sync so you won't notice the gap — the guard is what catches it before merge. If it fails, run `npm run migrate:create`, commit the generated `.ts`/`.json`, and push. (Details: `docs/TECHSPEC.md` §10.5 / `docs/PROGRESS.md`.)
+**CI enforces this.** The `verify` job runs a schema-drift guard (`migrate:create --skip-empty`, the equivalent of Django's `makemigrations --check`): if you change a collection/field/global and forget to commit a migration, the build fails with a clear message rather than silently shipping code against a schema staging never got. Locally, `push` keeps your dev DB in sync so you won't notice the gap — the guard is what catches it before merge. If it fails, run `npm run migrate:create`, commit the generated `.ts`/`.json`, and push. (Details: `docs/TECHSPEC.md` §10.5 / `docs/PROGRESS.md`.) The same job also runs a **generated-artifact drift guard**: it regenerates `payload-types.ts` + `admin/importMap.js` and fails on any diff, so stale types or a stale import map (a runtime-only admin breakage) can't ship — if it fails, run `npm run generate:types` and `npm run generate:importmap`, commit, and push.
 
 **Neon note:** run migrations against the **direct (unpooled)** connection
 string — the one **without** `-pooler` in the hostname. DDL breaks through
