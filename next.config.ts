@@ -4,6 +4,11 @@ import type { NextConfig } from 'next'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
+// Single source of truth for the OWASP-aligned security response headers, shared
+// with tests/int/securityHeaders.int.spec.ts. Relative import (not the `@/`
+// alias) so Next's config loader resolves it without the tsconfig path mapping.
+import { securityHeaders } from './src/lib/security/headers'
+
 const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 
@@ -30,6 +35,18 @@ const nextConfig: NextConfig = {
   },
   turbopack: {
     root: path.resolve(dirname),
+  },
+  // Apply the security headers to every route (public site, /api/*, /admin).
+  // These are static (no per-request nonce), so next.config `headers()` is the
+  // correct, cache-friendly, OpenNext-supported home for them — verified emitted
+  // by the running Next server (see the e2e header test), not just present here.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: securityHeaders,
+      },
+    ]
   },
 }
 
