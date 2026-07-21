@@ -20,7 +20,12 @@ persisted); verified through the automated suite + a local HTML-preview pass,
 and the real Chromium-on-Lambda render is **now live on staging** (the deploy-role
 IAM permission it needed — `ManageAppIamRoles` — has been applied). The CI axe +
 Lighthouse gates now also cover the **service-detail calculator page**, via a
-seeded sample service (see "Testing" and `docs/PROGRESS.md`). **Next: Phase 4
+seeded sample service (see "Testing" and `docs/PROGRESS.md`). Recent in-repo
+hardening (2026-07-21): CI **schema-drift** + **generated-artifact drift** guards
+(§10.5), and an OWASP-aligned set of **HTTP security response headers** on every
+route (HSTS/CSP/`nosniff`/`Referrer-Policy`/`frame-ancestors`/`Permissions-Policy`,
+served from `src/lib/security/headers.ts` via `next.config.ts`; see
+`docs/TECHSPEC.md` §7). **Next: Phase 4
 part 2** (Send-to-Email via SES, gated on the `bulbau.lu` domain / a verified SES
 identity). Web analytics was evaluated and **deliberately left out of scope**
 (see below) — the site stays cookieless with no consent banner. Visit
