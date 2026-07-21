@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test'
 
+import { SAMPLE_SERVICE_PATH_EN } from '../helpers/sampleContent'
+
 const BASE = 'http://localhost:3000'
 
 // Phase 2 public-site coverage. Deliberately asserts the SHELL and i18n
@@ -70,61 +72,47 @@ test.describe('Public site — pages render', () => {
   })
 })
 
-// Phase 3 — the live price calculator. Empty-DB-safe: CI runs against an empty
-// Postgres with no services, so this skips when there's nothing to open. When a
-// published service with calculator fields DOES exist (Filip's DB / staging),
-// it proves the calculator is interactive and the total is a live region. The
-// exhaustive arithmetic is covered deterministically by the pure unit tests.
-test.describe('Public site — live price calculator (Phase 3)', () => {
-  test('a service page shows an interactive, recomputing estimate', async ({ page }) => {
-    await page.goto(`${BASE}/en`)
-    // Target the real Home-page service cards specifically (not any stray
-    // "/services/" href), so the skip-guard is accurate.
-    const serviceCard = page.locator('a.service-card').first()
-    const hasService = (await serviceCard.count()) > 0
-    test.skip(!hasService, 'no seeded services in this environment')
-
-    // Navigate via the card's own href rather than a client-side click. On a
-    // cold dev server the first page can still be hydrating, so a click on
-    // next-intl's client <Link> is occasionally swallowed before the router is
-    // interactive (a cold-start race, not a routing bug). Reading the href and
-    // navigating directly reaches the same service page deterministically.
-    const href = await serviceCard.getAttribute('href')
-    test.skip(!href, 'service card has no href')
-    await page.goto(`${BASE}${href}`)
+// Phase 3/4 — the live price calculator + Download-PDF, tested against the
+// seeded sample service (tests/helpers/sampleContent.ts). CI seeds it before the
+// e2e step (npm run seed:ci), so these run deterministically there; locally,
+// against an empty DB the sample page 404s and the tests skip. The exhaustive
+// arithmetic is covered separately by the pure unit tests — here we prove the
+// page is interactive end-to-end (real inputs, a live-region total, a working
+// /api/quote round-trip).
+test.describe('Public site — live price calculator + quote (Phase 3/4)', () => {
+  test('the service page shows an interactive, recomputing estimate', async ({ page }) => {
+    const res = await page.goto(`${BASE}${SAMPLE_SERVICE_PATH_EN}`)
+    test.skip(res?.status() === 404, 'no seeded sample service in this environment (empty DB)')
     await expect(page).toHaveURL(/\/en\/services\//)
 
     const total = page.locator('[data-testid="calc-total"]')
-    // The service may legitimately have no calculator (the §7 no-fields case).
-    const hasCalc = (await total.count()) > 0
-    test.skip(!hasCalc, 'seeded service has no calculator fields')
     await expect(total).toBeVisible()
 
-    // Fill every number input (they may be required — the total is withheld
-    // until required fields have a value) so we reach a real computed state,
-    // proving the inputs are live (not the old disabled preview).
+    // The sample service has a required number field (Area), so the total is
+    // withheld until it's filled. Fill every number input to reach a real
+    // computed state, proving the inputs are live (not the old disabled preview).
     const numberInputs = page.locator('.calc-input[type="number"]')
     const count = await numberInputs.count()
+    expect(count).toBeGreaterThan(0)
     for (let i = 0; i < count; i++) {
       await expect(numberInputs.nth(i)).toBeEnabled()
       await numberInputs.nth(i).fill('5')
     }
+
+    // The select and toggle are also present and operable.
+    await expect(page.locator('.calc-select')).toBeVisible()
 
     // With required fields satisfied, the total shows a formatted price or the
     // §7 contact copy — never the still-blank prompt.
     await expect(total).toHaveText(/€|Contact us for a price/)
   })
 
-  test('a service page can generate a quote via /api/quote (Phase 4)', async ({ page }) => {
-    await page.goto(`${BASE}/en`)
-    const serviceCard = page.locator('a.service-card').first()
-    test.skip((await serviceCard.count()) === 0, 'no seeded services in this environment')
-    const href = await serviceCard.getAttribute('href')
-    test.skip(!href, 'service card has no href')
-    await page.goto(`${BASE}${href}`)
+  test('the service page can generate a quote via /api/quote (Phase 4)', async ({ page }) => {
+    const res = await page.goto(`${BASE}${SAMPLE_SERVICE_PATH_EN}`)
+    test.skip(res?.status() === 404, 'no seeded sample service in this environment (empty DB)')
 
     const button = page.getByRole('button', { name: /Download PDF/i })
-    test.skip((await button.count()) === 0, 'seeded service has no calculator (no quote button)')
+    await expect(button).toBeVisible()
 
     // Clicking posts the current inputs to /api/quote. On a stage with no PDF
     // Lambda (dev/CI) the route returns the quote HTML (X-Pdf-Preview: html);

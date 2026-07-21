@@ -131,7 +131,7 @@ export function ServiceCalculator({
       <div className="calc-wrapper">
         <div className="calc-header">
           <span className="calc-header-label">{t('calcHeaderLabel')}</span>
-          <span style={{ fontSize: '0.7rem', color: 'var(--g400)' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--g400)' }}>
             {t('calcHeaderHint')}
           </span>
         </div>
