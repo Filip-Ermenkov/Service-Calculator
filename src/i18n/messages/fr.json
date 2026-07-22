@@ -83,7 +83,8 @@
     "estimateAfterNote": "Tous les prix affichés sont uniquement des estimations automatiques. Contactez-nous pour un devis précis et contractuel.",
     "downloadPdf": "Télécharger le devis PDF",
     "downloadPreparing": "Préparation de votre devis…",
-    "downloadError": "Nous n'avons pas pu générer votre PDF pour le moment. Veuillez réessayer ou nous contacter directement au {phone} ou à {email}."
+    "downloadError": "Nous n'avons pas pu générer votre PDF pour le moment. Veuillez réessayer ou nous contacter directement au {phone} ou à {email}.",
+    "downloadRateLimited": "Vous avez demandé plusieurs devis en peu de temps. Veuillez patienter un instant et réessayer."
   },
   "Quote": {
     "title": "Estimation de prix",

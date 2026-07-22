@@ -24,6 +24,7 @@ import { buildQuoteModel, type QuoteText } from '@/lib/pdf/quote'
 import { renderPdf } from '@/lib/pdf/render'
 import { renderQuoteHtml } from '@/lib/pdf/template'
 import { toPricingFields, type JsonLogic, type RawInput } from '@/lib/pricing'
+import { checkRateLimit, getClientIp, type RateLimitPolicy } from '@/lib/rateLimit'
 
 interface QuoteRequestBody {
   slug?: unknown
@@ -31,11 +32,52 @@ interface QuoteRequestBody {
   inputs?: unknown
 }
 
+/**
+ * Rate limit for the public PDF endpoint. Each allowed call re-loads the service
+ * from Neon and invokes the isolated 1600 MB Chromium Lambda, so this is an
+ * expensive, unauthenticated resource — the limit caps AWS cost/DoS exposure
+ * (Well-Architected Security + Cost). 10 / minute / IP is generous for a real
+ * visitor tweaking inputs and re-downloading, while stopping a scripted loop.
+ */
+const QUOTE_RATE_LIMIT: RateLimitPolicy = {
+  prefix: 'bulbau-quote',
+  max: 10,
+  windowSeconds: 60,
+}
+
+/**
+ * Hard caps on the request itself (App Router route handlers can't declaratively
+ * bound body size). The quote body is a tiny `{ slug, locale, inputs }` JSON —
+ * a few hundred bytes in practice — so anything large is abuse. Reject early to
+ * avoid parsing/holding a big payload in the Lambda's memory.
+ */
+const MAX_BODY_BYTES = 16 * 1024 // 16 KB
+const MAX_INPUT_FIELDS = 200 // far above any real calculator's field count
+
 function isLocale(value: unknown): value is Locale {
   return typeof value === 'string' && (routing.locales as readonly string[]).includes(value)
 }
 
 export async function POST(request: Request) {
+  // 1) Reject oversized payloads before reading the body (defence-in-depth: a
+  //    missing/lying Content-Length still can't exceed the platform's own limit,
+  //    and the field-count guard below bounds the parsed object regardless).
+  const contentLength = Number(request.headers.get('content-length') ?? '0')
+  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: 'payload_too_large' }, { status: 413 })
+  }
+
+  // 2) Rate-limit by client IP BEFORE any expensive work (no body read, no DB,
+  //    no Lambda). A blocked caller gets 429 + Retry-After and nothing else runs.
+  const ip = getClientIp(request)
+  const rate = await checkRateLimit(QUOTE_RATE_LIMIT, ip)
+  if (!rate.success) {
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      { status: 429, headers: { 'Retry-After': String(QUOTE_RATE_LIMIT.windowSeconds) } },
+    )
+  }
+
   let body: QuoteRequestBody
   try {
     body = (await request.json()) as QuoteRequestBody
@@ -55,6 +97,13 @@ export async function POST(request: Request) {
     body.inputs && typeof body.inputs === 'object' && !Array.isArray(body.inputs)
       ? (body.inputs as Record<string, RawInput>)
       : {}
+
+  // Bound the parsed input map — a huge object would only ever be abuse (the
+  // authoritative field list comes from the CMS, not the client, so extra keys
+  // are ignored downstream anyway; this just refuses to process an absurd one).
+  if (Object.keys(rawInputs).length > MAX_INPUT_FIELDS) {
+    return NextResponse.json({ error: 'too_many_fields' }, { status: 400 })
+  }
 
   try {
     const service = await getServiceBySlug(slug, locale)

@@ -83,7 +83,8 @@
     "estimateAfterNote": "Alle angezeigten Preise sind nur automatische Schätzungen. Kontaktieren Sie uns für ein genaues, verbindliches Angebot.",
     "downloadPdf": "PDF-Angebot herunterladen",
     "downloadPreparing": "Ihr Angebot wird vorbereitet…",
-    "downloadError": "Wir konnten Ihr PDF gerade nicht erstellen. Bitte versuchen Sie es erneut oder kontaktieren Sie uns direkt unter {phone} oder {email}."
+    "downloadError": "Wir konnten Ihr PDF gerade nicht erstellen. Bitte versuchen Sie es erneut oder kontaktieren Sie uns direkt unter {phone} oder {email}.",
+    "downloadRateLimited": "Sie haben in kurzer Zeit mehrere Angebote angefordert. Bitte warten Sie einen Moment und versuchen Sie es erneut."
   },
   "Quote": {
     "title": "Preisschätzung",

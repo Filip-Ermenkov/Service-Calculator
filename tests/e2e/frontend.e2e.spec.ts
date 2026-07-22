@@ -126,6 +126,35 @@ test.describe('Public site — live price calculator + quote (Phase 3/4)', () =>
     expect(resp.status()).toBe(200)
     expect(resp.headers()['content-type'] ?? '').toMatch(/application\/pdf|text\/html/)
   })
+
+  test('the /api/quote endpoint is rate-limited (429 after the per-IP budget)', async ({
+    request,
+  }) => {
+    // Give this run its own limiter bucket via a unique CloudFront-Viewer-Address
+    // (the same header getClientIp trusts first), so the test is isolated from
+    // the other quote requests in this suite and deterministic across runs.
+    const viewer = `198.51.100.${1 + Math.floor(Math.random() * 250)}:40000`
+    const post = () =>
+      request.post(`${BASE}/api/quote`, {
+        headers: { 'CloudFront-Viewer-Address': viewer },
+        // A non-existent slug keeps this cheap (404 before any Lambda) and
+        // empty-DB-safe; the rate-limit check runs *before* the DB lookup, so
+        // the 429 assertion holds regardless of seeding.
+        data: { slug: 'rate-limit-probe', locale: 'en', inputs: {} },
+        failOnStatusCode: false,
+      })
+
+    // Budget is 10 / minute / IP. The first 10 must NOT be rate-limited.
+    for (let i = 0; i < 10; i++) {
+      const r = await post()
+      expect(r.status(), `request ${i + 1} should not be rate-limited`).not.toBe(429)
+    }
+    // The 11th exceeds the budget → 429 with a Retry-After header.
+    const eleventh = await post()
+    expect(eleventh.status()).toBe(429)
+    expect((await eleventh.json()).error).toBe('rate_limited')
+    expect(eleventh.headers()['retry-after']).toBeTruthy()
+  })
 })
 
 test.describe('Admin panel stays separate from the public site', () => {

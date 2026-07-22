@@ -61,7 +61,9 @@ export function ServiceCalculator({
     initialValues(fields),
   )
   const [downloading, setDownloading] = useState(false)
-  const [downloadError, setDownloadError] = useState(false)
+  // null = no error; 'rateLimited' = HTTP 429 (too many quotes, distinct copy);
+  // 'generic' = any other failure (network/server) with the phone/email fallback.
+  const [downloadError, setDownloadError] = useState<null | 'generic' | 'rateLimited'>(null)
 
   const setField = (key: string, value: RawInput) =>
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -69,13 +71,17 @@ export function ServiceCalculator({
   async function handleDownload() {
     if (downloading) return
     setDownloading(true)
-    setDownloadError(false)
+    setDownloadError(null)
     try {
       const res = await fetch('/api/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug, locale, inputs: values }),
       })
+      if (res.status === 429) {
+        setDownloadError('rateLimited')
+        return
+      }
       if (!res.ok) throw new Error(`quote request failed: ${res.status}`)
 
       const blob = await res.blob()
@@ -100,7 +106,7 @@ export function ServiceCalculator({
       setTimeout(() => URL.revokeObjectURL(url), 10_000)
     } catch (err) {
       console.error('[calculator] PDF download failed:', err)
-      setDownloadError(true)
+      setDownloadError('generic')
     } finally {
       setDownloading(false)
     }
@@ -246,7 +252,9 @@ export function ServiceCalculator({
         </button>
         {downloadError && (
           <p className="price-note" role="alert" style={{ color: 'var(--orange)', marginTop: '0.75rem' }}>
-            {t('downloadError', { phone: phone ?? '—', email: email ?? '—' })}
+            {downloadError === 'rateLimited'
+              ? t('downloadRateLimited')
+              : t('downloadError', { phone: phone ?? '—', email: email ?? '—' })}
           </p>
         )}
       </div>

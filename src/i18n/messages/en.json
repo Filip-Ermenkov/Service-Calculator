@@ -83,7 +83,8 @@
     "estimateAfterNote": "All prices shown are automated estimates only. Contact us for a precise, binding quotation.",
     "downloadPdf": "Download PDF quote",
     "downloadPreparing": "Preparing your quote…",
-    "downloadError": "We couldn't generate your PDF just now. Please try again, or contact us directly at {phone} or {email}."
+    "downloadError": "We couldn't generate your PDF just now. Please try again, or contact us directly at {phone} or {email}.",
+    "downloadRateLimited": "You've requested a few quotes in quick succession. Please wait a moment and try again."
   },
   "Quote": {
     "title": "Price Estimate",
