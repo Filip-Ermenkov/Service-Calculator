@@ -96,7 +96,26 @@
         "iam:ListAttachedRolePolicies",
         "iam:PassRole"
       ],
-      "Resource": ["arn:aws:iam::847321857537:role/bulbau-lu-staging-*"]
+      "Resource": ["arn:aws:iam::847321857537:role/*"]
+    },
+    {
+      "Sid": "ProtectCriticalRoles",
+      "Effect": "Deny",
+      "Action": [
+        "iam:DeleteRole",
+        "iam:UpdateRole",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:PassRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::847321857537:role/OrganizationAccountAccessRole",
+        "arn:aws:iam::847321857537:role/aws-reserved/sso.amazonaws.com/*",
+        "arn:aws:iam::847321857537:role/gh-actions-bulbau-staging-deploy"
+      ]
     },
     {
       "Sid": "ExplicitDenyHighRiskActions",
