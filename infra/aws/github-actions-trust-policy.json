@@ -5,7 +5,7 @@
       "Sid": "GitHubActionsStagingDeploy",
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::176971015975:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::847321857537:oidc-provider/token.actions.githubusercontent.com"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {

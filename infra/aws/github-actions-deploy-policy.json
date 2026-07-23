@@ -37,15 +37,15 @@
       "Sid": "ManageBootstrapECRRepo",
       "Effect": "Allow",
       "Action": ["ecr:CreateRepository", "ecr:DescribeRepositories"],
-      "Resource": ["arn:aws:ecr:eu-central-1:176971015975:repository/sst-asset"]
+      "Resource": ["arn:aws:ecr:eu-central-1:847321857537:repository/sst-asset"]
     },
     {
       "Sid": "ManageBootstrapSSMParameter",
       "Effect": "Allow",
       "Action": ["ssm:GetParameters", "ssm:PutParameter"],
       "Resource": [
-        "arn:aws:ssm:eu-central-1:176971015975:parameter/sst/passphrase/*",
-        "arn:aws:ssm:eu-central-1:176971015975:parameter/sst/bootstrap"
+        "arn:aws:ssm:eu-central-1:847321857537:parameter/sst/passphrase/*",
+        "arn:aws:ssm:eu-central-1:847321857537:parameter/sst/bootstrap"
       ]
     },
     {
@@ -60,7 +60,7 @@
         "ssm:AddTagsToResource",
         "ssm:ListTagsForResource"
       ],
-      "Resource": ["arn:aws:ssm:eu-central-1:176971015975:parameter/sst/*"]
+      "Resource": ["arn:aws:ssm:eu-central-1:847321857537:parameter/sst/*"]
     },
     {
       "Sid": "DeploymentsScopedToRegion",
@@ -96,7 +96,7 @@
         "iam:ListAttachedRolePolicies",
         "iam:PassRole"
       ],
-      "Resource": ["arn:aws:iam::176971015975:role/bulbau-lu-staging-*"]
+      "Resource": ["arn:aws:iam::847321857537:role/bulbau-lu-staging-*"]
     },
     {
       "Sid": "ExplicitDenyHighRiskActions",
