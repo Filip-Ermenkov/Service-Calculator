@@ -74,7 +74,7 @@
     {
       "Sid": "ManageCloudFront",
       "Effect": "Allow",
-      "Action": "cloudfront:*",
+      "Action": ["cloudfront:*", "cloudfront-keyvaluestore:*"],
       "Resource": "*"
     },
     {
