@@ -84,8 +84,24 @@ jobs:
 
       - run: npm ci --legacy-peer-deps
 
-      - name: Dependency audit (fails on high/critical only)
-        run: npm audit --audit-level=high
+      # GATE: fail only on high/critical advisories in the PRODUCTION dependency
+      # tree — i.e. code that actually ships to the Lambda. Dev-only tooling
+      # (eslint, lighthouse-ci, playwright, vitest, tsx, …) is bundled by none of
+      # the deploy artifact, so a lint-tool advisory must not block a deploy.
+      # This still gates on every runtime dep (next, react, payload, sharp, …) —
+      # e.g. the next@16.2.10 and sharp advisories were caught this way. It stops
+      # the recurring false-positives from transitive dev deps with no fix in
+      # their line (e.g. brace-expansion inside eslint 9, only patched in an
+      # ESM-only 5.x that eslint 9's CJS minimatch@3 can't consume without
+      # jumping to eslint 10, which breaks eslint-plugin-react).
+      - name: Dependency audit — production deps (gate; fails on high/critical)
+        run: npm audit --omit=dev --audit-level=high
+
+      # VISIBILITY: audit the full tree (incl. dev) too, but never fail the build
+      # on it — so new dev-tooling advisories are still surfaced in the CI log for
+      # a human to triage, without blocking deploys on non-shipping code.
+      - name: Dependency audit — full tree (informational, non-blocking)
+        run: npm audit --audit-level=high || true
 
       - run: npm run lint
 

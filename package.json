@@ -1,7 +1,7 @@
 {
   "name": "bulbau-lu",
   "version": "0.1.0",
-  "description": "bulbau.lu — multilingual service calculator site (Next.js + Payload CMS)",
+  "description": "bulbau.lu \u2014 multilingual service calculator site (Next.js + Payload CMS)",
   "license": "UNLICENSED",
   "private": true,
   "type": "module",
