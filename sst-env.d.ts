@@ -6,22 +6,6 @@
 
 declare module "sst" {
   export interface Resource {
-    "DatabaseUrl": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
-    "Media": {
-      "name": string
-      "type": "sst.aws.Bucket"
-    }
-    "PayloadSecret": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
-    "Web": {
-      "type": "sst.aws.Nextjs"
-      "url": string
-    }
   }
 }
 

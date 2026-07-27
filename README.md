@@ -182,6 +182,15 @@ runs `npm run migrate` against staging **before** `sst deploy`, so the schema
 is always at least as new as the code. There is no production deploy job yet
 (added once staging has been verified stable).
 
+> **AWS account (2026-07-27):** the app runs in its **own dedicated account
+> `847321857537`** (`service-calculator-production`), migrated there from the
+> shared `acc-test` account. `AWS_DEPLOY_ROLE_ARN` (the `staging` GitHub
+> Environment secret) points at that account's `gh-actions-bulbau-staging-deploy`
+> role. See `docs/PROGRESS.md` → "AWS account migration" and `infra/aws/README.md`.
+> **CI audit gate:** the blocking dependency audit is scoped to production deps
+> (`npm audit --omit=dev --audit-level=high`), with a non-blocking full-tree
+> audit for visibility — see that same PROGRESS section for why.
+
 Secrets are never stored in this repo or in GitHub Actions secrets directly
 for app-level config — they're SST secrets, scoped per stage. All four of the
 first block are required before the first deploy; the Upstash pair is optional
@@ -200,7 +209,7 @@ npx sst secret set UpstashRedisRestToken "your-upstash-token"     --stage stagin
 #                    canonicals; unset ⇒ falls back to the production domain.
 #   AllowIndexing  — set to "true" ONLY on production at launch; otherwise search
 #                    engines are told noindex (keeps the staging URL out of search).
-npx sst secret set SiteUrl       "https://d2mj4ke0wr57lb.cloudfront.net" --stage staging
+npx sst secret set SiteUrl       "https://<new-account-cloudfront-domain>" --stage staging   # the OLD d2mj4ke0wr57lb.cloudfront.net URL is dead post-migration (new account = new distribution)
 # npx sst secret set AllowIndexing "true" --stage production   # production launch only
 ```
 
