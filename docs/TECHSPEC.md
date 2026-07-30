@@ -126,12 +126,14 @@ Service-Calculator/
 │   ├── payload.config.ts
 │   └── payload-types.ts         # generated (`npm run generate:types`)
 ├── infra/
-│   └── aws/                     # Standalone, one-time AWS bootstrap — NOT managed by
-│       ├── github-actions-trust-policy.json    # sst.config.ts or Terraform, since it has
-│       ├── github-actions-deploy-policy.json   # to exist before SST/CI can run at all.
-│       └── README.md                           # Applied once by hand via AWS CLI; see
-│                                                # its own README for the reasoning and
-│                                                # the Access Analyzer follow-up.
+│   ├── aws/                     # One-time IAM bootstrap for GitHub OIDC (trust +
+│   │   ├── github-actions-trust-policy.json    # deploy policy). Must exist before SST/CI
+│   │   ├── github-actions-deploy-policy.json   # can run; the deploy policy JSON is now
+│   │   └── README.md                           # also the single source consumed by
+│   │                                            # infra/terraform (file = live).
+│   └── terraform/               # Foundational IaC (long-lived/stateful): Route 53 zone +
+│                                # reusable delegation set, Neon project, deploy role,
+│                                # AWS Budgets + CloudWatch alarms. S3 state, native lock.
 ├── tests/
 │   ├── int/                    # Vitest, against a real Postgres (local or CI service container)
 │   ├── e2e/                    # Playwright
@@ -335,8 +337,9 @@ Baseline ECS Fargate + ALB + RDS single-AZ setup, as scoped earlier in this proj
 2. On merge to `main`: apply DB migrations to staging (`payload migrate`, direct/unpooled Neon URL — Section 10.5) → deploy to staging via `sst deploy --stage staging` → run E2E suite, Lighthouse CI (Section 6.11), and axe-core accessibility checks (Section 7B) against staging → manual approval gate → migrate production → `sst deploy --stage production`.
 
 ### 10.3 IaC ownership
-- SST (`infra/sst.config.ts`): Lambda functions, CloudFront, S3, Route 53 records, SES identity, Payload's environment wiring — and the Neon project/branches, via SST's ability to consume Terraform/Pulumi providers directly.
-- Standalone Terraform: only for anything SST can't model directly, decided case-by-case as the project progresses (kept in `infra/` alongside the SST config, same repo).
+Two layers, split by resource lifetime (implemented + **applied live 2026-07-31** — see `docs/PROGRESS.md` → "Foundational IaC layer"):
+- **SST** (`sst.config.ts`, repo root): the app-native, per-stage, disposable resources — Lambda functions (Web + isolated Pdf), CloudFront, S3, the app's Route 53 **records** (via a zone *lookup*, not zone creation), the SES identity (Phase 4b), and Payload's environment wiring. These are torn down/rebuilt with the stage.
+- **Foundational Terraform** (`infra/terraform/`): the long-lived, stateful resources that must **outlive** any app deploy and so must not be owned by the removable SST stage — the Route 53 **hosted zone + reusable delegation set** (stable nameservers), the **Neon project/branch** (import-managed, `prevent_destroy`), the **GitHub-Actions deploy IAM role + policy** (making the committed `infra/aws/*.json` the single source of truth — file = live), and the **account cost/observability guardrails** (AWS Budgets + CloudWatch alarms). Remote state in S3 with native locking. This is what the original "standalone Terraform lives in `infra/`" intent (and the earlier plan to model Neon via SST-consumed providers) resolved to in practice: a dedicated foundational stack, kept separate from SST so a stage teardown can never touch DNS or the database.
 
 ### 10.4 Why not CDK
 CDK/CloudFormation is AWS-only and cannot declare the Neon database as code, which this project needs from day one. CloudFormation/CDK's automatic rollback-on-failure is a genuine advantage over Terraform's fail-forward model, but it doesn't offset the multi-provider gap, and it isn't foolproof either (a failed rollback can itself get stuck). SST's own engine made the same call — it moved off CDK onto Pulumi/Terraform providers for exactly this reason.

@@ -1,0 +1,28 @@
+# Copy to terraform.tfvars (gitignored) and fill in. Secrets (neon_api_key) are
+# better supplied via env: `export TF_VAR_neon_api_key=...` rather than a file.
+
+aws_account_id = "847321857537"       # service-calculator-production
+aws_region     = "eu-central-1"
+domain_name    = "bulbau.lu"
+alert_email    = "f.ermenkov@gmail.com"
+
+# Cost guardrails (USD)
+daily_budget_limit   = "1"
+monthly_budget_limit = "10"
+
+# ── Optional, enable per the README runbook AFTER importing ──────────────────
+# CloudWatch Lambda alarms — fill after an `sst deploy` reveals the function names
+web_function_name = ""   # e.g. "bulbau-lu-production-WebServerFunction..."
+pdf_function_name = ""   # e.g. "bulbau-lu-production-PdfFunction..."
+
+# Neon — keep false until the existing project is `terraform import`ed
+manage_neon       = false
+# neon_api_key    = "" # supply via TF_VAR_neon_api_key instead
+neon_project_name = "bulbau-lu"
+neon_region_id    = "aws-eu-central-1"
+neon_pg_version   = 17
+neon_history_retention_seconds = 21600   # 6h — matches the live project; raise deliberately
+
+# GitHub-Actions deploy role — keep false until the existing role is imported
+manage_deploy_role = false
+deploy_role_name   = "gh-actions-bulbau-staging-deploy"

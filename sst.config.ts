@@ -5,8 +5,12 @@
 // `sst.config.ts` relative to the directory it's run from — it cannot be
 // relocated into infra/ without also changing how every `sst <command>` is
 // invoked, so this deviates from docs/TECHSPEC.md §4's original proposal.
-// Standalone Terraform (for anything outside SST's native components, e.g.
-// the Neon project/branch itself — see §10.3) still lives in infra/.
+// Standalone Terraform (for the long-lived/stateful resources outside SST's
+// native components — the Route 53 hosted zone, the Neon project/branch, the
+// deploy IAM role, and the account budget/alarm guardrails) lives in
+// infra/terraform/ (added 2026-07-30; see its README + docs/TECHSPEC.md §10.3).
+// The production `domain` block references that zone via a lookup, so a stage
+// teardown never touches DNS.
 export default $config({
   app(input) {
     return {
