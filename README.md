@@ -182,6 +182,15 @@ runs `npm run migrate` against staging **before** `sst deploy`, so the schema
 is always at least as new as the code. There is no production deploy job yet
 (added once staging has been verified stable).
 
+**Foundational IaC** (long-lived/stateful resources — the Route 53 hosted zone +
+reusable delegation set, the Neon project, the deploy IAM role, and the account
+budget/alarm guardrails) lives separately in `infra/terraform/` (Terraform, S3
+remote state), deliberately **not** in `sst.config.ts` so a stage teardown can
+never destroy DNS or the database. See `infra/terraform/README.md` for the apply
+and import runbook. **Applied and live as of 2026-07-31** — the zone is created,
+DNS is delegated at EuroDNS, and the Neon project + deploy role are imported
+(file = live).
+
 > **AWS account (2026-07-27):** the app runs in its **own dedicated account
 > `847321857537`** (`service-calculator-production`), migrated there from the
 > shared `acc-test` account. `AWS_DEPLOY_ROLE_ARN` (the `staging` GitHub

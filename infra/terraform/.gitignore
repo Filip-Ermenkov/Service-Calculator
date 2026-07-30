@@ -1,0 +1,17 @@
+# Terraform working files and local state — never commit.
+.terraform/
+.terraform.lock.hcl.tmp
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Variable files may contain secrets (neon_api_key) or PII (alert_email).
+# Commit only terraform.tfvars.example.
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+
+# Saved plans can contain secret values.
+*.tfplan
+tfplan

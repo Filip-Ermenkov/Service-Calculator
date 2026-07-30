@@ -1,6 +1,8 @@
 # Staging deploy role (GitHub Actions OIDC)
 
-One-time AWS bootstrap so `.github/workflows/ci.yml`'s `deploy-staging` job can run `sst deploy --stage staging` without stored AWS keys. Not managed by `sst.config.ts` or Terraform — this has to exist *before* SST/CI can run, so it's applied once by hand via the AWS CLI. See the root README's Deploying section for the full command sequence.
+One-time AWS bootstrap so `.github/workflows/ci.yml`'s `deploy-staging` job can run `sst deploy --stage staging` without stored AWS keys. It has to exist *before* SST/CI can run, so it's **applied once by hand via the AWS CLI** (see the root README's Deploying section for the full command sequence).
+
+> **Update (2026-07-31): this role + inline policy are now MANAGED by the foundational Terraform stack** (`infra/terraform/iam.tf`) — imported 2026-07-31. The `github-actions-deploy-policy.json` in this folder is therefore the **single source of truth**: change it and run `terraform apply` (**not** `aws iam put-role-policy`), and `terraform plan` continuously drift-checks file vs live. The import confirmed **file = live** — no permission/trust diff, only the three management tags were added. Note the inline policy's real AWS name is **`bulbau-staging-deploy`** (distinct from this JSON's filename). The hand-push CLI commands below are retained only for the original bootstrap / disaster-recovery context.
 
 > **Account note (2026-07-27):** the committed JSON files now carry the **new dedicated account ID `847321857537`** (`service-calculator-production`); the app was migrated there from the shared `acc-test` account (`176971015975`). See `docs/PROGRESS.md` → "AWS account migration".
 >
