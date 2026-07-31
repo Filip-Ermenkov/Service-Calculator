@@ -6,7 +6,9 @@ the same app. See `docs/FUNCTIONALITY.md` (the "what") and
 `docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
 day-to-day commands.
 
-**Status (2026-07-21):** Phases 0–3 are complete and live on staging — admin
+**Status (2026-07-31):** **The site is LIVE in production at `https://bulbau.lu`** (custom domain, apex + `www`→apex redirect, valid ACM cert; deployed via the manual-approval `deploy-production` CI job; production Neon branch baselined; account CloudWatch Lambda alarms on). It is **not yet publicly launched** — search indexing stays off until the Phase 7 launch flip. See `docs/PROGRESS.md` → "Production stage stand-up".
+
+Phases 0–3 are complete and live (staging **and** production) — admin
 panel, mandatory 2FA, the full content model, per-deploy migrations, the public
 site (next-intl `/en|/fr|/de` i18n, CMS-driven shell, all content pages via ISR,
 clean service slugs, Projects search/filter, the §7 service-label snapshot, SEO,
@@ -179,8 +181,13 @@ Infrastructure is defined in `sst.config.ts` (SST v4 / Ion engine) and
 deployed via GitHub Actions (`.github/workflows/ci.yml`) — pushes to `main`
 deploy to the `staging` stage automatically after tests pass. The deploy job
 runs `npm run migrate` against staging **before** `sst deploy`, so the schema
-is always at least as new as the code. There is no production deploy job yet
-(added once staging has been verified stable).
+is always at least as new as the code. **A `deploy-production` job now exists**
+(added 2026-07-31): it runs `needs: [verify, deploy-staging]`, then waits for a
+manual approval on the `production` GitHub Environment, then migrates the
+production Neon branch and runs `sst deploy --stage production`. Only the
+`production` stage has a custom domain (`bulbau.lu`, wired in `sst.config.ts`
+via a stage-conditional `domain` block that *looks up* the Terraform-managed
+Route 53 zone); staging stays on its generated `*.cloudfront.net` URL.
 
 **Foundational IaC** (long-lived/stateful resources — the Route 53 hosted zone +
 reusable delegation set, the Neon project, the deploy IAM role, and the account
@@ -236,13 +243,27 @@ The staging **`deploy-staging`** job also passes the (already-existing)
 public pages are statically pre-rendered with real CMS content at deploy time
 (not empty until the first ISR revalidation).
 
-Two GitHub **Environment** (`staging`) secrets are also needed, set in the repo
-settings (not via SST):
+GitHub **Environment** secrets are also needed, set in the repo settings (not
+via SST). On the **`staging`** Environment:
 
 - `AWS_DEPLOY_ROLE_ARN` — the OIDC deploy role (short-lived assumed role, not a
   stored access key); see `docs/TECHSPEC.md` §10 for the trust policy.
 - `STAGING_DATABASE_URL_UNPOOLED` — the **direct** Neon URL used by the CI
   migrate step (see "Database migrations" above).
+
+On the **`production`** Environment (added 2026-07-31; also configure a
+**Required reviewers** protection rule here — that is what pauses `deploy-production`
+for manual approval):
+
+- `AWS_DEPLOY_ROLE_ARN` — the **same** deploy role ARN as staging (single-app
+  account; the role's trust policy allows both the `staging` and `production`
+  Environments).
+- `PRODUCTION_DATABASE_URL_UNPOOLED` — the **direct** Neon URL of the production
+  branch, used by the production migrate step.
+
+Production SST secrets are set the same way as staging but `--stage production`
+(`DatabaseUrl` is the production branch's **pooled** URL). Leave `AllowIndexing`
+unset until the launch flip.
 
 ## Project structure
 

@@ -7,10 +7,14 @@ therefore are deliberately **not** owned by the removable SST app stage
 resources "lives in `infra/`".
 
 > **Status: APPLIED and live (2026-07-31).** The zone + delegation set, budgets, and
-> SNS are created; DNS is delegated at EuroDNS (`dig NS bulbau.lu` resolves); and the
+> SNS are created; DNS is delegated at EuroDNS (`dig NS bulbau.lu` resolves); the
 > Neon project and deploy role are imported (`manage_neon` + `manage_deploy_role` are
-> both `true` in the live, gitignored `terraform.tfvars`). The only opt-in pieces still
-> off are the CloudWatch Lambda alarms, which need the production function names. The
+> both `true` in the live, gitignored `terraform.tfvars`); and — since the `production`
+> stage went live — the **CloudWatch Lambda alarms are now ON** too (`web_function_name`
+> + `pdf_function_name` are filled with the production function names and applied). So
+> everything this layer manages is now active. The deploy role's inline policy also
+> gained ACM (us-east-1) + Route 53 statements during the production stand-up (pushed
+> via `terraform apply`, since `iam.tf` sources `infra/aws/*.json` via `file()`). The
 > runbook below remains the reference for a fresh clone / disaster recovery.
 
 ## What it manages
@@ -21,7 +25,7 @@ resources "lives in `infra/`".
 | Route 53 **public hosted zone** for `bulbau.lu` | `dns.tf` | new (safe create) | first pass |
 | **AWS Budgets** (daily + monthly cost alarms → email) | `budget.tf` | new (safe create) | first pass |
 | **SNS** ops topic + email subscription | `observability.tf` | new (safe create) | first pass |
-| **CloudWatch alarms** (Web/Pdf Lambda errors + throttles) | `observability.tf` | new, opt-in | after a stage deploy |
+| **CloudWatch alarms** (Web/Pdf Lambda errors + throttles) | `observability.tf` | new, opt-in | ✅ ON (production names filled 2026-07-31) |
 | **Neon project** (existing DB) | `neon.tf` | import-only, `prevent_destroy` | after import |
 | **GitHub-Actions deploy role + policy** (existing) | `iam.tf` | import-only, `prevent_destroy` | after import |
 
@@ -113,5 +117,17 @@ backstop, not a substitute for reading the plan.
 ## Turning CloudWatch alarms on
 
 After a stage is deployed, set `web_function_name` / `pdf_function_name` to the
-real Lambda names (from the `sst deploy` output or the Lambda console) and
-`terraform apply`. Empty names keep the alarms disabled.
+real Lambda names and `terraform apply`. Empty names keep the alarms disabled.
+**Done 2026-07-31** — the production names are `bulbau-lu-production-WebServerEucentral1Function-<suffix>`
+and `bulbau-lu-production-PdfFunction-<suffix>`, discovered with:
+
+```bash
+aws resourcegroupstaggingapi get-resources --region eu-central-1 \
+  --resource-type-filters lambda:function \
+  --tag-filters "Key=sst:app,Values=bulbau-lu" "Key=sst:stage,Values=production" \
+  --query "ResourceTagMappingList[].ResourceARN" --output table
+```
+
+Alarm on the main **WebServer** function and the **Pdf** function (not the
+ImageOptimizer/Warmer/Revalidation siblings). If the functions are ever
+recreated, their random name suffix changes — re-query and re-`apply`.

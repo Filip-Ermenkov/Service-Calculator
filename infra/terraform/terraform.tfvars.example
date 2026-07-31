@@ -12,15 +12,15 @@ monthly_budget_limit = "10"
 
 # ── Optional, enable per the README runbook AFTER importing ──────────────────
 # CloudWatch Lambda alarms — fill after an `sst deploy` reveals the function names
-web_function_name = ""   # e.g. "bulbau-lu-production-WebServerFunction..."
-pdf_function_name = ""   # e.g. "bulbau-lu-production-PdfFunction..."
+web_function_name = ""   # e.g. "bulbau-lu-production-WebServerEucentral1Function-xxxxxxxx"
+pdf_function_name = ""   # e.g. "bulbau-lu-production-PdfFunction-xxxxxxxx"
 
 # Neon — keep false until the existing project is `terraform import`ed
 manage_neon       = false
 # neon_api_key    = "" # supply via TF_VAR_neon_api_key instead
-neon_project_name = "bulbau-lu"
+neon_project_name = "Service-Calculator"   # the live project's DISPLAY name (not "bulbau-lu")
 neon_region_id    = "aws-eu-central-1"
-neon_pg_version   = 17
+neon_pg_version   = 18
 neon_history_retention_seconds = 21600   # 6h — matches the live project; raise deliberately
 
 # GitHub-Actions deploy role — keep false until the existing role is imported
