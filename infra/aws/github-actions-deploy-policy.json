@@ -78,6 +78,44 @@
       "Resource": "*"
     },
     {
+      "Sid": "ManageAcmCertsUsEast1",
+      "Effect": "Allow",
+      "Action": [
+        "acm:RequestCertificate",
+        "acm:DescribeCertificate",
+        "acm:GetCertificate",
+        "acm:ListCertificates",
+        "acm:DeleteCertificate",
+        "acm:AddTagsToCertificate",
+        "acm:RemoveTagsFromCertificate",
+        "acm:ListTagsForCertificate"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": { "aws:RequestedRegion": "us-east-1" }
+      }
+    },
+    {
+      "Sid": "ManageRoute53RecordsInAppZone",
+      "Effect": "Allow",
+      "Action": [
+        "route53:ChangeResourceRecordSets",
+        "route53:ListResourceRecordSets",
+        "route53:GetHostedZone"
+      ],
+      "Resource": ["arn:aws:route53:::hostedzone/Z0078043CEYQ2NGVQW6G"]
+    },
+    {
+      "Sid": "Route53ReadChangesAndListZones",
+      "Effect": "Allow",
+      "Action": [
+        "route53:GetChange",
+        "route53:ListHostedZones",
+        "route53:ListHostedZonesByName"
+      ],
+      "Resource": "*"
+    },
+    {
       "Sid": "ManageAppIamRoles",
       "Effect": "Allow",
       "Action": [

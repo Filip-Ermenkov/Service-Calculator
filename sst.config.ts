@@ -26,6 +26,12 @@ export default $config({
     }
   },
   async run() {
+    // Only the `production` stage gets the custom domain (bulbau.lu). Every
+    // other stage (staging, ephemeral PR stages, local `sst dev`) keeps the
+    // auto-generated *.cloudfront.net URL — so a stage teardown never touches
+    // DNS and only production ever mints/validates an ACM certificate.
+    const isProduction = $app.stage === 'production'
+
     // Populated via `sst secret set <Name> <value> --stage <stage>`.
     // Never hardcoded here — see README.md "Deploying" section.
     const databaseUrl = new sst.Secret('DatabaseUrl')
@@ -82,6 +88,28 @@ export default $config({
     })
 
     const web = new sst.aws.Nextjs('Web', {
+      // Custom domain — PRODUCTION ONLY (see `isProduction` above). All other
+      // stages return `undefined` here and keep their *.cloudfront.net URL.
+      //
+      //   • name: the apex `bulbau.lu` is the canonical host.
+      //   • redirects: `www.bulbau.lu` 301-redirects to the apex (SST provisions
+      //     a lightweight redirect distribution + the extra DNS/cert SAN).
+      //   • dns: sst.aws.dns({ zone }) points SST at the EXISTING Route 53 hosted
+      //     zone that lives in Terraform (infra/terraform/dns.tf) — SST creates
+      //     the validation + alias RECORDS inside it but never creates/owns the
+      //     zone, so `sst remove` can't delete DNS. Zone ID is the Terraform
+      //     output `zone_id` (Z0078043CEYQ2NGVQW6G); keep the two in sync.
+      //   • cert: omitted ⇒ SST auto-creates + DNS-validates an ACM certificate
+      //     in us-east-1 (required by CloudFront). The deploy role's policy was
+      //     widened for exactly this (ACM in us-east-1 + Route 53 record writes)
+      //     — see infra/aws/github-actions-deploy-policy.json.
+      domain: isProduction
+        ? {
+            name: 'bulbau.lu',
+            redirects: ['www.bulbau.lu'],
+            dns: sst.aws.dns({ zone: 'Z0078043CEYQ2NGVQW6G' }),
+          }
+        : undefined,
       // Graviton (arm64) is cheaper and at least as fast as x86_64 for
       // Node.js Lambda workloads — no reason to pay for x86_64 here.
       server: {
