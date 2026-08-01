@@ -117,7 +117,22 @@ async function runAutoTranslation(params: {
         })
   ) as Record<string, unknown>
 
-  const writeContext = { skipAutoTranslate: true, disableRevalidate: true }
+  // Bulletproof recursion + revalidation control via the SHARED req.context
+  // (MUTATION, not the per-call `context` argument). Payload's handling of a
+  // `context` argument WHEN a `req` is also passed is ambiguous, and if our flag
+  // fails to reach the nested hook, our FR/DE writes re-trigger translation — and
+  // because those writes make the FR/DE values differ from EN, every level sees a
+  // "change" and re-translates, looping until the Lambda timeout (the multi-minute
+  // save). Mutating the shared req.context is unambiguous:
+  //   • skipAutoTranslate → the nested FR/DE writes' afterChange no-ops (Guard 2).
+  //   • disableRevalidate → those writes don't each re-revalidate; it's reset in
+  //     `finally` so the ORIGINAL save's revalidate hook (which runs right after
+  //     this one) still fires exactly once.
+  const ctx = req.context as Record<string, unknown>
+  const originalDisableRevalidate = ctx.disableRevalidate
+  ctx.skipAutoTranslate = true
+  ctx.disableRevalidate = true
+
   // Shared deadline for ALL translation calls this save, so afterChange can never
   // block the transaction long enough to hit the Lambda timeout (→ rollback). We
   // use an explicit controller (cleared in `finally`) rather than
@@ -173,8 +188,7 @@ async function runAutoTranslation(params: {
         data,
         draft: isDraft,
         overrideAccess: true,
-        context: writeContext,
-        req,
+        req, // carries the mutated req.context (skip flags) — prevents recursion
       })
     } else {
       await (payload.update as CallableFunction)({
@@ -184,28 +198,37 @@ async function runAutoTranslation(params: {
         data,
         draft: isDraft,
         overrideAccess: true,
-        context: writeContext,
-        req,
+        req, // carries the mutated req.context (skip flags) — prevents recursion
       })
     }
   }
 
-  // Both target locales in PARALLEL, each isolated: one failing (or the shared
-  // deadline firing) never throws out of the hook, so the EN save can't roll back.
+  // Targets are processed SEQUENTIALLY, not in parallel: they share this save's
+  // single Payload transaction (`req`), and a Postgres transaction can't run
+  // concurrent queries — parallel reads/writes on it would error or stall the
+  // save. Sequential costs no extra wall-time here anyway, because the AWS calls
+  // are throttle-paced by a SHARED global limiter regardless of ordering. Each
+  // target is isolated in a catch so one failing (or the shared deadline firing)
+  // never throws out of the hook → the EN save can't roll back.
   try {
-    await Promise.all(
-      TARGETS.map((target) =>
-        translateTarget(target).catch((err: unknown) => {
-          payload.logger?.warn?.(
-            `[translate] ${slug}${id !== undefined ? `#${id}` : ''} → ${target} skipped: ${
-              (err as Error)?.message ?? err
-            }`,
-          )
-        }),
-      ),
-    )
+    for (const target of TARGETS) {
+      try {
+        await translateTarget(target)
+      } catch (err: unknown) {
+        payload.logger?.warn?.(
+          `[translate] ${slug}${id !== undefined ? `#${id}` : ''} → ${target} skipped: ${
+            (err as Error)?.message ?? err
+          }`,
+        )
+      }
+    }
   } finally {
     clearTimeout(deadlineTimer)
+    // Restore the caller's original flag so the ORIGINAL save's revalidate hook
+    // (which runs immediately after this one) behaves as it would have — normally
+    // that means it now revalidates once. skipAutoTranslate stays set (harmless,
+    // no more translation hooks run this request).
+    ctx.disableRevalidate = originalDisableRevalidate
   }
 }
 

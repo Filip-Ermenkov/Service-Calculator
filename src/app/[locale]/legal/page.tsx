@@ -6,7 +6,8 @@ import { getLegalInfo } from '@/lib/content'
 import { pageMetadata } from '@/lib/seo'
 import { findMissingLegalFields } from '@/globals/LegalInfo'
 
-export const revalidate = 300
+// Short CloudFront/ISR window so edits appear within seconds (see the home page).
+export const revalidate = 10
 
 export async function generateMetadata({
   params,

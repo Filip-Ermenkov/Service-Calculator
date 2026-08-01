@@ -18,7 +18,9 @@ import { lexicalToPlainText } from '@/lib/lexical'
 import { toPricingFields, type JsonLogic } from '@/lib/pricing'
 import { SITE_URL, pageMetadata } from '@/lib/seo'
 
-export const revalidate = 300
+// Short CloudFront/ISR window so edits appear within seconds (CloudFront isn't
+// auto-invalidated on OpenNext — see the home page for the full rationale).
+export const revalidate = 10
 
 // Pre-render published services per locale; unknown/new slugs are generated
 // on-demand (dynamicParams defaults to true) and then cached.

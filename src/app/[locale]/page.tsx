@@ -10,7 +10,13 @@ import { SITE_URL, pageMetadata } from '@/lib/seo'
 
 // ISR: statically generated, revalidated at most every 5 minutes (the always-
 // correct safety net alongside the on-demand revalidation in src/lib/revalidate.ts).
-export const revalidate = 300
+// Short CloudFront/ISR window: revalidatePath refreshes the S3 origin instantly
+// on a content change, but OpenNext does NOT invalidate CloudFront by default
+// (its CDN invalidation is a no-op unless explicitly wired — see docs/PROGRESS.md),
+// so CloudFront serves its cached copy for up to this many seconds. 10s keeps the
+// site edge-cached (cheap) while making edits appear within seconds, not the 5
+// minutes a 300s window caused. At this traffic a 10s window regenerates rarely.
+export const revalidate = 10
 
 export async function generateMetadata({
   params,
