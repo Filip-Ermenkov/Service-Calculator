@@ -53,7 +53,7 @@
     "puppeteer-core": "^25.3.0",
     "qrcode": "1.5.4",
     "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react-dom": "19.2.8",
     "@sparticuz/chromium": "^149.0.0"
   },
   "devDependencies": {
