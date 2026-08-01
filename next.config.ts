@@ -17,20 +17,20 @@ const dirname = path.dirname(__filename)
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 
 const nextConfig: NextConfig = {
-  // Client-side Router Cache tuning (verified against the Next 16 `staleTimes`
-  // docs). The `static` default is 5 MINUTES: prefetched, statically-generated
-  // pages are reused from the browser's Client Cache for that long. On this
-  // CMS-driven site that made the language switcher (prefetching cross-locale
-  // <Link>s) serve a stale, pre-edit translation for up to 5 minutes before the
-  // fresh one appeared ("switch shows old, click again shows new"). Setting the
-  // reuse windows to 0 makes every client navigation refetch the page segment
-  // from the server, so a freshly-published translation shows immediately — the
-  // correct trade-off for a content site (the pages are cheap ISR renders, and
-  // shared layouts still aren't refetched per Next's partial-rendering rules).
+  // Client-side Router Cache tuning. The `static` default is 5 MINUTES:
+  // prefetched, statically-generated pages are reused from the browser's Client
+  // Cache for that long, which made a soft navigation back to an edited page (or
+  // the prefetching cross-locale language switcher) serve the stale, pre-edit
+  // translation for up to 5 minutes. We drive the reuse windows to their most
+  // aggressive allowed values so a freshly-published change shows on the next
+  // navigation. NOTE: Next enforces a hard MINIMUM of 30s for `static` (a build
+  // error rejects 0), so 30 is the floor — a soft navigation can still show a
+  // ≤30s-old copy, but a hard refresh is always instant and a real visitor (who
+  // isn't editing) never notices. `dynamic` may be 0.
   experimental: {
     staleTimes: {
       dynamic: 0,
-      static: 0,
+      static: 30,
     },
   },
   images: {

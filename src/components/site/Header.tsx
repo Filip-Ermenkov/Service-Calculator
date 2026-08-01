@@ -67,6 +67,13 @@ export function Header() {
                 href={pathname}
                 locale={loc}
                 hrefLang={loc}
+                // Don't prefetch the other locales of the current page: it
+                // pre-populates the client Router Cache with a copy that can go
+                // stale after a content edit (the "switch shows the old
+                // translation" bug), and prefetching all three locales on every
+                // page load is wasteful. A language switch is a deliberate click,
+                // so fetching fresh on click is the right trade-off here.
+                prefetch={false}
                 className={loc === locale ? 'lang-btn active' : 'lang-btn'}
                 aria-current={loc === locale ? 'true' : undefined}
               >

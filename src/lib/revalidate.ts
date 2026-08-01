@@ -12,15 +12,16 @@ import type {
  * window (each public page also sets `export const revalidate`, which is the
  * always-correct safety net if on-demand invalidation ever misses a path).
  *
- * IMPORTANT — revalidate by ROUTE-FILE PATTERN, not by URL. Next tags cache
- * entries by the route FILE that renders them, and (verified against the Next 16
- * `revalidatePath` docs) a `layout` revalidation does NOT reliably cascade into a
- * nested DYNAMIC child route on OpenNext. The site's service page
- * (`/[locale]/services/[slug]`) is exactly such a route, so a plain
- * `revalidatePath('/', 'layout')` left it to refresh only on its 300s timer while
- * the home/list pages updated instantly (the Phase-5 "translations lag on the
- * service page" bug). The fix is to also revalidate that dynamic route explicitly
- * with the `page` type, which invalidates every matching slug/locale at once.
+ * IMPORTANT — revalidate every content page EXPLICITLY by its route-file
+ * pattern, not via a layout cascade. Next tags cache entries by the route FILE
+ * that renders them, and a `layout` revalidation does NOT reliably cascade into
+ * nested DYNAMIC pages on OpenNext. EVERY public page here is a dynamic route
+ * (they all sit under the `[locale]` segment), so relying on the cascade left the
+ * home cards and list pages refreshing only on their 300s timer while a directly
+ * targeted page updated instantly — the Phase-5 "some fields lag" bug. The fix is
+ * to revalidate each page pattern with the `page` type (invalidates every locale/
+ * slug at once), plus a layout revalidation so a CompanyInfo change reaches the
+ * shared header/footer.
  *
  * Two safeguards make this impossible to turn into a broken admin save:
  *   1. `context.disableRevalidate` — seed scripts, integration tests and the
@@ -29,22 +30,36 @@ import type {
  *   2. try/catch — any other non-request invocation is swallowed with a warning
  *      rather than surfaced as a 500 on the mutation.
  */
+
+// Every public content page, by route-file pattern (all are dynamic via [locale]).
+const CONTENT_PAGE_PATTERNS = [
+  '/[locale]', // home (service cards live here)
+  '/[locale]/about',
+  '/[locale]/careers',
+  '/[locale]/legal',
+  '/[locale]/privacy',
+  '/[locale]/projects',
+  '/[locale]/services/[slug]',
+] as const
+
 async function revalidatePublicSite(context?: {
   disableRevalidate?: unknown
 }): Promise<void> {
   if (context?.disableRevalidate) return
   try {
     const { revalidatePath } = await import('next/cache')
-    // Global purge of all cached route data + the caller's client cache.
+    // Global purge (also clears the calling request's client cache) + the shared
+    // localized layout, so header/footer (CompanyInfo) changes propagate.
     revalidatePath('/', 'layout')
-    // The localized layout (route-file pattern) — every locale + its non-dynamic
-    // pages (home, projects, about, careers, legal, privacy).
     revalidatePath('/[locale]', 'layout')
-    // The nested DYNAMIC service page for ALL slugs/locales — the layout cascade
-    // above misses this on OpenNext, so it's revalidated explicitly (`page`).
-    revalidatePath('/[locale]/services/[slug]', 'page')
-    // Over-revalidating a low-traffic marketing site is cheap; missing a page is
-    // not — hence both the global purge and the explicit dynamic-route target.
+    // Each content page explicitly, for ALL locales/slugs — the reliable path on
+    // OpenNext. Over-revalidating a low-traffic marketing site is cheap; missing
+    // a page is not.
+    for (const pattern of CONTENT_PAGE_PATTERNS) {
+      revalidatePath(pattern, 'page')
+    }
+    // The sitemap lists services/pages, so refresh it on any content change too.
+    revalidatePath('/sitemap.xml')
   } catch (err) {
     console.warn(
       '[revalidate] skipped (not in a request scope?):',
