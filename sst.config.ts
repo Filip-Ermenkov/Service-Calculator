@@ -115,6 +115,14 @@ export default $config({
       server: {
         architecture: 'arm64',
         memory: '1024 MB',
+        // Headroom over the in-save translation deadline (12s, see
+        // src/lib/translation/hook.ts). Payload's afterChange runs inside the
+        // save transaction, so the function MUST outlast the translation work —
+        // otherwise a Lambda timeout would kill the request mid-transaction and
+        // roll the publish back. 30s comfortably covers the bounded translation
+        // plus Payload's own overhead; normal page requests finish in well under
+        // a second regardless.
+        timeout: '30 seconds',
       },
       // Keeps 1 instance warm to reduce the cold-start impact that Payload's
       // admin panel is known to be sensitive to (relationship fields trigger

@@ -54,6 +54,16 @@ import {
 const TARGETS: TargetLocale[] = ['fr', 'de']
 const SOURCE_LOCALE = 'en'
 
+// Hard ceiling on how long translation may run inside the save. Payload's
+// afterChange runs INSIDE the save transaction, so if translation ever ran long
+// enough to hit the Lambda timeout the whole publish would roll back. This
+// deadline (well under the function's own timeout — see sst.config.ts) guarantees
+// that can't happen: if translation can't finish in time it's abandoned for this
+// save (the content still commits; the untranslated fields are picked up on the
+// next save by the self-healing pass). At the paced request rate this is only
+// ever reached by pathologically large content, never a normal edit.
+const TRANSLATION_DEADLINE_MS = 12_000
+
 async function runAutoTranslation(params: {
   payload: Payload
   slug: string
@@ -108,72 +118,94 @@ async function runAutoTranslation(params: {
   ) as Record<string, unknown>
 
   const writeContext = { skipAutoTranslate: true, disableRevalidate: true }
+  // Shared deadline for ALL translation calls this save, so afterChange can never
+  // block the transaction long enough to hit the Lambda timeout (→ rollback). We
+  // use an explicit controller (cleared in `finally`) rather than
+  // AbortSignal.timeout so a fast, sub-second edit leaves no lingering timer.
+  const deadlineController = new AbortController()
+  const deadlineTimer = setTimeout(
+    () => deadlineController.abort(new Error('Translation deadline exceeded')),
+    TRANSLATION_DEADLINE_MS,
+  )
+  const deadline = deadlineController.signal
 
-  for (const target of TARGETS) {
-    try {
-      // Dynamic slug ⇒ Payload's per-collection generics can't be inferred here;
-      // the reads/writes are dispatched through `any` (the runtime call is exact).
-      const base = (
-        isGlobal
-          ? await (payload.findGlobal as CallableFunction)({
-              slug,
-              locale: target,
-              depth: 0,
-              overrideAccess: true,
-              draft: isDraft,
-              req,
-            })
-          : await (payload.findByID as CallableFunction)({
-              collection: slug,
-              id,
-              locale: target,
-              depth: 0,
-              overrideAccess: true,
-              draft: isDraft,
-              req,
-            })
-      ) as Record<string, unknown>
+  const translateTarget = async (target: TargetLocale): Promise<void> => {
+    // Dynamic slug ⇒ Payload's per-collection generics can't be inferred here;
+    // the reads/writes are dispatched through `any` (the runtime call is exact).
+    const base = (
+      isGlobal
+        ? await (payload.findGlobal as CallableFunction)({
+            slug,
+            locale: target,
+            depth: 0,
+            overrideAccess: true,
+            draft: isDraft,
+            req,
+          })
+        : await (payload.findByID as CallableFunction)({
+            collection: slug,
+            id,
+            locale: target,
+            depth: 0,
+            overrideAccess: true,
+            draft: isDraft,
+            req,
+          })
+    ) as Record<string, unknown>
 
-      // Translate a field if its EN source changed OR the target is still the
-      // untranslated fallback (self-healing; preserves real translations/overrides).
-      const paths = selectPathsToTranslate(slug, enSource, base, changedTops)
-      if (paths.length === 0) continue
+    // Translate a field if its EN source changed OR the target is still the
+    // untranslated fallback (self-healing; preserves real translations/overrides).
+    const paths = selectPathsToTranslate(slug, enSource, base, changedTops)
+    if (paths.length === 0) return
 
-      const sources = collectSources(slug, enSource, paths)
-      const map =
-        sources.length > 0 ? await buildTranslationMap(sources, target) : new Map<string, string>()
-      const data = applyTranslations(slug, base, enSource, paths, map)
-      if (hasDrafts) data._status = status
+    const sources = collectSources(slug, enSource, paths)
+    const map =
+      sources.length > 0
+        ? await buildTranslationMap(sources, target, deadline)
+        : new Map<string, string>()
+    const data = applyTranslations(slug, base, enSource, paths, map)
+    if (hasDrafts) data._status = status
 
-      if (isGlobal) {
-        await (payload.updateGlobal as CallableFunction)({
-          slug,
-          locale: target,
-          data,
-          draft: isDraft,
-          overrideAccess: true,
-          context: writeContext,
-          req,
-        })
-      } else {
-        await (payload.update as CallableFunction)({
-          collection: slug,
-          id,
-          locale: target,
-          data,
-          draft: isDraft,
-          overrideAccess: true,
-          context: writeContext,
-          req,
-        })
-      }
-    } catch (err) {
-      payload.logger?.warn?.(
-        `[translate] ${slug}${id !== undefined ? `#${id}` : ''} → ${target} failed: ${
-          (err as Error)?.message ?? err
-        }`,
-      )
+    if (isGlobal) {
+      await (payload.updateGlobal as CallableFunction)({
+        slug,
+        locale: target,
+        data,
+        draft: isDraft,
+        overrideAccess: true,
+        context: writeContext,
+        req,
+      })
+    } else {
+      await (payload.update as CallableFunction)({
+        collection: slug,
+        id,
+        locale: target,
+        data,
+        draft: isDraft,
+        overrideAccess: true,
+        context: writeContext,
+        req,
+      })
     }
+  }
+
+  // Both target locales in PARALLEL, each isolated: one failing (or the shared
+  // deadline firing) never throws out of the hook, so the EN save can't roll back.
+  try {
+    await Promise.all(
+      TARGETS.map((target) =>
+        translateTarget(target).catch((err: unknown) => {
+          payload.logger?.warn?.(
+            `[translate] ${slug}${id !== undefined ? `#${id}` : ''} → ${target} skipped: ${
+              (err as Error)?.message ?? err
+            }`,
+          )
+        }),
+      ),
+    )
+  } finally {
+    clearTimeout(deadlineTimer)
   }
 }
 

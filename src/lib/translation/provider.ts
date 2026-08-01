@@ -39,8 +39,23 @@ export type TargetLocale = 'fr' | 'de'
 const SOURCE_LANGUAGE_CODE = 'en'
 /** Business/services site addressing customers ⇒ formal register (Sie / vous). */
 const FORMALITY = 'FORMAL' as const
-/** Bound fan-out so a rich-text field with many leaves can't burst the API. */
-const MAX_CONCURRENCY = 5
+
+/**
+ * AWS Translate's real-time `TranslateText` is ONE string per request (no array
+ * batching) with a DEFAULT account quota of 20 requests/second. If we fire many
+ * calls concurrently we burst past 20 TPS, get throttled, and the SDK's
+ * exponential-backoff retries balloon a single document's translation into tens
+ * of seconds — which, because the Payload afterChange hook runs INSIDE the save
+ * transaction, used to hit the Lambda timeout and roll the publish back.
+ *
+ * So we deliberately PACE call starts below the quota (a tiny token bucket) — no
+ * throttling means no backoff, so throughput is steady and predictable. At ~16/s
+ * a typical edit (a handful of strings) finishes in well under a second; a large
+ * never-before-translated document is bounded by the caller's deadline instead of
+ * hanging. `maxAttempts: 2` keeps any residual retry from stacking.
+ */
+const MAX_REQUESTS_PER_SECOND = 16
+const MIN_CALL_INTERVAL_MS = 1000 / MAX_REQUESTS_PER_SECOND
 
 /** True when the pipeline is switched on (deployed stages set this to 'true'). */
 export function isTranslationConfigured(): boolean {
@@ -51,15 +66,46 @@ let client: TranslateClient | null = null
 function getClient(): TranslateClient {
   if (!client) {
     // Region from the standard env (SST sets AWS_REGION; defaults for safety).
-    client = new TranslateClient({ region: process.env.AWS_REGION || 'eu-central-1' })
+    // maxAttempts: 2 — one retry only, so a throttle can't cascade into long
+    // backoff (we pace below the quota precisely to avoid throttling in the
+    // first place, per the note above).
+    client = new TranslateClient({
+      region: process.env.AWS_REGION || 'eu-central-1',
+      maxAttempts: 2,
+    })
   }
   return client
+}
+
+// Token bucket: the timestamp the next call is allowed to START. Shared across
+// all in-flight translations (both target locales) so the combined rate stays
+// under the account quota.
+let nextAllowedStart = 0
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new Error('Translation deadline exceeded'))
+    const timer = setTimeout(resolve, ms)
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer)
+        reject(new Error('Translation deadline exceeded'))
+      },
+      { once: true },
+    )
+  })
+}
+async function paceCall(signal?: AbortSignal): Promise<void> {
+  const now = Date.now()
+  const wait = Math.max(0, nextAllowedStart - now)
+  nextAllowedStart = Math.max(now, nextAllowedStart) + MIN_CALL_INTERVAL_MS
+  if (wait > 0) await sleep(wait, signal)
 }
 
 /**
  * Seam for unit tests: when set, replaces the single-string AWS call so the
  * pipeline can be exercised with no AWS access (mirrors the `__reset…ForTests`
- * pattern used elsewhere in the codebase).
+ * pattern used elsewhere in the codebase). Test impl bypasses pacing/AWS.
  */
 type TranslateImpl = (text: string, target: TargetLocale) => Promise<string>
 let translateImplForTests: TranslateImpl | null = null
@@ -68,8 +114,13 @@ export function __setTranslateImplForTests(fn: TranslateImpl | null): void {
 }
 
 /** Translate a single string EN → target via AWS Translate (or the test seam). */
-async function translateOne(text: string, target: TargetLocale): Promise<string> {
+async function translateOne(
+  text: string,
+  target: TargetLocale,
+  signal?: AbortSignal,
+): Promise<string> {
   if (translateImplForTests) return translateImplForTests(text, target)
+  await paceCall(signal) // stay under the TPS quota (no throttling → no backoff)
   const res = await getClient().send(
     new TranslateTextCommand({
       Text: text,
@@ -77,29 +128,35 @@ async function translateOne(text: string, target: TargetLocale): Promise<string>
       TargetLanguageCode: target,
       Settings: { Formality: FORMALITY },
     }),
+    { abortSignal: signal },
   )
   return res.TranslatedText ?? text
 }
 
 /**
  * Translate an ordered batch of plain strings EN → `target`, preserving order.
- * AWS Translate's real-time API is one-string-per-call, so this fans out with a
- * small concurrency cap (the string counts here are tiny — a handful per save).
- * Throws if any underlying call throws; the caller (the hook) makes a failure
- * non-fatal to the content save.
+ * Fans out (calls overlap in flight) but each call's START is paced below the TPS
+ * quota, so throughput is steady and never triggers throttling/backoff. Rejects
+ * if the shared `signal` deadline fires or an underlying call throws; the caller
+ * (the hook) makes a failure non-fatal to the content save.
  */
-export async function translateTexts(texts: string[], target: TargetLocale): Promise<string[]> {
+export async function translateTexts(
+  texts: string[],
+  target: TargetLocale,
+  signal?: AbortSignal,
+): Promise<string[]> {
   if (texts.length === 0) return []
   const out = new Array<string>(texts.length)
   let cursor = 0
   const worker = async (): Promise<void> => {
     while (cursor < texts.length) {
       const index = cursor++
-      out[index] = await translateOne(texts[index], target)
+      out[index] = await translateOne(texts[index], target, signal)
     }
   }
-  const workers = Array.from({ length: Math.min(MAX_CONCURRENCY, texts.length) }, worker)
-  await Promise.all(workers)
+  // Enough workers to keep the paced pipeline full without over-allocating.
+  const workerCount = Math.min(texts.length, MAX_REQUESTS_PER_SECOND)
+  await Promise.all(Array.from({ length: workerCount }, worker))
   return out
 }
 
@@ -112,10 +169,11 @@ export async function translateTexts(texts: string[], target: TargetLocale): Pro
 export async function buildTranslationMap(
   sources: Iterable<string>,
   target: TargetLocale,
+  signal?: AbortSignal,
 ): Promise<Map<string, string>> {
   const unique = Array.from(new Set(Array.from(sources).filter((s) => s.trim().length > 0)))
   if (unique.length === 0) return new Map()
-  const translated = await translateTexts(unique, target)
+  const translated = await translateTexts(unique, target, signal)
   const map = new Map<string, string>()
   unique.forEach((src, idx) => map.set(src, translated[idx] ?? src))
   return map
