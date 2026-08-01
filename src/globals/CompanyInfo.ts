@@ -2,6 +2,7 @@ import type { GlobalConfig } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
 import { revalidateGlobalAfterChange } from '@/lib/revalidate'
+import { translateGlobalAfterChange } from '@/lib/translation/hook'
 
 /**
  * Single source of truth for the company's contact details and About Us copy.
@@ -30,7 +31,8 @@ export const CompanyInfo: GlobalConfig = {
   // Contact details/About copy appear site-wide (header, footer, About, service
   // pages), so a change here revalidates the whole public site.
   hooks: {
-    afterChange: [revalidateGlobalAfterChange],
+    // Auto-translate aboutUsContent EN → FR/DE on save (Phase 5).
+    afterChange: [translateGlobalAfterChange, revalidateGlobalAfterChange],
   },
   fields: [
     {

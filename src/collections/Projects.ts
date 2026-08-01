@@ -6,6 +6,7 @@ import {
   revalidateContentAfterChange,
   revalidateContentAfterDelete,
 } from '@/lib/revalidate'
+import { translateCollectionAfterChange } from '@/lib/translation/hook'
 
 /**
  * Keep the denormalized `serviceName` snapshot in sync with the linked service's
@@ -81,7 +82,8 @@ export const Projects: CollectionConfig = {
   },
   hooks: {
     beforeChange: [syncServiceNameSnapshot],
-    afterChange: [revalidateContentAfterChange],
+    // Auto-translate EN → FR/DE on save (Phase 5) before revalidation.
+    afterChange: [translateCollectionAfterChange, revalidateContentAfterChange],
     afterDelete: [revalidateContentAfterDelete],
   },
   fields: [

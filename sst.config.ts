@@ -125,6 +125,12 @@ export default $config({
       // Linking `pdf` grants the Web function permission to invoke it; its name
       // is passed explicitly as PDF_FUNCTION_NAME (read by src/lib/pdf/render.ts).
       link: [media, databaseUrl, payloadSecret, totpEncryptionKey, upstashRedisRestUrl, upstashRedisRestToken, siteUrl, allowIndexing, pdf],
+      // AWS Translate auto-translation (Phase 5 — src/lib/translation/*). The
+      // Next/Payload server function calls translate:TranslateText; it has no
+      // resource ARNs, so the resource must be "*". No secret is involved —
+      // the execution role carries this permission (that's the whole point of
+      // choosing AWS Translate: one credential model, nothing to rotate).
+      permissions: [{ actions: ['translate:TranslateText'], resources: ['*'] }],
       environment: {
         DATABASE_URL: databaseUrl.value,
         PAYLOAD_SECRET: payloadSecret.value,
@@ -140,6 +146,11 @@ export default $config({
         TOTP_ENCRYPTION_KEY: totpEncryptionKey.value,
         UPSTASH_REDIS_REST_URL: upstashRedisRestUrl.value,
         UPSTASH_REDIS_REST_TOKEN: upstashRedisRestToken.value,
+        // AWS Translate auto-translation (Phase 5). 'true' switches the on-save
+        // EN→FR/DE hook ON for this deployed stage (the role has the permission
+        // above). Unset locally/CI ⇒ the hook is a no-op and FR/DE fall back to
+        // the EN source (src/lib/translation/provider.ts).
+        TRANSLATE_ENABLED: 'true',
         // Read by the s3Storage plugin in src/payload.config.ts. No explicit
         // AWS credentials are passed to that plugin — the Lambda's own
         // execution role (granted S3 access here via `link: [media, ...]`)

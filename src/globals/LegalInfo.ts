@@ -3,6 +3,7 @@ import { APIError } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
 import { revalidateGlobalAfterChange } from '@/lib/revalidate'
+import { translateGlobalAfterChange } from '@/lib/translation/hook'
 
 /**
  * The registration-identity fields that must all be present before the Legal
@@ -60,8 +61,9 @@ export const LegalInfo: GlobalConfig = {
   },
   hooks: {
     // Publishing the Legal Notice / Privacy Policy revalidates the public pages
-    // that render them (and the footer links to them).
-    afterChange: [revalidateGlobalAfterChange],
+    // that render them (and the footer links to them). Auto-translate
+    // privacyPolicyContent EN → FR/DE first (Phase 5).
+    afterChange: [translateGlobalAfterChange, revalidateGlobalAfterChange],
     // Primary, explicit §6.9 safeguard. `required: true` on the fields below
     // already blocks publishing empty values with per-field UI errors (draft
     // saves bypass required, so incomplete drafts are still allowed); this

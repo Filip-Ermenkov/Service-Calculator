@@ -6,6 +6,7 @@ import {
   revalidateContentAfterChange,
   revalidateContentAfterDelete,
 } from '@/lib/revalidate'
+import { translateCollectionAfterChange } from '@/lib/translation/hook'
 
 /**
  * Career listings — open job positions (FUNCTIONALITY.md §3.5, §5.5).
@@ -42,7 +43,8 @@ export const CareerListings: CollectionConfig = {
     delete: requireTotpVerified(() => true),
   },
   hooks: {
-    afterChange: [revalidateContentAfterChange],
+    // Auto-translate EN → FR/DE on save (Phase 5) before revalidation.
+    afterChange: [translateCollectionAfterChange, revalidateContentAfterChange],
     afterDelete: [revalidateContentAfterDelete],
   },
   fields: [

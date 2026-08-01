@@ -6,6 +6,7 @@ import {
   revalidateContentAfterChange,
   revalidateContentAfterDelete,
 } from '@/lib/revalidate'
+import { translateCollectionAfterChange } from '@/lib/translation/hook'
 import { slugField } from '@/lib/slug'
 
 /**
@@ -48,7 +49,9 @@ export const Services: CollectionConfig = {
   // Publishing/editing/deleting a service invalidates the cached public pages
   // (Home cards + this service's page) — see src/lib/revalidate.ts.
   hooks: {
-    afterChange: [revalidateContentAfterChange],
+    // Auto-translate EN → FR/DE on save (Phase 5) BEFORE revalidation, so the
+    // regenerated public pages read fresh translations. See src/lib/translation.
+    afterChange: [translateCollectionAfterChange, revalidateContentAfterChange],
     afterDelete: [revalidateContentAfterDelete],
   },
   fields: [
