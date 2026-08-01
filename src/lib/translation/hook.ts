@@ -28,8 +28,12 @@
  *     succeeds (FR/DE then fall back to EN via Payload's localization fallback).
  *   • A no-op when TRANSLATE_ENABLED is unset (local dev / CI): the EN save
  *     proceeds and nothing is translated.
- *   • Only translates fields that actually changed vs the previous version, so a
- *     reorder / status toggle / non-text edit spends no quota and writes nothing.
+ *   • Self-healing & override-safe: a field is (re)translated when its EN source
+ *     changed OR the target is still the untranslated EN fallback. So content that
+ *     predates the pipeline, a field left untouched in an edit, or a field a prior
+ *     run failed on all get filled on the next save — while a real translation or a
+ *     manual per-locale override (both differ from the source) are left untouched.
+ *     A save where every field is already translated writes nothing (no quota).
  */
 
 import type {
@@ -40,7 +44,12 @@ import type {
 } from 'payload'
 
 import { buildTranslationMap, isTranslationConfigured, type TargetLocale } from './provider'
-import { analyzeChanges, applyTranslations } from './translateDocument'
+import {
+  applyTranslations,
+  changedTopKeys,
+  collectSources,
+  selectPathsToTranslate,
+} from './translateDocument'
 
 const TARGETS: TargetLocale[] = ['fr', 'de']
 const SOURCE_LOCALE = 'en'
@@ -64,13 +73,39 @@ async function runAutoTranslation(params: {
   // Guard 3: pipeline off (TRANSLATE_ENABLED unset — dev/CI). EN save untouched.
   if (!isTranslationConfigured()) return
 
-  const { changedPaths, sources } = analyzeChanges(slug, doc, previousDoc)
-  if (changedPaths.length === 0) return
+  // Which top-level fields changed vs the previous version (doc/previousDoc share
+  // the afterChange depth, so their comparison is self-consistent).
+  const changedTops = changedTopKeys(slug, doc, previousDoc)
 
-  // Mirror the saved document's publish state onto the FR/DE writes.
+  // Mirror the saved document's publish state onto the reads/writes below.
   const status = typeof doc._status === 'string' ? (doc._status as string) : undefined
   const hasDrafts = status !== undefined
   const isDraft = hasDrafts && status === 'draft'
+
+  // Canonical EN source read at depth 0, so the per-field fallback comparison in
+  // selectPathsToTranslate() lines up with the depth-0 target reads below (see the
+  // DEPTH CONTRACT in translateDocument.ts — a populated relationship at a deeper
+  // depth would otherwise make an untranslated field look already-translated).
+  const enSource = (
+    isGlobal
+      ? await (payload.findGlobal as CallableFunction)({
+          slug,
+          locale: SOURCE_LOCALE,
+          depth: 0,
+          overrideAccess: true,
+          draft: isDraft,
+          req,
+        })
+      : await (payload.findByID as CallableFunction)({
+          collection: slug,
+          id,
+          locale: SOURCE_LOCALE,
+          depth: 0,
+          overrideAccess: true,
+          draft: isDraft,
+          req,
+        })
+  ) as Record<string, unknown>
 
   const writeContext = { skipAutoTranslate: true, disableRevalidate: true }
 
@@ -99,9 +134,15 @@ async function runAutoTranslation(params: {
             })
       ) as Record<string, unknown>
 
+      // Translate a field if its EN source changed OR the target is still the
+      // untranslated fallback (self-healing; preserves real translations/overrides).
+      const paths = selectPathsToTranslate(slug, enSource, base, changedTops)
+      if (paths.length === 0) continue
+
+      const sources = collectSources(slug, enSource, paths)
       const map =
         sources.length > 0 ? await buildTranslationMap(sources, target) : new Map<string, string>()
-      const data = applyTranslations(slug, base, doc, changedPaths, map)
+      const data = applyTranslations(slug, base, enSource, paths, map)
       if (hasDrafts) data._status = status
 
       if (isGlobal) {

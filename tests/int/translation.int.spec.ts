@@ -14,8 +14,10 @@ import {
 } from '@/lib/translation/lexical'
 import { resolveLeaves, topLevelKey } from '@/lib/translation/registry'
 import {
-  analyzeChanges,
   applyTranslations,
+  changedTopKeys,
+  collectSources,
+  selectPathsToTranslate,
   stableStringify,
 } from '@/lib/translation/translateDocument'
 
@@ -158,33 +160,81 @@ describe('registry.ts — resolveLeaves', () => {
   })
 })
 
-describe('translateDocument.ts — analyzeChanges', () => {
-  it('treats a create (no previous) as everything changed', () => {
+describe('translateDocument.ts — changedTopKeys', () => {
+  it('treats a create (no previous) as every top-level field changed', () => {
     const src = { title: 'Solar', description: lexicalDoc('Great panels') }
-    const { changedPaths, sources } = analyzeChanges('services', src)
-    expect(changedPaths).toContain('title')
-    expect(changedPaths).toContain('description')
-    expect(sources).toContain('Solar')
-    expect(sources).toContain('Great panels')
+    const changed = changedTopKeys('services', src)
+    expect(changed.has('title')).toBe(true)
+    expect(changed.has('description')).toBe(true)
+    expect(changed.has('card')).toBe(true)
   })
 
-  it('detects only the fields whose top-level value changed', () => {
+  it('detects only the top-level fields whose value changed', () => {
     const prev = { title: 'Solar', description: lexicalDoc('Old') }
     const src = { title: 'Solar', description: lexicalDoc('New') }
-    const { changedPaths, sources } = analyzeChanges('services', src, prev)
-    expect(changedPaths).toEqual(['description'])
-    expect(sources).toEqual(['New'])
+    const changed = changedTopKeys('services', src, prev)
+    expect(Array.from(changed)).toEqual(['description'])
   })
 
   it('is order-insensitive on object keys (no spurious change)', () => {
     const prev = { title: 'Solar', card: { cardTitle: 'X', cardDescription: 'Y' } }
     const src = { title: 'Solar', card: { cardDescription: 'Y', cardTitle: 'X' } }
-    const { changedPaths } = analyzeChanges('services', src, prev)
-    expect(changedPaths).toEqual([])
+    expect(changedTopKeys('services', src, prev).has('card')).toBe(false)
   })
 
-  it('returns nothing for a collection with no registered fields', () => {
-    expect(analyzeChanges('media', { anything: 1 })).toEqual({ changedPaths: [], sources: [] })
+  it('returns an empty set for a collection with no registered fields', () => {
+    expect(changedTopKeys('media', { anything: 1 }).size).toBe(0)
+  })
+})
+
+describe('translateDocument.ts — selectPathsToTranslate (self-healing)', () => {
+  it('selects a changed field even if the target already differs', () => {
+    const source = { title: 'Solar', description: lexicalDoc('Panels') }
+    const base = { title: 'Soleil', description: lexicalDoc('Panneaux') }
+    const changed = new Set(['title'])
+    expect(selectPathsToTranslate('services', source, base, changed)).toContain('title')
+  })
+
+  it('selects an UNTRANSLATED fallback field even when nothing changed', () => {
+    // Target === source ⇒ still the EN fallback ⇒ must be (re)translated.
+    const source = { title: 'Solar', description: lexicalDoc('Panels') }
+    const base = { title: 'Solar', description: lexicalDoc('Panels') }
+    const paths = selectPathsToTranslate('services', source, base, new Set())
+    expect(paths).toContain('title')
+    expect(paths).toContain('description')
+  })
+
+  it('leaves a translated/overridden field alone when unchanged', () => {
+    const source = { title: 'Solar' }
+    const base = { title: 'Énergie solaire' } // distinct ⇒ a real translation/override
+    expect(selectPathsToTranslate('services', source, base, new Set())).not.toContain('title')
+  })
+
+  it('is depth/ordering-robust: an untranslated card (with a media id) is selected', () => {
+    // card holds a non-localized cardImage id + localized text. When the text is
+    // still the fallback, the whole top-level `card` deep-equals ⇒ selected.
+    const source = { card: { cardTitle: 'Roof', cardDescription: 'Nice', cardImage: 5 } }
+    const base = { card: { cardTitle: 'Roof', cardDescription: 'Nice', cardImage: 5 } }
+    const paths = selectPathsToTranslate('services', source, base, new Set())
+    expect(paths).toContain('card.cardTitle')
+    expect(paths).toContain('card.cardDescription')
+  })
+})
+
+describe('translateDocument.ts — collectSources', () => {
+  it('gathers unique non-empty strings across selected paths (plain + rich)', () => {
+    const source = {
+      title: 'Solar',
+      description: lexicalDoc('Solar', 'panels'),
+      card: { cardTitle: '', cardDescription: 'Blurb' },
+    }
+    const sources = collectSources('services', source, [
+      'title',
+      'description',
+      'card.cardTitle',
+      'card.cardDescription',
+    ])
+    expect(sources.sort()).toEqual(['Blurb', 'Solar', 'panels']) // 'Solar' de-duped, '' dropped
   })
 })
 
@@ -194,7 +244,7 @@ describe('translateDocument.ts — applyTranslations', () => {
     ['New', 'Nouveau'],
   ])
 
-  it('overwrites only changed leaves and keeps unchanged target values', () => {
+  it('overwrites only selected leaves and keeps unselected target values', () => {
     const source = { title: 'Solar', description: lexicalDoc('New') }
     // Target (FR) already has a good title translation we must NOT clobber.
     const base = {
@@ -204,9 +254,9 @@ describe('translateDocument.ts — applyTranslations', () => {
       _status: 'published',
     }
     const data = applyTranslations('services', base, source, ['description'], map)
-    // Unchanged title kept from base (the existing FR value), not overwritten
+    // Unselected title kept from base (the existing FR value), not overwritten
     expect(data.title).toBe('Énergie solaire')
-    // Changed description translated
+    // Selected description translated
     expect((data.description as ReturnType<typeof lexicalDoc>).root.children[0].children[0].text).toBe(
       'Nouveau',
     )
