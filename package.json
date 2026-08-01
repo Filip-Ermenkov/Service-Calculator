@@ -52,7 +52,7 @@
     "payload": "3.86.0",
     "puppeteer-core": "^25.3.0",
     "qrcode": "1.5.4",
-    "react": "19.2.7",
+    "react": "19.2.8",
     "react-dom": "19.2.7",
     "@sparticuz/chromium": "^149.0.0"
   },
