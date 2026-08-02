@@ -32,6 +32,15 @@ export default $config({
     // DNS and only production ever mints/validates an ACM certificate.
     const isProduction = $app.stage === 'production'
 
+    // Name of the SSM parameter that will hold the Web CloudFront distribution
+    // id. The running server function reads it to invalidate the CDN on content
+    // changes (src/lib/cdn/invalidate.ts). Passing the id itself as a plain env
+    // var is impossible in one pass — the server function would depend on the
+    // distribution while the distribution depends on the function's URL (SST
+    // issue #5990) — so we pass only this NAME (a static string, no cycle) and
+    // write the VALUE to SSM AFTER `web` is created below.
+    const cdnDistributionIdParam = `/bulbau-lu/${$app.stage}/web-cdn-distribution-id`
+
     // Populated via `sst secret set <Name> <value> --stage <stage>`.
     // Never hardcoded here — see README.md "Deploying" section.
     const databaseUrl = new sst.Secret('DatabaseUrl')
@@ -138,7 +147,24 @@ export default $config({
       // resource ARNs, so the resource must be "*". No secret is involved —
       // the execution role carries this permission (that's the whole point of
       // choosing AWS Translate: one credential model, nothing to rotate).
-      permissions: [{ actions: ['translate:TranslateText'], resources: ['*'] }],
+      permissions: [
+        { actions: ['translate:TranslateText'], resources: ['*'] },
+        // On-demand CloudFront invalidation (src/lib/cdn/invalidate.ts). The
+        // server function reads the distribution id from the SSM parameter
+        // written below, then calls CreateInvalidation on a content change.
+        {
+          actions: ['ssm:GetParameter'],
+          resources: [`arn:aws:ssm:eu-central-1:*:parameter${cdnDistributionIdParam}`],
+        },
+        // CreateInvalidation cannot be scoped to the specific distribution ARN
+        // without recreating the #5990 dependency cycle, so it is scoped to "any
+        // distribution in this (single-app) account" — the role can only ever
+        // reach its own account's resources regardless.
+        {
+          actions: ['cloudfront:CreateInvalidation'],
+          resources: ['arn:aws:cloudfront::*:distribution/*'],
+        },
+      ],
       environment: {
         DATABASE_URL: databaseUrl.value,
         PAYLOAD_SECRET: payloadSecret.value,
@@ -159,6 +185,11 @@ export default $config({
         // above). Unset locally/CI ⇒ the hook is a no-op and FR/DE fall back to
         // the EN source (src/lib/translation/provider.ts).
         TRANSLATE_ENABLED: 'true',
+        // Name of the SSM parameter holding the CloudFront distribution id, read
+        // at runtime by src/lib/cdn/invalidate.ts to purge the edge cache on
+        // content changes. Unset locally/CI ⇒ invalidation is a no-op (the ISR
+        // window handles freshness). The VALUE is written to SSM just below.
+        CDN_DISTRIBUTION_ID_PARAM: cdnDistributionIdParam,
         // Read by the s3Storage plugin in src/payload.config.ts. No explicit
         // AWS credentials are passed to that plugin — the Lambda's own
         // execution role (granted S3 access here via `link: [media, ...]`)
@@ -173,10 +204,23 @@ export default $config({
       },
     })
 
+    // Publish the Web CloudFront distribution id to SSM so the server function
+    // can read it at runtime for on-demand invalidation (src/lib/cdn/invalidate.ts).
+    // Created AFTER `web` so the parameter depends on the distribution and NOT the
+    // reverse — this is exactly what breaks the #5990 dependency cycle. `web.nodes.cdn`
+    // is defined here because this stage owns a standalone CloudFront distribution
+    // (it is only undefined when the site is served through a shared `Router`).
+    new aws.ssm.Parameter('WebCdnDistributionId', {
+      name: cdnDistributionIdParam,
+      type: 'String',
+      value: web.nodes.cdn!.nodes.distribution.id,
+    })
+
     return {
       url: web.url,
       mediaBucket: media.name,
       pdfFunction: pdf.name,
+      cdnDistributionIdParam,
     }
   },
 })

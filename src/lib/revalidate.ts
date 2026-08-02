@@ -29,6 +29,13 @@ import type {
  *      where `revalidatePath` legitimately throws. They pass this flag to skip.
  *   2. try/catch — any other non-request invocation is swallowed with a warning
  *      rather than surfaced as a 500 on the mutation.
+ *
+ * `revalidatePath` alone refreshes the S3 origin cache but does NOT purge
+ * CloudFront (OpenNext's automatic CDN invalidation is a dummy no-op by default),
+ * so after refreshing the origin we also invalidate the CloudFront distribution
+ * on-demand (src/lib/cdn/invalidate.ts) — the proper fix that makes an edit
+ * appear at the edge within seconds regardless of the ISR window. That call is a
+ * no-op when unconfigured (local dev / CI / tests) and never throws.
  */
 
 // Every public content page, by route-file pattern (all are dynamic via [locale]).
@@ -65,6 +72,18 @@ async function revalidatePublicSite(context?: {
       '[revalidate] skipped (not in a request scope?):',
       (err as Error)?.message,
     )
+  }
+
+  // Purge CloudFront so the refreshed origin is actually served at the edge.
+  // Separate try/catch (and the module itself never throws): a CDN-invalidation
+  // failure must never break the admin save — the ISR window remains the
+  // safety net. No-op when unconfigured (local dev / CI / tests). Dynamic import
+  // keeps the AWS SDK out of any non-Node bundle, matching `next/cache` above.
+  try {
+    const { invalidateCdn } = await import('./cdn/invalidate')
+    await invalidateCdn()
+  } catch (err) {
+    console.warn('[revalidate] CDN invalidation skipped:', (err as Error)?.message)
   }
 }
 

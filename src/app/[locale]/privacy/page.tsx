@@ -6,8 +6,9 @@ import type { Locale } from '@/i18n/routing'
 import { getLegalInfo } from '@/lib/content'
 import { pageMetadata } from '@/lib/seo'
 
-// Short CloudFront/ISR window so edits appear within seconds (see the home page).
-export const revalidate = 10
+// ISR safety-net window; on-demand CloudFront invalidation makes edits appear at
+// the edge within seconds (see the home page).
+export const revalidate = 300
 
 export async function generateMetadata({
   params,
