@@ -229,6 +229,18 @@ npx sst secret set SiteUrl       "https://<new-account-cloudfront-domain>" --sta
 # npx sst secret set AllowIndexing "true" --stage production   # production launch only
 ```
 
+**CMS auto-translation (EN → FR/DE) needs NO secret.** It uses **AWS Translate**,
+which authenticates via the Lambda **execution role** — `sst.config.ts` grants the
+Web function `translate:TranslateText` and sets `TRANSLATE_ENABLED='true'` on every
+deployed stage automatically, so translation is on out of the box on staging/
+production (no key to set/rotate). Locally it's a **no-op** unless you set
+`TRANSLATE_ENABLED=true` *and* provide AWS credentials allowed to call
+`translate:TranslateText` (the S3Mock creds don't count) — otherwise FR/DE fall
+back to the EN source. See `docs/PROGRESS.md` → "Phase 5 part 1" for the full
+design (and the CloudFront-caching caveat: content currently appears within ~10s
+of an edit — the proper on-demand CloudFront invalidation is a documented next
+step).
+
 **No web analytics, and no cookie-consent banner — by design.** The site sets a
 single strictly-functional cookie (the visitor's language preference) and no
 tracking cookies, so it is exempt from GDPR/ePrivacy consent and ships with no

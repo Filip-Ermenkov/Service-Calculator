@@ -424,6 +424,8 @@ This section is split into two parts.
 
 Because content is authored in English and auto-translated, there will inevitably be cases where the machine translation of a specific string is incorrect or unnatural. This section allows the admin to review and fix translations.
 
+> **Status (2026-08-02): auto-translation is LIVE; the dedicated management screen below is not yet built.** Phase 5 **part 1** implemented the automatic EN→FR/DE translation-on-save (via AWS Translate — see TECHSPEC §6.7 / PROGRESS.md), so §6's "content is automatically translated and immediately live in all three languages" now works. **Manual overrides already work today** — the admin switches the admin panel's locale to Français/Deutsch, edits any field, and saves; the pipeline detects a distinct (non-fallback) value and never overwrites it, and re-translates only fields whose English source later changes. What this dedicated **Translation Management screen (part 2)** adds is a *convenience*: one searchable cross-collection place to review every string's auto-translation + override side by side, reset an override back to auto, and see an explicit "needs review" flag when the source changed under an override. It is not a blocker for FR/DE going live.
+
 #### Translation Overview
 - A searchable list of every translatable string on the site: page content blocks, field labels, button text, disclaimer notices, email templates, PDF text, and system messages.
 - Each entry shows:

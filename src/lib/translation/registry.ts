@@ -14,8 +14,11 @@
  *   • both compose:               "calculatorFields[].options[].optionLabel"
  *
  * Every path listed here MUST correspond to a `localized: true` field in the
- * matching collection/global (src/collections, src/globals). Keep them in sync;
- * the integration test asserts each registry key is a real collection/global.
+ * matching collection/global (src/collections, src/globals). Keep them in sync by
+ * hand when a localized field is added/removed. (A registry↔schema drift guard —
+ * a test that walks the collection configs and asserts every path resolves to a
+ * localized field — is a recommended future hardening item, in the same spirit as
+ * the CI schema/artifact drift guards; see docs/PROGRESS.md next steps.)
  */
 
 export type TranslatableFieldType = 'plain' | 'richText'

@@ -131,3 +131,18 @@ aws resourcegroupstaggingapi get-resources --region eu-central-1 \
 Alarm on the main **WebServer** function and the **Pdf** function (not the
 ImageOptimizer/Warmer/Revalidation siblings). If the functions are ever
 recreated, their random name suffix changes — re-query and re-`apply`.
+
+## Not managed here (pointers, so you don't go looking)
+
+- **Phase 5 translation (2026-08-02)** added no Terraform. AWS Translate needs no
+  new resource; the runtime `translate:TranslateText` permission rides on the SST
+  **server-function** role (via `sst.config.ts`'s `permissions:` prop), not the
+  Terraform-managed deploy role, and it needs no secret. The 30s Lambda
+  `server.timeout` is also an SST/`sst.config.ts` setting.
+- **Upcoming CloudFront on-demand invalidation** (the proper fix for edit-freshness
+  — see `docs/PROGRESS.md` "Immediate next steps") will most likely be **app/SST-
+  side too**: a runtime `cloudfront:CreateInvalidation` permission on the server
+  role + the distribution ID passed in (the deploy role already has
+  `cloudfront:CreateInvalidation` for deploy-time invalidation via `ManageCloudFront`).
+  Expect it *not* to land in this Terraform layer unless the distribution ID ends
+  up wired via an SSM parameter that we choose to Terraform-manage.

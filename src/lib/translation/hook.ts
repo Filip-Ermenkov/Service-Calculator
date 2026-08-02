@@ -10,22 +10,30 @@
  * Design (a deliberate, researched deviation from TECHSPEC §6.7's Jobs-Queue
  * proposal — see docs/PROGRESS.md): translation runs SYNCHRONOUSLY in an
  * `afterChange` hook instead of an async queue. Payload's `autoRun` job worker is
- * explicitly not for serverless, and the queue-on-Lambda alternative (an external
- * cron hitting /api/payload-jobs/run) adds a jobs table + migration + a cron
- * Lambda + cron-auth secret AND breaks the spec's own "immediately live in all
- * three languages" requirement by up to a cron interval. For a single-admin,
- * low-volume CMS the synchronous hook is simpler, immediate, migration-free, and
- * fits the "periodic maintenance only" goal. The translation latency (well under
- * a second at this string volume) is borne only by the admin, never a visitor.
+ * explicitly not for serverless, Next's `after()` is unsupported on OpenNext AWS,
+ * and a true async worker would need Payload bundled into a second Lambda — heavy
+ * for a single-admin, low-volume CMS. So the synchronous hook is the proportionate
+ * choice: simpler, migration-free, and the translation is present the instant the
+ * save completes. It is made safe/fast by four properties below (pacing, deadline,
+ * no-throw, sequential). A typical edit finishes in well under a second; the FIRST
+ * translation of a large document takes a few seconds (bounded by the deadline).
+ * If write volume ever grows, the async-worker upgrade is the documented path.
  *
  * Safety properties:
  *   • Only fires for saves in the source locale (EN). A save in FR/DE (a manual
  *     edit / future override) is left untouched.
- *   • Never recurses: our own FR/DE writes carry `skipAutoTranslate` in context
- *     AND run in a non-EN locale, so both guards stop re-entry.
- *   • Never blocks the content save: each target is wrapped in try/catch, so a
- *     translation-provider outage/error logs a warning and the EN save still
- *     succeeds (FR/DE then fall back to EN via Payload's localization fallback).
+ *   • Never recurses: before doing its own FR/DE writes it sets `skipAutoTranslate`
+ *     on the SHARED `req.context` (a mutation, not the ambiguous per-call `context`
+ *     argument), and those writes share `req`, so their afterChange re-entry hits
+ *     Guard 2 and no-ops. (Getting this wrong is what caused a multi-minute,
+ *     re-translating loop — see the block comment on the mutation below.)
+ *   • Never blocks/rolls back the content save: AWS calls are paced under the TPS
+ *     quota (no throttle→no backoff), the whole pass is bounded by a hard deadline
+ *     (< the Lambda timeout), and each target is wrapped in try/catch — so a
+ *     provider outage, a deadline hit, or a slow document logs a warning and the EN
+ *     save still commits (FR/DE fall back to EN via Payload's localization).
+ *   • Sequential, not parallel: the two locales share this save's single Postgres
+ *     transaction, which can't run concurrent queries.
  *   • A no-op when TRANSLATE_ENABLED is unset (local dev / CI): the EN save
  *     proceeds and nothing is translated.
  *   • Self-healing & override-safe: a field is (re)translated when its EN source
@@ -129,6 +137,7 @@ async function runAutoTranslation(params: {
   //     `finally` so the ORIGINAL save's revalidate hook (which runs right after
   //     this one) still fires exactly once.
   const ctx = req.context as Record<string, unknown>
+  const originalSkipAutoTranslate = ctx.skipAutoTranslate
   const originalDisableRevalidate = ctx.disableRevalidate
   ctx.skipAutoTranslate = true
   ctx.disableRevalidate = true
@@ -224,10 +233,12 @@ async function runAutoTranslation(params: {
     }
   } finally {
     clearTimeout(deadlineTimer)
-    // Restore the caller's original flag so the ORIGINAL save's revalidate hook
-    // (which runs immediately after this one) behaves as it would have — normally
-    // that means it now revalidates once. skipAutoTranslate stays set (harmless,
-    // no more translation hooks run this request).
+    // Restore the caller's original flags (all nested writes are done by now).
+    // Restoring disableRevalidate lets the ORIGINAL save's revalidate hook — which
+    // runs immediately after this one — fire once. Restoring skipAutoTranslate
+    // keeps this request able to translate a *different* document later (e.g. a
+    // bulk/multi-save request), instead of silently skipping the rest.
+    ctx.skipAutoTranslate = originalSkipAutoTranslate
     ctx.disableRevalidate = originalDisableRevalidate
   }
 }
