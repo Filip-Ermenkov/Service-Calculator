@@ -51,6 +51,7 @@ import type {
   PayloadRequest,
 } from 'payload'
 
+import { revalidatePublicSiteNow } from '@/lib/revalidate'
 import { buildTranslationMap, isTranslationConfigured, type TargetLocale } from './provider'
 import {
   applyTranslations,
@@ -133,13 +134,16 @@ async function runAutoTranslation(params: {
   // "change" and re-translates, looping until the Lambda timeout (the multi-minute
   // save). Mutating the shared req.context is unambiguous:
   //   • skipAutoTranslate → the nested FR/DE writes' afterChange no-ops (Guard 2).
-  //   • disableRevalidate → those writes don't each re-revalidate; it's reset in
-  //     `finally` so the ORIGINAL save's revalidate hook (which runs right after
-  //     this one) still fires exactly once.
+  //   • disableRevalidate → suppresses the standalone revalidate hook for the
+  //     nested FR/DE writes AND this top-level save; this hook instead calls
+  //     revalidatePublicSiteNow() itself, exactly once, at the end (see below and
+  //     the block comment in src/lib/revalidate.ts).
   const ctx = req.context as Record<string, unknown>
   const originalSkipAutoTranslate = ctx.skipAutoTranslate
-  const originalDisableRevalidate = ctx.disableRevalidate
   ctx.skipAutoTranslate = true
+  // Set (and deliberately never cleared here): suppresses the standalone
+  // revalidate hook for both the nested FR/DE writes AND this top-level save — the
+  // explicit revalidatePublicSiteNow() call at the end handles revalidation once.
   ctx.disableRevalidate = true
 
   // Shared deadline for ALL translation calls this save, so afterChange can never
@@ -233,14 +237,24 @@ async function runAutoTranslation(params: {
     }
   } finally {
     clearTimeout(deadlineTimer)
-    // Restore the caller's original flags (all nested writes are done by now).
-    // Restoring disableRevalidate lets the ORIGINAL save's revalidate hook — which
-    // runs immediately after this one — fire once. Restoring skipAutoTranslate
-    // keeps this request able to translate a *different* document later (e.g. a
-    // bulk/multi-save request), instead of silently skipping the rest.
+    // Restore skipAutoTranslate so a later document in the same request can still
+    // translate. Deliberately DO NOT restore disableRevalidate: leaving it set
+    // keeps the standalone revalidate hook (which runs right after this one)
+    // suppressed, so the public site is revalidated EXACTLY ONCE — by the explicit
+    // call below — instead of relying on Payload restoring the shared-context flag
+    // for the outer save (it did not: every revalidate fire was observed with the
+    // flag still set, which permanently suppressed the standalone hook and is why
+    // edits stopped reaching CloudFront). See the block comment in
+    // src/lib/revalidate.ts.
     ctx.skipAutoTranslate = originalSkipAutoTranslate
-    ctx.disableRevalidate = originalDisableRevalidate
   }
+
+  // Revalidate the public site + purge the CDN exactly once for this save. Done
+  // here rather than via the (now-suppressed) standalone revalidate hook because
+  // this is the single point guaranteed to run once per top-level source-locale
+  // save, after all FR/DE writes. Nested FR/DE writes never reach here (Guard 1
+  // returns them early), so there is exactly one call per edit. Never throws.
+  await revalidatePublicSiteNow('post-translation')
 }
 
 /** afterChange hook for translatable collections (Services/Projects/Careers). */

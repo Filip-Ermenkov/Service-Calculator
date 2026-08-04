@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src/lib/cdn/invalidate.ts","src/lib/revalidate.ts","tests/int/cdnInvalidation.int.spec.ts"]
+  "include": ["src/lib/translation/hook.ts","src/lib/revalidate.ts","src/lib/cdn/invalidate.ts"]
 }

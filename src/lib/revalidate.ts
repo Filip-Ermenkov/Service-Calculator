@@ -44,6 +44,20 @@ import { invalidateCdn } from './cdn/invalidate'
  * on-demand (src/lib/cdn/invalidate.ts) — the proper fix that makes an edit
  * appear at the edge within seconds regardless of the ISR window. That call is a
  * no-op when unconfigured (local dev / CI / tests) and never throws.
+ *
+ * INTERACTION WITH AUTO-TRANSLATION (important — see src/lib/translation/hook.ts).
+ * A translated collection/global runs the translation `afterChange` hook BEFORE
+ * this revalidate hook. That hook makes its own nested FR/DE writes and sets
+ * `req.context.disableRevalidate = true` so those nested writes don't each
+ * revalidate. In practice that flag is NOT reliably cleared before this top-level
+ * revalidate hook runs (Payload's per-operation context restore didn't reach the
+ * outer save — observed: every revalidate fire saw `disableRevalidate=true`), so
+ * the standalone hook below would be permanently suppressed for translated
+ * content. Rather than depend on that restore, the translation hook itself calls
+ * `revalidatePublicSiteNow()` exactly once after it finishes. So: the standalone
+ * hook stays suppressed by the flag for translated saves (correct — translation
+ * already revalidated), and runs normally for non-translated saves and deletes
+ * (where the flag is never set).
  */
 
 // Every public content page, by route-file pattern (all are dynamic via [locale]).
@@ -57,17 +71,13 @@ const CONTENT_PAGE_PATTERNS = [
   '/[locale]/services/[slug]',
 ] as const
 
-async function revalidatePublicSite(context?: {
-  disableRevalidate?: unknown
-}): Promise<void> {
-  // Diagnostic (console.warn — console.log can be dropped by the production
-  // build): logged BEFORE the early-return so the logs show both that the hook
-  // fired AND the disableRevalidate flag's value. The main content save must show
-  // `false` here; the nested auto-translation writes legitimately show `true`.
-  console.warn(
-    `[revalidate] hook fired (disableRevalidate=${Boolean(context?.disableRevalidate)})`,
-  )
-  if (context?.disableRevalidate) return
+/**
+ * Do the revalidation + CDN purge UNCONDITIONALLY (no flag check). Called either
+ * by the flag-gated `revalidatePublicSite` wrapper (non-translated saves/deletes)
+ * or directly, exactly once, by the auto-translation hook. Never throws.
+ */
+export async function revalidatePublicSiteNow(source = 'hook'): Promise<void> {
+  console.warn(`[revalidate] revalidating public site + purging CDN (${source})`)
   try {
     const { revalidatePath } = await import('next/cache')
     // Global purge (also clears the calling request's client cache) + the shared
@@ -98,6 +108,16 @@ async function revalidatePublicSite(context?: {
   } catch (err) {
     console.warn('[revalidate] CDN invalidation skipped:', (err as Error)?.message)
   }
+}
+
+async function revalidatePublicSite(context?: {
+  disableRevalidate?: unknown
+}): Promise<void> {
+  // Suppressed for seed/migrate/test (they set the flag) AND for auto-translation
+  // saves (the translation hook sets it and revalidates itself once — see the
+  // block comment above). Non-translated saves/deletes fall through and revalidate.
+  if (context?.disableRevalidate) return
+  await revalidatePublicSiteNow('standalone hook')
 }
 
 export const revalidateContentAfterChange: CollectionAfterChangeHook = async ({
