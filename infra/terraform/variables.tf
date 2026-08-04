@@ -91,6 +91,13 @@ variable "neon_history_retention_seconds" {
   default     = 21600
 }
 
+# ── SES sending identity (opt-in) ────────────────────────────────────────────
+variable "manage_ses" {
+  description = "Whether Terraform provisions the SES domain identity for bulbau.lu + its DKIM/SPF/DMARC/MAIL-FROM DNS records (Phase 4 part 2 — quote-by-email). Kept FALSE by default so a first apply doesn't provision before you're ready; flip to true and `terraform apply` to create it (the DNS is in-zone, so verification is automatic within minutes). See ses.tf + the manual guide."
+  type        = bool
+  default     = false
+}
+
 # ── GitHub Actions deploy IAM role (import-only, opt-in) ─────────────────────
 variable "manage_deploy_role" {
   description = "Whether Terraform manages the (already-existing) GitHub-Actions deploy role + inline policy, making the committed JSON the single source of truth (file = live). Keep FALSE until the role has been `terraform import`ed — otherwise apply would try to CREATE a role that already exists. See iam.tf + README."

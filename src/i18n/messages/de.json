@@ -84,7 +84,17 @@
     "downloadPdf": "PDF-Angebot herunterladen",
     "downloadPreparing": "Ihr Angebot wird vorbereitet…",
     "downloadError": "Wir konnten Ihr PDF gerade nicht erstellen. Bitte versuchen Sie es erneut oder kontaktieren Sie uns direkt unter {phone} oder {email}.",
-    "downloadRateLimited": "Sie haben in kurzer Zeit mehrere Angebote angefordert. Bitte warten Sie einen Moment und versuchen Sie es erneut."
+    "downloadRateLimited": "Sie haben in kurzer Zeit mehrere Angebote angefordert. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
+    "sendToEmail": "Angebot per E-Mail erhalten",
+    "emailPromptLabel": "Ihre E-Mail-Adresse",
+    "emailPlaceholder": "sie@beispiel.com",
+    "emailSend": "Senden",
+    "emailSending": "Wird gesendet…",
+    "emailSent": "Gesendet! Prüfen Sie Ihren Posteingang auf das PDF-Angebot.",
+    "emailInvalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+    "emailError": "Wir konnten die E-Mail gerade nicht senden. Laden Sie stattdessen das PDF herunter oder kontaktieren Sie uns unter {phone} oder {email}.",
+    "emailRateLimited": "Sie haben in kurzer Zeit mehrere Angebote angefordert. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
+    "emailCancel": "Abbrechen"
   },
   "Quote": {
     "title": "Preisschätzung",
@@ -103,6 +113,18 @@
     "notSpecified": "—",
     "yes": "Ja",
     "no": "Nein"
+  },
+  "QuoteEmail": {
+    "subject": "Ihre Preisschätzung — {service}",
+    "heading": "Ihre Preisschätzung",
+    "greeting": "Hallo,",
+    "intro": "Vielen Dank für Ihr Interesse an {service}. Ihre persönliche Schätzung ist dieser E-Mail als PDF beigefügt.",
+    "estimateNote": "Bitte beachten Sie, dass dies eine automatische Schätzung und kein verbindliches Angebot ist — der Endpreis kann abweichen.",
+    "contactInvite": "Für ein genaues, verbindliches Angebot, das auf Ihr Projekt zugeschnitten ist, kontaktieren Sie uns einfach. Wir helfen Ihnen gerne.",
+    "totalLine": "Geschätzter Gesamtbetrag: {total}",
+    "signoff": "Mit freundlichen Grüßen, {company}",
+    "phoneLabel": "Telefon",
+    "emailLabel": "E-Mail"
   },
   "Projects": {
     "eyebrow": "Unser Portfolio",

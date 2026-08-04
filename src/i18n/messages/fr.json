@@ -84,7 +84,17 @@
     "downloadPdf": "Télécharger le devis PDF",
     "downloadPreparing": "Préparation de votre devis…",
     "downloadError": "Nous n'avons pas pu générer votre PDF pour le moment. Veuillez réessayer ou nous contacter directement au {phone} ou à {email}.",
-    "downloadRateLimited": "Vous avez demandé plusieurs devis en peu de temps. Veuillez patienter un instant et réessayer."
+    "downloadRateLimited": "Vous avez demandé plusieurs devis en peu de temps. Veuillez patienter un instant et réessayer.",
+    "sendToEmail": "Recevoir le devis par e-mail",
+    "emailPromptLabel": "Votre adresse e-mail",
+    "emailPlaceholder": "vous@exemple.com",
+    "emailSend": "Envoyer",
+    "emailSending": "Envoi en cours…",
+    "emailSent": "Envoyé ! Consultez votre boîte de réception pour le devis PDF.",
+    "emailInvalid": "Veuillez saisir une adresse e-mail valide.",
+    "emailError": "Nous n'avons pas pu envoyer l'e-mail pour le moment. Téléchargez plutôt le PDF, ou contactez-nous au {phone} ou à {email}.",
+    "emailRateLimited": "Vous avez demandé plusieurs devis en peu de temps. Veuillez patienter un instant et réessayer.",
+    "emailCancel": "Annuler"
   },
   "Quote": {
     "title": "Estimation de prix",
@@ -103,6 +113,18 @@
     "notSpecified": "—",
     "yes": "Oui",
     "no": "Non"
+  },
+  "QuoteEmail": {
+    "subject": "Votre estimation de prix — {service}",
+    "heading": "Votre estimation de prix",
+    "greeting": "Bonjour,",
+    "intro": "Merci de votre intérêt pour {service}. Votre estimation personnalisée est jointe à cet e-mail au format PDF.",
+    "estimateNote": "Veuillez noter qu'il s'agit d'une estimation automatique et non d'une offre contractuelle — le prix final peut différer.",
+    "contactInvite": "Pour un devis précis et contractuel adapté à votre projet, il vous suffit de nous contacter. Nous serons ravis de vous aider.",
+    "totalLine": "Total estimé : {total}",
+    "signoff": "Cordialement, {company}",
+    "phoneLabel": "Téléphone",
+    "emailLabel": "E-mail"
   },
   "Projects": {
     "eyebrow": "Notre portfolio",

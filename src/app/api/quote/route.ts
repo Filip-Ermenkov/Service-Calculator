@@ -12,7 +12,14 @@
  *
  * This route lives outside the `[locale]` segment (locale travels in the body),
  * so next-intl's middleware never rewrites it; `/api/*` is also excluded from the
- * admin proxy. Email delivery (SES) is Phase 4 part 2 and intentionally absent.
+ * admin proxy.
+ *
+ * TWO MODES (`mode` in the body, default `'download'`):
+ *   • download — stream the PDF back for download (Phase 4 part 1, unchanged).
+ *   • email    — attach the same PDF to a short localized message and send it to
+ *     the visitor-supplied address via SES (Phase 4 part 2, FUNCTIONALITY §4/§7).
+ * Everything up to and including the PDF render is shared, so the email path can
+ * never produce a different quote than the download path.
  */
 
 import { NextResponse } from 'next/server'
@@ -20,6 +27,8 @@ import { getTranslations } from 'next-intl/server'
 
 import { routing, type Locale } from '@/i18n/routing'
 import { getCompanyInfo, getServiceBySlug } from '@/lib/content'
+import { renderQuoteEmail, type QuoteEmailContent } from '@/lib/email/quoteEmail'
+import { isValidEmail, sendEmail } from '@/lib/email/ses'
 import { buildQuoteModel, type QuoteText } from '@/lib/pdf/quote'
 import { renderPdf } from '@/lib/pdf/render'
 import { renderQuoteHtml } from '@/lib/pdf/template'
@@ -30,6 +39,8 @@ interface QuoteRequestBody {
   slug?: unknown
   locale?: unknown
   inputs?: unknown
+  mode?: unknown
+  email?: unknown
 }
 
 /**
@@ -89,6 +100,15 @@ export async function POST(request: Request) {
   const locale = isLocale(body.locale) ? body.locale : routing.defaultLocale
   if (typeof slug !== 'string' || slug.length === 0) {
     return NextResponse.json({ error: 'missing_slug' }, { status: 400 })
+  }
+
+  // Delivery mode: 'email' attaches the PDF and sends it; anything else (incl.
+  // absent) is the default download path. In email mode the recipient address is
+  // validated up front so an obvious typo is rejected before any DB/Lambda work.
+  const mode = body.mode === 'email' ? 'email' : 'download'
+  const recipient = typeof body.email === 'string' ? body.email.trim() : ''
+  if (mode === 'email' && !isValidEmail(recipient)) {
+    return NextResponse.json({ error: 'invalid_email' }, { status: 400 })
   }
 
   // Raw inputs are an untrusted string/bool/number map keyed by fieldKey. Coerce
@@ -157,6 +177,60 @@ export async function POST(request: Request) {
 
     const rendered = await renderPdf(html)
 
+    // ── Email delivery (Phase 4 part 2) ──────────────────────────────────────
+    if (mode === 'email') {
+      // Emailing requires a real PDF to attach. A stage with no PDF backend
+      // (local dev / CI) can't fulfil this; surface it so the UI offers the
+      // download fallback (§7). Deployed stages always have the backend.
+      if (!rendered) {
+        return NextResponse.json({ error: 'email_unavailable' }, { status: 503 })
+      }
+
+      const te = await getTranslations({ locale, namespace: 'QuoteEmail' })
+      const companyName = tMeta('siteName')
+      const content: QuoteEmailContent = {
+        heading: te('heading'),
+        paragraphs: [
+          te('greeting'),
+          te('intro', { service: model.serviceTitle }),
+          te('estimateNote'),
+          te('contactInvite'),
+        ],
+        totalLine: model.hasTotal && model.totalDisplay
+          ? te('totalLine', { total: model.totalDisplay })
+          : null,
+        signoff: te('signoff', { company: companyName }),
+        phoneLabel: te('phoneLabel'),
+        emailLabel: te('emailLabel'),
+        company: {
+          name: companyName,
+          phone: company?.phone ?? null,
+          email: company?.email ?? null,
+        },
+      }
+      const { html: emailHtml, text: emailText } = renderQuoteEmail(content)
+
+      const result = await sendEmail({
+        to: recipient,
+        subject: te('subject', { service: model.serviceTitle }),
+        html: emailHtml,
+        text: emailText,
+        // Replies go to the company's public inbox when one is configured, so a
+        // visitor can simply reply to discuss their quote.
+        replyTo: company?.email ?? null,
+        attachment: { filename, content: rendered.buffer, contentType: 'application/pdf' },
+      })
+
+      if (result.ok) {
+        return NextResponse.json({ ok: true }, { status: 200, headers: { 'Cache-Control': 'no-store' } })
+      }
+      // not_configured (no verified sender on this stage) and send_failed both map
+      // to a 502 so the UI shows the "download instead" fallback (§7). They are
+      // distinguished only in logs, never to the visitor.
+      return NextResponse.json({ error: `email_${result.reason}` }, { status: 502 })
+    }
+
+    // ── Download delivery (Phase 4 part 1, unchanged) ────────────────────────
     // No PDF backend on this stage (local dev / CI): serve the HTML so the
     // template can still be viewed and browser-printed. Flagged via a header.
     if (!rendered) {
@@ -180,7 +254,7 @@ export async function POST(request: Request) {
       },
     })
   } catch (err) {
-    console.error('[api/quote] PDF generation failed:', err)
+    console.error('[api/quote] quote generation failed:', err)
     return NextResponse.json({ error: 'pdf_generation_failed' }, { status: 502 })
   }
 }

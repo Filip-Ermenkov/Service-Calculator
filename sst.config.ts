@@ -67,6 +67,13 @@ export default $config({
     // production at launch. NEXT_PUBLIC_* ⇒ inlined at build by SST/OpenNext.
     const siteUrl = new sst.Secret('SiteUrl', '')
     const allowIndexing = new sst.Secret('AllowIndexing', '')
+    // Verified SES "From" address for the "email me the quote" action (Phase 4
+    // part 2 — src/lib/email/*). OPTIONAL with a '' default: when unset the send
+    // path is a no-op that returns not_configured and the UI offers the download
+    // fallback, so local dev / CI / any stage without a verified SES identity
+    // need no SES access. Set it (e.g. quotes@bulbau.lu) only once the SES domain
+    // identity is verified — see infra/terraform/ses.tf + docs manual guide.
+    const emailSender = new sst.Secret('EmailSender', '')
 
     const media = new sst.aws.Bucket('Media', {
       access: 'cloudfront',
@@ -141,7 +148,7 @@ export default $config({
       warm: 1,
       // Linking `pdf` grants the Web function permission to invoke it; its name
       // is passed explicitly as PDF_FUNCTION_NAME (read by src/lib/pdf/render.ts).
-      link: [media, databaseUrl, payloadSecret, totpEncryptionKey, upstashRedisRestUrl, upstashRedisRestToken, siteUrl, allowIndexing, pdf],
+      link: [media, databaseUrl, payloadSecret, totpEncryptionKey, upstashRedisRestUrl, upstashRedisRestToken, siteUrl, allowIndexing, emailSender, pdf],
       // AWS Translate auto-translation (Phase 5 — src/lib/translation/*). The
       // Next/Payload server function calls translate:TranslateText; it has no
       // resource ARNs, so the resource must be "*". No secret is involved —
@@ -164,6 +171,16 @@ export default $config({
           actions: ['cloudfront:CreateInvalidation'],
           resources: ['arn:aws:cloudfront::*:distribution/*'],
         },
+        // "Email me the quote" (Phase 4 part 2 — src/lib/email/ses.ts). The Web
+        // function sends the quote PDF via SES v2 SendEmail. Scoped to any SES
+        // identity in this (single-app) account/region — the actual From address
+        // is the verified EmailSender secret; the role can only reach its own
+        // account's identities regardless. The SES identity itself is created +
+        // DNS-verified by Terraform (infra/terraform/ses.tf), NOT by this deploy.
+        {
+          actions: ['ses:SendEmail'],
+          resources: ['arn:aws:ses:eu-central-1:*:identity/*'],
+        },
       ],
       environment: {
         DATABASE_URL: databaseUrl.value,
@@ -175,6 +192,9 @@ export default $config({
         // defaults (prod-domain canonicals, indexing off).
         NEXT_PUBLIC_SITE_URL: siteUrl.value,
         NEXT_PUBLIC_ALLOW_INDEXING: allowIndexing.value,
+        // Verified SES From address (Phase 4 part 2). Empty ⇒ the email-quote
+        // path is a no-op (src/lib/email/ses.ts) and the UI offers download.
+        EMAIL_SENDER: emailSender.value,
         // 2FA (see src/lib/totp/*). TOTP_ENCRYPTION_KEY is required; the Upstash
         // pair is optional (empty => in-memory rate-limit fallback).
         TOTP_ENCRYPTION_KEY: totpEncryptionKey.value,

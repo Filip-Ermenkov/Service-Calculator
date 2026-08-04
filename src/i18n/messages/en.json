@@ -84,7 +84,17 @@
     "downloadPdf": "Download PDF quote",
     "downloadPreparing": "Preparing your quote…",
     "downloadError": "We couldn't generate your PDF just now. Please try again, or contact us directly at {phone} or {email}.",
-    "downloadRateLimited": "You've requested a few quotes in quick succession. Please wait a moment and try again."
+    "downloadRateLimited": "You've requested a few quotes in quick succession. Please wait a moment and try again.",
+    "sendToEmail": "Email me the quote",
+    "emailPromptLabel": "Your email address",
+    "emailPlaceholder": "you@example.com",
+    "emailSend": "Send",
+    "emailSending": "Sending…",
+    "emailSent": "Sent! Check your inbox for the PDF quote.",
+    "emailInvalid": "Please enter a valid email address.",
+    "emailError": "We couldn't send the email just now. Please download the PDF instead, or contact us at {phone} or {email}.",
+    "emailRateLimited": "You've requested a few quotes in quick succession. Please wait a moment and try again.",
+    "emailCancel": "Cancel"
   },
   "Quote": {
     "title": "Price Estimate",
@@ -103,6 +113,18 @@
     "notSpecified": "—",
     "yes": "Yes",
     "no": "No"
+  },
+  "QuoteEmail": {
+    "subject": "Your price estimate — {service}",
+    "heading": "Your price estimate",
+    "greeting": "Hello,",
+    "intro": "Thank you for your interest in {service}. Your personalised estimate is attached to this email as a PDF.",
+    "estimateNote": "Please keep in mind this is an automated estimate, not a binding offer — the final price may differ.",
+    "contactInvite": "For a precise, binding quotation tailored to your project, just get in touch. We'll be glad to help.",
+    "totalLine": "Estimated total: {total}",
+    "signoff": "Best regards, {company}",
+    "phoneLabel": "Phone",
+    "emailLabel": "Email"
   },
   "Projects": {
     "eyebrow": "Our Portfolio",

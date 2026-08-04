@@ -26,3 +26,9 @@ neon_history_retention_seconds = 21600   # 6h — matches the live project; rais
 # GitHub-Actions deploy role — keep false until the existing role is imported
 manage_deploy_role = false
 deploy_role_name   = "gh-actions-bulbau-staging-deploy"
+
+# SES sending identity (Phase 4 part 2 — quote-by-email). Keep false until you're
+# ready to provision it; flip to true and `terraform apply` to create the domain
+# identity + its DKIM/SPF/DMARC/MAIL-FROM records (verifies automatically, DNS is
+# in-zone). Then set the SST EmailSender secret + request SES production access.
+manage_ses = false

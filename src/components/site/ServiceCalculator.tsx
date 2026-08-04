@@ -16,13 +16,18 @@
  * current inputs to `/api/quote`, which re-prices authoritatively server-side and
  * returns a branded PDF. It's available regardless of whether every field is
  * filled (§3.3); required gaps are already indicated by the total's gating.
- * Send-to-Email is Phase 4 part 2 (blocked on a verified SES identity).
+ *
+ * The **Email me the quote** action (Phase 4 part 2, FUNCTIONALITY §4 Delivery/§7)
+ * reveals a small inline email prompt and posts the same inputs with `mode:'email'`
+ * and the address; the server attaches the identical PDF and sends it via SES. On
+ * failure (invalid address, send error, no verified sender) the visitor is offered
+ * the download instead (§7). No address is stored and the company is not notified.
  */
 
 import { useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 
-import { Download, Info } from '@/components/site/icons'
+import { Download, Info, Mail } from '@/components/site/icons'
 import {
   coerceInputs,
   computePrice,
@@ -47,7 +52,7 @@ export function ServiceCalculator({
   formula,
   slug,
   phone,
-  email,
+  email: companyEmail,
 }: {
   fields: PricingField[]
   formula: JsonLogic | null
@@ -65,8 +70,51 @@ export function ServiceCalculator({
   // 'generic' = any other failure (network/server) with the phone/email fallback.
   const [downloadError, setDownloadError] = useState<null | 'generic' | 'rateLimited'>(null)
 
+  // Email-quote flow (Phase 4 part 2). `emailOpen` toggles the inline prompt;
+  // `emailStatus` drives the button + message copy. 'invalid'/'rateLimited'/'error'
+  // are distinct so the visitor gets the right guidance (and the download fallback).
+  const [emailOpen, setEmailOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [emailStatus, setEmailStatus] = useState<
+    'idle' | 'sending' | 'sent' | 'invalid' | 'rateLimited' | 'error'
+  >('idle')
+
   const setField = (key: string, value: RawInput) =>
     setValues((prev) => ({ ...prev, [key]: value }))
+
+  // Same pragmatic check the server enforces (src/lib/email/ses.ts) — reject an
+  // obvious typo client-side before the round-trip; the server re-validates.
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())
+
+  async function handleSendEmail() {
+    if (emailStatus === 'sending') return
+    if (!emailLooksValid) {
+      setEmailStatus('invalid')
+      return
+    }
+    setEmailStatus('sending')
+    try {
+      const res = await fetch('/api/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, locale, inputs: values, mode: 'email', email: email.trim() }),
+      })
+      if (res.status === 429) {
+        setEmailStatus('rateLimited')
+        return
+      }
+      if (res.status === 400) {
+        // Server rejected the address format (e.g. a case the client check missed).
+        setEmailStatus('invalid')
+        return
+      }
+      if (!res.ok) throw new Error(`email request failed: ${res.status}`)
+      setEmailStatus('sent')
+    } catch (err) {
+      console.error('[calculator] quote email failed:', err)
+      setEmailStatus('error')
+    }
+  }
 
   async function handleDownload() {
     if (downloading) return
@@ -239,22 +287,98 @@ export function ServiceCalculator({
           field completeness; the server re-prices authoritatively and returns a
           branded PDF (or, on a stage with no PDF backend, the HTML for preview). */}
       <div className="calc-actions" style={{ marginTop: '1.5rem' }}>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleDownload}
-          disabled={downloading}
-          aria-busy={downloading || undefined}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
-        >
-          <Download width={16} height={16} strokeWidth={2} />
-          {downloading ? t('downloadPreparing') : t('downloadPdf')}
-        </button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleDownload}
+            disabled={downloading}
+            aria-busy={downloading || undefined}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Download width={16} height={16} strokeWidth={2} />
+            {downloading ? t('downloadPreparing') : t('downloadPdf')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-orange"
+            onClick={() => {
+              setEmailOpen((open) => !open)
+              setEmailStatus('idle')
+            }}
+            aria-expanded={emailOpen}
+            aria-controls="email-quote-prompt"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Mail width={16} height={16} strokeWidth={2} />
+            {t('sendToEmail')}
+          </button>
+        </div>
+
         {downloadError && (
           <p className="price-note" role="alert" style={{ color: 'var(--orange)', marginTop: '0.75rem' }}>
             {downloadError === 'rateLimited'
               ? t('downloadRateLimited')
-              : t('downloadError', { phone: phone ?? '—', email: email ?? '—' })}
+              : t('downloadError', { phone: phone ?? '—', email: companyEmail ?? '—' })}
+          </p>
+        )}
+
+        {/* Inline email prompt (FUNCTIONALITY §3.3 "Send to Email"). Shown only
+            on demand; a success replaces the form with a confirmation. */}
+        {emailOpen && emailStatus !== 'sent' && (
+          <div
+            id="email-quote-prompt"
+            style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'flex-start' }}
+          >
+            <label htmlFor="email-quote-input" className="visually-hidden">
+              {t('emailPromptLabel')}
+            </label>
+            <input
+              id="email-quote-input"
+              className="calc-input"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder={t('emailPlaceholder')}
+              value={email}
+              aria-invalid={emailStatus === 'invalid' || undefined}
+              disabled={emailStatus === 'sending'}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                if (emailStatus !== 'idle') setEmailStatus('idle')
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void handleSendEmail()
+                }
+              }}
+              style={{ flex: '1 1 220px', minWidth: 0 }}
+            />
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleSendEmail}
+              disabled={emailStatus === 'sending'}
+              aria-busy={emailStatus === 'sending' || undefined}
+            >
+              {emailStatus === 'sending' ? t('emailSending') : t('emailSend')}
+            </button>
+          </div>
+        )}
+
+        {emailStatus === 'sent' && (
+          <p className="price-note" role="status" style={{ color: 'var(--green, #2f855a)', marginTop: '0.75rem' }}>
+            {t('emailSent')}
+          </p>
+        )}
+        {(emailStatus === 'invalid' || emailStatus === 'rateLimited' || emailStatus === 'error') && (
+          <p className="price-note" role="alert" style={{ color: 'var(--orange)', marginTop: '0.75rem' }}>
+            {emailStatus === 'invalid'
+              ? t('emailInvalid')
+              : emailStatus === 'rateLimited'
+                ? t('emailRateLimited')
+                : t('emailError', { phone: phone ?? '—', email: companyEmail ?? '—' })}
           </p>
         )}
       </div>

@@ -127,6 +127,42 @@ test.describe('Public site — live price calculator + quote (Phase 3/4)', () =>
     expect(resp.headers()['content-type'] ?? '').toMatch(/application\/pdf|text\/html/)
   })
 
+  test('the "email me the quote" flow validates and confirms (Phase 4 part 2)', async ({
+    page,
+  }) => {
+    const res = await page.goto(`${BASE}${SAMPLE_SERVICE_PATH_EN}`)
+    test.skip(res?.status() === 404, 'no seeded sample service in this environment (empty DB)')
+
+    // Reveal the inline email prompt.
+    await page.getByRole('button', { name: /Email me the quote/i }).click()
+    const input = page.getByPlaceholder(/@/)
+    await expect(input).toBeVisible()
+
+    // Client-side validation: an obviously-bad address is rejected WITHOUT a
+    // network round-trip (the server never sees it).
+    await input.fill('not-an-email')
+    await page.getByRole('button', { name: /^Send$/i }).click()
+    await expect(page.getByText(/valid email address/i)).toBeVisible()
+
+    // A valid address posts mode:'email'; mock the send so the test is
+    // deterministic without a verified SES identity, and assert the confirmation.
+    await page.route('**/api/quote', async (route) => {
+      const body = route.request().postDataJSON() as { mode?: string }
+      if (body?.mode === 'email') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: true }),
+        })
+      } else {
+        await route.continue()
+      }
+    })
+    await input.fill('visitor@example.com')
+    await page.getByRole('button', { name: /^Send$/i }).click()
+    await expect(page.getByText(/Check your inbox/i)).toBeVisible()
+  })
+
   test('the /api/quote endpoint is rate-limited (429 after the per-IP budget)', async ({
     request,
   }) => {
