@@ -237,9 +237,18 @@ production (no key to set/rotate). Locally it's a **no-op** unless you set
 `TRANSLATE_ENABLED=true` *and* provide AWS credentials allowed to call
 `translate:TranslateText` (the S3Mock creds don't count) — otherwise FR/DE fall
 back to the EN source. See `docs/PROGRESS.md` → "Phase 5 part 1" for the full
-design (and the CloudFront-caching caveat: content currently appears within ~10s
-of an edit — the proper on-demand CloudFront invalidation is a documented next
-step).
+design.
+
+**Content edits reach the edge in seconds (on-demand CloudFront invalidation).**
+When the admin publishes, the revalidate hook refreshes the ISR origin **and**
+invalidates the CloudFront cache (`src/lib/cdn/invalidate.ts`) — OpenNext does not
+purge CloudFront on its own. `sst.config.ts` writes the distribution ID to an SSM
+parameter (`/bulbau-lu/<stage>/web-cdn-distribution-id`) and grants the Web function
+`ssm:GetParameter` + `cloudfront:CreateInvalidation` — **no secret to set**; it is
+automatic on every deployed stage. Locally / in CI it's a **no-op** (the
+`CDN_DISTRIBUTION_ID_PARAM` env var is unset, so the time-based `revalidate`
+window handles freshness and no AWS access is needed). Full detail:
+`docs/PROGRESS.md` → "On-demand CloudFront invalidation".
 
 **No web analytics, and no cookie-consent banner — by design.** The site sets a
 single strictly-functional cookie (the visitor's language preference) and no

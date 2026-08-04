@@ -165,10 +165,9 @@ async function sendInvalidation(
 export async function invalidateCdn(
   paths: readonly string[] = DEFAULT_PATHS,
 ): Promise<void> {
-  if (!isCdnInvalidationConfigured()) {
-    console.warn('[cdn] skip: CDN_DISTRIBUTION_ID_PARAM is not set')
-    return
-  }
+  // Silent no-op when unconfigured — this is the intended state locally, in CI
+  // and in tests (no CDN_DISTRIBUTION_ID_PARAM), not a problem worth a warning.
+  if (!isCdnInvalidationConfigured()) return
   const controller = new AbortController()
   const timer = setTimeout(
     () => controller.abort(new Error('CDN invalidation timed out')),
@@ -177,13 +176,16 @@ export async function invalidateCdn(
   try {
     const distributionId = await resolveDistributionId(controller.signal)
     if (!distributionId) {
+      // Configured but the parameter is empty ⇒ a real misconfiguration.
       console.warn(
-        `[cdn] skip: distribution id resolved empty from SSM parameter ${process.env.CDN_DISTRIBUTION_ID_PARAM}`,
+        `[cdn] distribution id resolved empty from SSM parameter ${process.env.CDN_DISTRIBUTION_ID_PARAM}`,
       )
       return
     }
     await sendInvalidation(distributionId, [...paths], controller.signal)
-    console.warn(
+    // Healthy path ⇒ info level (one line per content edit; useful confirmation
+    // that the edge was purged, without polluting warn/error log streams).
+    console.log(
       `[cdn] invalidation created for distribution ${distributionId} (${paths.join(', ')})`,
     )
   } catch (err) {

@@ -139,10 +139,13 @@ recreated, their random name suffix changes — re-query and re-`apply`.
   **server-function** role (via `sst.config.ts`'s `permissions:` prop), not the
   Terraform-managed deploy role, and it needs no secret. The 30s Lambda
   `server.timeout` is also an SST/`sst.config.ts` setting.
-- **Upcoming CloudFront on-demand invalidation** (the proper fix for edit-freshness
-  — see `docs/PROGRESS.md` "Immediate next steps") will most likely be **app/SST-
-  side too**: a runtime `cloudfront:CreateInvalidation` permission on the server
-  role + the distribution ID passed in (the deploy role already has
-  `cloudfront:CreateInvalidation` for deploy-time invalidation via `ManageCloudFront`).
-  Expect it *not* to land in this Terraform layer unless the distribution ID ends
-  up wired via an SSM parameter that we choose to Terraform-manage.
+- **CloudFront on-demand invalidation — DONE 2026-08-04, and (as predicted) entirely
+  app/SST-side, NOT in this Terraform layer.** The runtime `cloudfront:CreateInvalidation`
+  + `ssm:GetParameter` permissions ride on the SST **server-function** role (via
+  `sst.config.ts`'s `permissions:` prop), and the distribution ID is wired via an
+  **SST-managed** SSM parameter (`/bulbau-lu/<stage>/web-cdn-distribution-id`, created
+  after the Nextjs component to break the SST #5990 cycle) — chosen deliberately as
+  SST-owned, not Terraform-owned, because it is a per-stage, disposable value that
+  must be recreated with the stage. So this Terraform layer is **unchanged** by that
+  slice; the committed deploy-policy JSON also needed no edit. See `docs/PROGRESS.md`
+  → "On-demand CloudFront invalidation".

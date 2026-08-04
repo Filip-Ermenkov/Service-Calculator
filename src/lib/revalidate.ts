@@ -77,7 +77,8 @@ const CONTENT_PAGE_PATTERNS = [
  * or directly, exactly once, by the auto-translation hook. Never throws.
  */
 export async function revalidatePublicSiteNow(source = 'hook'): Promise<void> {
-  console.warn(`[revalidate] revalidating public site + purging CDN (${source})`)
+  // Info level (healthy path). Problems below are logged at warn.
+  console.log(`[revalidate] revalidating public site + purging CDN (${source})`)
   try {
     const { revalidatePath } = await import('next/cache')
     // Global purge (also clears the calling request's client cache) + the shared
