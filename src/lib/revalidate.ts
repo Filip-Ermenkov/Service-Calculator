@@ -60,11 +60,14 @@ const CONTENT_PAGE_PATTERNS = [
 async function revalidatePublicSite(context?: {
   disableRevalidate?: unknown
 }): Promise<void> {
+  // Diagnostic (console.warn — console.log can be dropped by the production
+  // build): logged BEFORE the early-return so the logs show both that the hook
+  // fired AND the disableRevalidate flag's value. The main content save must show
+  // `false` here; the nested auto-translation writes legitimately show `true`.
+  console.warn(
+    `[revalidate] hook fired (disableRevalidate=${Boolean(context?.disableRevalidate)})`,
+  )
   if (context?.disableRevalidate) return
-  // Diagnostic: one line per top-level content save (nested translation writes
-  // are skipped above via disableRevalidate, so this fires once per real edit).
-  // Lets a deploy's logs prove the hook reached the revalidate + CDN-purge path.
-  console.log('[revalidate] revalidating public site + purging CDN')
   try {
     const { revalidatePath } = await import('next/cache')
     // Global purge (also clears the calling request's client cache) + the shared

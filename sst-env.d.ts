@@ -6,6 +6,46 @@
 
 declare module "sst" {
   export interface Resource {
+    "AllowIndexing": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "DatabaseUrl": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "Media": {
+      "name": string
+      "type": "sst.aws.Bucket"
+    }
+    "PayloadSecret": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "Pdf": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
+    "SiteUrl": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "TotpEncryptionKey": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "UpstashRedisRestToken": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "UpstashRedisRestUrl": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "Web": {
+      "type": "sst.aws.Nextjs"
+      "url": string
+    }
   }
 }
 

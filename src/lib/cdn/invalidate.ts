@@ -166,7 +166,7 @@ export async function invalidateCdn(
   paths: readonly string[] = DEFAULT_PATHS,
 ): Promise<void> {
   if (!isCdnInvalidationConfigured()) {
-    console.log('[cdn] skip: CDN_DISTRIBUTION_ID_PARAM is not set')
+    console.warn('[cdn] skip: CDN_DISTRIBUTION_ID_PARAM is not set')
     return
   }
   const controller = new AbortController()
@@ -183,7 +183,7 @@ export async function invalidateCdn(
       return
     }
     await sendInvalidation(distributionId, [...paths], controller.signal)
-    console.log(
+    console.warn(
       `[cdn] invalidation created for distribution ${distributionId} (${paths.join(', ')})`,
     )
   } catch (err) {
