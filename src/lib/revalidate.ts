@@ -4,6 +4,14 @@ import type {
   GlobalAfterChangeHook,
 } from 'payload'
 
+// Statically imported (NOT a dynamic import): this module is server-only — it is
+// only ever reached from a Payload afterChange/afterDelete hook, exactly like the
+// AWS Translate hook, which statically imports its AWS SDK client and ships fine.
+// A dynamic `import('./cdn/invalidate')` risked OpenNext/esbuild not bundling the
+// module into the Lambda, so the import would throw `Cannot find module` at
+// runtime and the CDN purge would be silently swallowed.
+import { invalidateCdn } from './cdn/invalidate'
+
 /**
  * On-demand ISR invalidation for the public site (TECHSPEC §6.2).
  *
@@ -53,6 +61,10 @@ async function revalidatePublicSite(context?: {
   disableRevalidate?: unknown
 }): Promise<void> {
   if (context?.disableRevalidate) return
+  // Diagnostic: one line per top-level content save (nested translation writes
+  // are skipped above via disableRevalidate, so this fires once per real edit).
+  // Lets a deploy's logs prove the hook reached the revalidate + CDN-purge path.
+  console.log('[revalidate] revalidating public site + purging CDN')
   try {
     const { revalidatePath } = await import('next/cache')
     // Global purge (also clears the calling request's client cache) + the shared
@@ -76,11 +88,9 @@ async function revalidatePublicSite(context?: {
 
   // Purge CloudFront so the refreshed origin is actually served at the edge.
   // Separate try/catch (and the module itself never throws): a CDN-invalidation
-  // failure must never break the admin save — the ISR window remains the
-  // safety net. No-op when unconfigured (local dev / CI / tests). Dynamic import
-  // keeps the AWS SDK out of any non-Node bundle, matching `next/cache` above.
+  // failure must never break the admin save — the ISR window remains the safety
+  // net. No-op when unconfigured (local dev / CI / tests).
   try {
-    const { invalidateCdn } = await import('./cdn/invalidate')
     await invalidateCdn()
   } catch (err) {
     console.warn('[revalidate] CDN invalidation skipped:', (err as Error)?.message)

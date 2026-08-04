@@ -165,7 +165,10 @@ async function sendInvalidation(
 export async function invalidateCdn(
   paths: readonly string[] = DEFAULT_PATHS,
 ): Promise<void> {
-  if (!isCdnInvalidationConfigured()) return
+  if (!isCdnInvalidationConfigured()) {
+    console.log('[cdn] skip: CDN_DISTRIBUTION_ID_PARAM is not set')
+    return
+  }
   const controller = new AbortController()
   const timer = setTimeout(
     () => controller.abort(new Error('CDN invalidation timed out')),
@@ -173,8 +176,16 @@ export async function invalidateCdn(
   )
   try {
     const distributionId = await resolveDistributionId(controller.signal)
-    if (!distributionId) return
+    if (!distributionId) {
+      console.warn(
+        `[cdn] skip: distribution id resolved empty from SSM parameter ${process.env.CDN_DISTRIBUTION_ID_PARAM}`,
+      )
+      return
+    }
     await sendInvalidation(distributionId, [...paths], controller.signal)
+    console.log(
+      `[cdn] invalidation created for distribution ${distributionId} (${paths.join(', ')})`,
+    )
   } catch (err) {
     console.warn(
       '[cdn] invalidation skipped (content still served via the ISR window):',
