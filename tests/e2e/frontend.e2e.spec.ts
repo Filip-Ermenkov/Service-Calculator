@@ -48,7 +48,7 @@ test.describe('Public site — shell & i18n', () => {
 })
 
 test.describe('Public site — pages render', () => {
-  for (const path of ['/en', '/en/projects', '/en/about', '/en/careers', '/en/legal', '/en/privacy']) {
+  for (const path of ['/en', '/en/projects', '/en/about', '/en/careers', '/en/contact', '/en/legal', '/en/privacy']) {
     test(`renders ${path}`, async ({ page }) => {
       const res = await page.goto(`${BASE}${path}`)
       expect(res?.status()).toBeLessThan(400)
@@ -190,6 +190,100 @@ test.describe('Public site — live price calculator + quote (Phase 3/4)', () =>
     expect(eleventh.status()).toBe(429)
     expect((await eleventh.json()).error).toBe('rate_limited')
     expect(eleventh.headers()['retry-after']).toBeTruthy()
+  })
+})
+
+// Phase 6 — contact form + spam protection. Environment-agnostic: the /contact
+// page and its form render regardless of DB seeding (contact DETAILS come from
+// CompanyInfo, but the form is always present). Turnstile is unconfigured in
+// CI/local, so the widget doesn't render and no token is required — the client
+// flow (validation → mocked success) and the server defences (rate limit,
+// honeypot) are what's proven here; real Turnstile is verified in the manual guide.
+test.describe('Public site — contact form (Phase 6)', () => {
+  test('the contact page renders the form and is linked from the nav', async ({ page }) => {
+    const res = await page.goto(`${BASE}/en/contact`)
+    expect(res?.status()).toBeLessThan(400)
+    await expect(page.getByLabel(/Your name/i)).toBeVisible()
+    await expect(page.getByLabel(/Email address/i)).toBeVisible()
+    await expect(page.getByLabel(/Message/i)).toBeVisible()
+    await expect(page.getByRole('button', { name: /Send message/i })).toBeVisible()
+  })
+
+  test('client-side validation blocks an empty/invalid submit without a round-trip', async ({
+    page,
+  }) => {
+    let posted = false
+    await page.route('**/api/contact', async (route) => {
+      posted = true
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' })
+    })
+    await page.goto(`${BASE}/en/contact`)
+    await page.getByRole('button', { name: /Send message/i }).click()
+    // Scope to the form's own alert — Next renders a global (empty) route
+    // announcer with role="alert" too, so an unscoped getByRole is ambiguous.
+    await expect(page.locator('form.contact-form [role="alert"]')).toBeVisible()
+    expect(posted, 'no network request should be made on an invalid form').toBe(false)
+  })
+
+  test('a valid submission posts to /api/contact and shows the confirmation', async ({ page }) => {
+    await page.route('**/api/contact', async (route) => {
+      const body = route.request().postDataJSON() as { name?: string; message?: string }
+      // Assert the client sends the expected shape.
+      expect(body?.name).toBeTruthy()
+      expect(body?.message).toBeTruthy()
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' })
+    })
+    await page.goto(`${BASE}/en/contact`)
+    await page.getByLabel(/Your name/i).fill('Jane Tester')
+    await page.getByLabel(/Email address/i).fill('jane@example.com')
+    await page.getByLabel(/Message/i).fill('I would like a quote for a heat pump.')
+    await page.getByRole('button', { name: /Send message/i }).click()
+    await expect(page.getByText(/Message sent/i)).toBeVisible()
+  })
+
+  test('the /api/contact endpoint is rate-limited (429 after the per-IP budget)', async ({
+    request,
+  }) => {
+    // Own limiter bucket via a unique CloudFront-Viewer-Address (getClientIp trusts
+    // it first), isolating this run. Budget is 5 / minute / IP.
+    const viewer = `203.0.113.${1 + Math.floor(Math.random() * 250)}:40000`
+    const post = () =>
+      request.post(`${BASE}/api/contact`, {
+        headers: { 'CloudFront-Viewer-Address': viewer },
+        // Deliberately invalid body: the rate-limit check runs BEFORE validation,
+        // so the 429 assertion holds without needing a real send path.
+        data: { name: '', email: '', message: '' },
+        failOnStatusCode: false,
+      })
+
+    for (let i = 0; i < 5; i++) {
+      const r = await post()
+      expect(r.status(), `request ${i + 1} should not be rate-limited`).not.toBe(429)
+    }
+    const sixth = await post()
+    expect(sixth.status()).toBe(429)
+    expect((await sixth.json()).error).toBe('rate_limited')
+    expect(sixth.headers()['retry-after']).toBeTruthy()
+  })
+
+  test('the honeypot silently accepts (200) a bot submission without sending', async ({
+    request,
+  }) => {
+    const viewer = `203.0.113.${1 + Math.floor(Math.random() * 250)}:41000`
+    const res = await request.post(`${BASE}/api/contact`, {
+      headers: { 'CloudFront-Viewer-Address': viewer },
+      // A filled honeypot ("company") marks this as a bot. The route returns 200
+      // as if accepted (never revealing the trap) but sends nothing.
+      data: {
+        name: 'Spam Bot',
+        email: 'bot@example.com',
+        message: 'buy cheap stuff',
+        company: 'filled-by-a-bot',
+      },
+      failOnStatusCode: false,
+    })
+    expect(res.status()).toBe(200)
+    expect((await res.json()).ok).toBe(true)
   })
 })
 

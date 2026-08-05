@@ -28,6 +28,7 @@ import { useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 
 import { Download, Info, Mail } from '@/components/site/icons'
+import { TurnstileWidget, isTurnstileEnabled } from '@/components/site/TurnstileWidget'
 import {
   coerceInputs,
   computePrice,
@@ -76,8 +77,16 @@ export function ServiceCalculator({
   const [emailOpen, setEmailOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [emailStatus, setEmailStatus] = useState<
-    'idle' | 'sending' | 'sent' | 'invalid' | 'rateLimited' | 'error'
+    'idle' | 'sending' | 'sent' | 'invalid' | 'rateLimited' | 'turnstile' | 'error'
   >('idle')
+
+  // Turnstile spam-check on the email action (Phase 6). When Turnstile isn't
+  // configured this is a no-op: the widget doesn't render and the server skips
+  // verification. `emailToken` holds the solved token; `emailResetSignal` forces
+  // a fresh challenge after a failed/consumed submit (tokens are single-use).
+  const turnstileOn = isTurnstileEnabled()
+  const [emailToken, setEmailToken] = useState<string | null>(null)
+  const [emailResetSignal, setEmailResetSignal] = useState(0)
 
   const setField = (key: string, value: RawInput) =>
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -92,15 +101,41 @@ export function ServiceCalculator({
       setEmailStatus('invalid')
       return
     }
+    if (turnstileOn && !emailToken) {
+      // Ask the visitor to complete the human-verification check first.
+      setEmailStatus('turnstile')
+      return
+    }
     setEmailStatus('sending')
     try {
       const res = await fetch('/api/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, locale, inputs: values, mode: 'email', email: email.trim() }),
+        body: JSON.stringify({
+          slug,
+          locale,
+          inputs: values,
+          mode: 'email',
+          email: email.trim(),
+          turnstileToken: emailToken ?? undefined,
+        }),
       })
+      if (res.ok) {
+        setEmailStatus('sent')
+        return
+      }
+      // A token is single-use: reset the widget so a retry gets a fresh one.
+      if (turnstileOn) {
+        setEmailResetSignal((n) => n + 1)
+        setEmailToken(null)
+      }
       if (res.status === 429) {
         setEmailStatus('rateLimited')
+        return
+      }
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      if (data.error === 'email_turnstile_failed' || data.error === 'email_turnstile_unavailable') {
+        setEmailStatus('turnstile')
         return
       }
       if (res.status === 400) {
@@ -108,10 +143,13 @@ export function ServiceCalculator({
         setEmailStatus('invalid')
         return
       }
-      if (!res.ok) throw new Error(`email request failed: ${res.status}`)
-      setEmailStatus('sent')
+      setEmailStatus('error')
     } catch (err) {
       console.error('[calculator] quote email failed:', err)
+      if (turnstileOn) {
+        setEmailResetSignal((n) => n + 1)
+        setEmailToken(null)
+      }
       setEmailStatus('error')
     }
   }
@@ -364,6 +402,16 @@ export function ServiceCalculator({
             >
               {emailStatus === 'sending' ? t('emailSending') : t('emailSend')}
             </button>
+            {turnstileOn && (
+              <div style={{ flexBasis: '100%' }}>
+                <TurnstileWidget
+                  onToken={setEmailToken}
+                  action="quote-email"
+                  locale={locale}
+                  resetSignal={emailResetSignal}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -372,13 +420,18 @@ export function ServiceCalculator({
             {t('emailSent')}
           </p>
         )}
-        {(emailStatus === 'invalid' || emailStatus === 'rateLimited' || emailStatus === 'error') && (
+        {(emailStatus === 'invalid' ||
+          emailStatus === 'rateLimited' ||
+          emailStatus === 'turnstile' ||
+          emailStatus === 'error') && (
           <p className="price-note" role="alert" style={{ color: 'var(--orange)', marginTop: '0.75rem' }}>
             {emailStatus === 'invalid'
               ? t('emailInvalid')
               : emailStatus === 'rateLimited'
                 ? t('emailRateLimited')
-                : t('emailError', { phone: phone ?? '—', email: companyEmail ?? '—' })}
+                : emailStatus === 'turnstile'
+                  ? t('emailTurnstile')
+                  : t('emailError', { phone: phone ?? '—', email: companyEmail ?? '—' })}
           </p>
         )}
       </div>

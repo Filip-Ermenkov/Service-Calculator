@@ -34,6 +34,7 @@ import { renderPdf } from '@/lib/pdf/render'
 import { renderQuoteHtml } from '@/lib/pdf/template'
 import { toPricingFields, type JsonLogic, type RawInput } from '@/lib/pricing'
 import { checkRateLimit, getClientIp, type RateLimitPolicy } from '@/lib/rateLimit'
+import { verifyTurnstile } from '@/lib/security/turnstile'
 
 interface QuoteRequestBody {
   slug?: unknown
@@ -41,6 +42,7 @@ interface QuoteRequestBody {
   inputs?: unknown
   mode?: unknown
   email?: unknown
+  turnstileToken?: unknown
 }
 
 /**
@@ -109,6 +111,22 @@ export async function POST(request: Request) {
   const recipient = typeof body.email === 'string' ? body.email.trim() : ''
   if (mode === 'email' && !isValidEmail(recipient)) {
     return NextResponse.json({ error: 'invalid_email' }, { status: 400 })
+  }
+
+  // Email mode emails a PDF to an arbitrary visitor-supplied address — a relay/
+  // harassment surface. Gate it behind Turnstile (Phase 6). Verified BEFORE the
+  // expensive DB load + Chromium render, so a failed challenge costs nothing.
+  // No-op (passes) when Turnstile is unconfigured (local/CI); the download path
+  // is a direct self-serve action and is not gated. `error` (Cloudflare
+  // unreachable) is surfaced distinctly from a genuine `failed`.
+  if (mode === 'email') {
+    const turnstile = await verifyTurnstile(body.turnstileToken, ip)
+    if (!turnstile.ok) {
+      return NextResponse.json(
+        { error: turnstile.reason === 'error' ? 'email_turnstile_unavailable' : 'email_turnstile_failed' },
+        { status: turnstile.reason === 'error' ? 502 : 400 },
+      )
+    }
   }
 
   // Raw inputs are an untrusted string/bool/number map keyed by fieldKey. Coerce

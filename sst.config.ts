@@ -74,6 +74,16 @@ export default $config({
     // need no SES access. Set it (e.g. quotes@bulbau.lu) only once the SES domain
     // identity is verified — see infra/terraform/ses.tf + docs manual guide.
     const emailSender = new sst.Secret('EmailSender', '')
+    // Cloudflare Turnstile spam protection (Phase 6 — src/lib/security/turnstile.ts
+    // + the contact form / email-quote action). BOTH OPTIONAL with '' defaults:
+    // when unset the server-side check is a no-op (passes) and the client widget
+    // doesn't render — so local dev / CI / any stage without Turnstile provisioned
+    // need no Cloudflare account (same env-gated pattern as EmailSender). Set both
+    // once a Turnstile widget is created in the Cloudflare dashboard: the SECRET
+    // key stays server-side (TurnstileSecretKey ⇒ TURNSTILE_SECRET_KEY); the SITE
+    // key is public and NEXT_PUBLIC_* ⇒ inlined into the build for the widget.
+    const turnstileSecretKey = new sst.Secret('TurnstileSecretKey', '')
+    const turnstileSiteKey = new sst.Secret('TurnstileSiteKey', '')
 
     const media = new sst.aws.Bucket('Media', {
       access: 'cloudfront',
@@ -148,7 +158,7 @@ export default $config({
       warm: 1,
       // Linking `pdf` grants the Web function permission to invoke it; its name
       // is passed explicitly as PDF_FUNCTION_NAME (read by src/lib/pdf/render.ts).
-      link: [media, databaseUrl, payloadSecret, totpEncryptionKey, upstashRedisRestUrl, upstashRedisRestToken, siteUrl, allowIndexing, emailSender, pdf],
+      link: [media, databaseUrl, payloadSecret, totpEncryptionKey, upstashRedisRestUrl, upstashRedisRestToken, siteUrl, allowIndexing, emailSender, turnstileSecretKey, turnstileSiteKey, pdf],
       // AWS Translate auto-translation (Phase 5 — src/lib/translation/*). The
       // Next/Payload server function calls translate:TranslateText; it has no
       // resource ARNs, so the resource must be "*". No secret is involved —
@@ -195,6 +205,12 @@ export default $config({
         // Verified SES From address (Phase 4 part 2). Empty ⇒ the email-quote
         // path is a no-op (src/lib/email/ses.ts) and the UI offers download.
         EMAIL_SENDER: emailSender.value,
+        // Cloudflare Turnstile (Phase 6). The SECRET stays server-side (used by
+        // src/lib/security/turnstile.ts); the SITE key is public and inlined at
+        // build for the client widget. Both empty ⇒ spam check is a no-op and the
+        // widget doesn't render (local/CI/any un-provisioned stage).
+        TURNSTILE_SECRET_KEY: turnstileSecretKey.value,
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: turnstileSiteKey.value,
         // 2FA (see src/lib/totp/*). TOTP_ENCRYPTION_KEY is required; the Upstash
         // pair is optional (empty => in-memory rate-limit fallback).
         TOTP_ENCRYPTION_KEY: totpEncryptionKey.value,

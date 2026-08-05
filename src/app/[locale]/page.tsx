@@ -79,7 +79,7 @@ export default async function HomePage({
               {t('heroSubtitle')}
             </p>
             <div className="flex gap-2 flex-wrap" style={{ marginTop: '2.5rem' }}>
-              <Link href="/about" className="btn btn-primary btn-lg">
+              <Link href="/contact" className="btn btn-primary btn-lg">
                 {t('heroGetInTouch')}
               </Link>
               <Link href="/projects" className="btn btn-outline-white btn-lg">
@@ -172,7 +172,7 @@ export default async function HomePage({
             {t('ctaSubtitle')}
           </p>
           <div className="flex gap-2 justify-center flex-wrap">
-            <Link href="/about" className="btn btn-primary btn-lg">
+            <Link href="/contact" className="btn btn-primary btn-lg">
               {t('ctaContact')}
             </Link>
             <Link href="/projects" className="btn btn-outline-white btn-lg">

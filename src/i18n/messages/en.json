@@ -13,7 +13,8 @@
     "home": "Home",
     "projects": "Projects",
     "about": "About Us",
-    "careers": "Careers"
+    "careers": "Careers",
+    "contact": "Contact"
   },
   "LanguageSwitcher": {
     "label": "Change language",
@@ -94,6 +95,7 @@
     "emailInvalid": "Please enter a valid email address.",
     "emailError": "We couldn't send the email just now. Please download the PDF instead, or contact us at {phone} or {email}.",
     "emailRateLimited": "You've requested a few quotes in quick succession. Please wait a moment and try again.",
+    "emailTurnstile": "Please complete the human-verification check below, then send again.",
     "emailCancel": "Cancel"
   },
   "Quote": {
@@ -149,7 +151,37 @@
     "facebookLabel": "Facebook",
     "instagramLabel": "Instagram",
     "emptyContent": "Company information is being prepared. Please check back soon or contact us directly.",
-    "formComingSoon": "An online contact form is coming soon. In the meantime, reach us directly using the details above."
+    "formComingSoon": "Prefer to write? Use our contact page, or reach us directly using the details above."
+  },
+  "Contact": {
+    "eyebrow": "Get in Touch",
+    "title": "Contact Us",
+    "intro": "Have a project in mind or a question about our services? Send us a message and we'll get back to you as soon as we can.",
+    "metaDescription": "Contact Bulbau — get in touch about photovoltaic, electrical, building-automation, and heat pump services in Luxembourg.",
+    "formEyebrow": "Send a Message",
+    "formTitle": "Write to Us",
+    "detailsEyebrow": "Direct Contact",
+    "detailsTitle": "Reach Us Directly",
+    "nameLabel": "Your name",
+    "emailLabel": "Email address",
+    "subjectLabel": "Subject",
+    "messageLabel": "Message",
+    "phoneLabel": "Phone",
+    "facebookLabel": "Facebook",
+    "instagramLabel": "Instagram",
+    "privacyNote": "Your message is sent straight to our inbox and is never stored on this website. We use it only to reply to you.",
+    "submit": "Send message",
+    "submitting": "Sending…",
+    "successTitle": "Message sent",
+    "successBody": "Thank you for reaching out. We'll get back to you as soon as possible.",
+    "errorValidation": "Please fill in your name, a valid email address, and a message.",
+    "errorRateLimited": "You've sent several messages in quick succession. Please wait a moment and try again.",
+    "errorTurnstile": "We couldn't verify that you're human. Please complete the check and try again.",
+    "errorUnavailable": "The contact form is temporarily unavailable. Please reach us directly at {phone} or {email}.",
+    "errorGeneric": "We couldn't send your message just now. Please try again, or reach us directly at {phone} or {email}.",
+    "emailHeading": "New message from the website contact form",
+    "emailSubjectPrefix": "Contact form:",
+    "emailFooter": "Sent via the bulbau.lu contact form. Reply directly to this email to respond to the sender."
   },
   "Careers": {
     "eyebrow": "Join the Team",

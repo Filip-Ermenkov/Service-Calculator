@@ -74,6 +74,9 @@ export async function Footer({ locale }: { locale: Locale }) {
             <li>
               <Link href="/careers">{tn('careers')}</Link>
             </li>
+            <li>
+              <Link href="/contact">{tn('contact')}</Link>
+            </li>
           </ul>
         </div>
 

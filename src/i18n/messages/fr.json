@@ -13,7 +13,8 @@
     "home": "Accueil",
     "projects": "Réalisations",
     "about": "À propos",
-    "careers": "Carrières"
+    "careers": "Carrières",
+    "contact": "Contact"
   },
   "LanguageSwitcher": {
     "label": "Changer de langue",
@@ -94,6 +95,7 @@
     "emailInvalid": "Veuillez saisir une adresse e-mail valide.",
     "emailError": "Nous n'avons pas pu envoyer l'e-mail pour le moment. Téléchargez plutôt le PDF, ou contactez-nous au {phone} ou à {email}.",
     "emailRateLimited": "Vous avez demandé plusieurs devis en peu de temps. Veuillez patienter un instant et réessayer.",
+    "emailTurnstile": "Veuillez compléter la vérification anti-robot ci-dessous, puis renvoyer.",
     "emailCancel": "Annuler"
   },
   "Quote": {
@@ -149,7 +151,37 @@
     "facebookLabel": "Facebook",
     "instagramLabel": "Instagram",
     "emptyContent": "Les informations sur l'entreprise sont en cours de préparation. Revenez bientôt ou contactez-nous directement.",
-    "formComingSoon": "Un formulaire de contact en ligne arrive bientôt. En attendant, contactez-nous directement à l'aide des coordonnées ci-dessus."
+    "formComingSoon": "Vous préférez écrire ? Utilisez notre page de contact ou contactez-nous directement à l'aide des coordonnées ci-dessus."
+  },
+  "Contact": {
+    "eyebrow": "Contactez-nous",
+    "title": "Nous contacter",
+    "intro": "Un projet en tête ou une question sur nos services ? Envoyez-nous un message et nous vous répondrons dès que possible.",
+    "metaDescription": "Contactez Bulbau — échangeons sur les services photovoltaïques, électriques, de domotique et de pompes à chaleur au Luxembourg.",
+    "formEyebrow": "Envoyer un message",
+    "formTitle": "Écrivez-nous",
+    "detailsEyebrow": "Contact direct",
+    "detailsTitle": "Nous joindre directement",
+    "nameLabel": "Votre nom",
+    "emailLabel": "Adresse e-mail",
+    "subjectLabel": "Objet",
+    "messageLabel": "Message",
+    "phoneLabel": "Téléphone",
+    "facebookLabel": "Facebook",
+    "instagramLabel": "Instagram",
+    "privacyNote": "Votre message est envoyé directement dans notre boîte de réception et n'est jamais enregistré sur ce site. Nous l'utilisons uniquement pour vous répondre.",
+    "submit": "Envoyer le message",
+    "submitting": "Envoi…",
+    "successTitle": "Message envoyé",
+    "successBody": "Merci de nous avoir contactés. Nous vous répondrons dans les meilleurs délais.",
+    "errorValidation": "Veuillez indiquer votre nom, une adresse e-mail valide et un message.",
+    "errorRateLimited": "Vous avez envoyé plusieurs messages en peu de temps. Veuillez patienter un instant et réessayer.",
+    "errorTurnstile": "Nous n'avons pas pu vérifier que vous êtes bien un humain. Veuillez compléter la vérification et réessayer.",
+    "errorUnavailable": "Le formulaire de contact est temporairement indisponible. Veuillez nous joindre directement au {phone} ou à {email}.",
+    "errorGeneric": "Nous n'avons pas pu envoyer votre message pour le moment. Veuillez réessayer ou nous joindre directement au {phone} ou à {email}.",
+    "emailHeading": "Nouveau message depuis le formulaire de contact du site",
+    "emailSubjectPrefix": "Formulaire de contact :",
+    "emailFooter": "Envoyé via le formulaire de contact bulbau.lu. Répondez directement à cet e-mail pour contacter l'expéditeur."
   },
   "Careers": {
     "eyebrow": "Rejoignez l'équipe",

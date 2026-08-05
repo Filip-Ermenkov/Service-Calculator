@@ -7,7 +7,7 @@ import { SITE_URL } from '@/lib/seo'
 // Regenerate hourly so newly-published services appear without a redeploy.
 export const revalidate = 3600
 
-const STATIC_PATHS = ['', '/projects', '/about', '/careers', '/legal', '/privacy']
+const STATIC_PATHS = ['', '/projects', '/about', '/careers', '/contact', '/legal', '/privacy']
 
 /**
  * Localized XML sitemap (TECHSPEC §6.11). One entry per locale-prefixed URL,

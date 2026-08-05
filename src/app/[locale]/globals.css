@@ -524,6 +524,18 @@ textarea:focus-visible {
   outline: none; transition: border-color var(--transition); width: 100%;
 }
 .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--orange); }
+.form-textarea { resize: vertical; min-height: 8rem; line-height: 1.5; }
+
+/* ---- Contact form (Phase 6) ---- */
+.contact-form { display: flex; flex-direction: column; gap: 1.25rem; max-width: 34rem; }
+.contact-form .form-field { gap: 0.5rem; }
+/* Reserve space for the Turnstile widget so it doesn't shift the layout as it
+   loads (the standard widget is ~300×65). Absent (unconfigured) it renders null. */
+.turnstile-widget { min-height: 65px; }
+.contact-form-success {
+  border: 1px solid var(--g200); border-left: 3px solid var(--orange);
+  background: var(--g100); padding: 1.5rem 1.75rem; max-width: 34rem;
+}
 
 /* ---- Contact details ---- */
 .contact-item { display: flex; align-items: flex-start; gap: 1rem; padding: 1.25rem 0; border-bottom: 1px solid var(--g200); }

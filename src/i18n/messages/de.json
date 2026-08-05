@@ -13,7 +13,8 @@
     "home": "Startseite",
     "projects": "Projekte",
     "about": "Über uns",
-    "careers": "Karriere"
+    "careers": "Karriere",
+    "contact": "Kontakt"
   },
   "LanguageSwitcher": {
     "label": "Sprache ändern",
@@ -94,6 +95,7 @@
     "emailInvalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
     "emailError": "Wir konnten die E-Mail gerade nicht senden. Laden Sie stattdessen das PDF herunter oder kontaktieren Sie uns unter {phone} oder {email}.",
     "emailRateLimited": "Sie haben in kurzer Zeit mehrere Angebote angefordert. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
+    "emailTurnstile": "Bitte schließen Sie die Mensch-Verifizierung unten ab und senden Sie erneut.",
     "emailCancel": "Abbrechen"
   },
   "Quote": {
@@ -149,7 +151,37 @@
     "facebookLabel": "Facebook",
     "instagramLabel": "Instagram",
     "emptyContent": "Die Unternehmensinformationen werden gerade vorbereitet. Schauen Sie bald wieder vorbei oder kontaktieren Sie uns direkt.",
-    "formComingSoon": "Ein Online-Kontaktformular folgt in Kürze. Kontaktieren Sie uns in der Zwischenzeit direkt über die oben genannten Angaben."
+    "formComingSoon": "Lieber schreiben? Nutzen Sie unsere Kontaktseite oder erreichen Sie uns direkt über die oben genannten Angaben."
+  },
+  "Contact": {
+    "eyebrow": "Kontakt aufnehmen",
+    "title": "Kontakt",
+    "intro": "Sie haben ein Projekt im Sinn oder eine Frage zu unseren Leistungen? Schreiben Sie uns eine Nachricht und wir melden uns so schnell wie möglich.",
+    "metaDescription": "Kontaktieren Sie Bulbau — sprechen Sie mit uns über Photovoltaik, Elektroinstallation, Gebäudeautomation und Wärmepumpen in Luxemburg.",
+    "formEyebrow": "Nachricht senden",
+    "formTitle": "Schreiben Sie uns",
+    "detailsEyebrow": "Direkter Kontakt",
+    "detailsTitle": "Erreichen Sie uns direkt",
+    "nameLabel": "Ihr Name",
+    "emailLabel": "E-Mail-Adresse",
+    "subjectLabel": "Betreff",
+    "messageLabel": "Nachricht",
+    "phoneLabel": "Telefon",
+    "facebookLabel": "Facebook",
+    "instagramLabel": "Instagram",
+    "privacyNote": "Ihre Nachricht wird direkt an unser Postfach gesendet und niemals auf dieser Website gespeichert. Wir verwenden sie ausschließlich, um Ihnen zu antworten.",
+    "submit": "Nachricht senden",
+    "submitting": "Wird gesendet…",
+    "successTitle": "Nachricht gesendet",
+    "successBody": "Vielen Dank für Ihre Nachricht. Wir melden uns schnellstmöglich bei Ihnen.",
+    "errorValidation": "Bitte geben Sie Ihren Namen, eine gültige E-Mail-Adresse und eine Nachricht ein.",
+    "errorRateLimited": "Sie haben in kurzer Zeit mehrere Nachrichten gesendet. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
+    "errorTurnstile": "Wir konnten nicht überprüfen, ob Sie ein Mensch sind. Bitte schließen Sie die Prüfung ab und versuchen Sie es erneut.",
+    "errorUnavailable": "Das Kontaktformular ist vorübergehend nicht verfügbar. Bitte erreichen Sie uns direkt unter {phone} oder {email}.",
+    "errorGeneric": "Ihre Nachricht konnte gerade nicht gesendet werden. Bitte versuchen Sie es erneut oder erreichen Sie uns direkt unter {phone} oder {email}.",
+    "emailHeading": "Neue Nachricht über das Kontaktformular der Website",
+    "emailSubjectPrefix": "Kontaktformular:",
+    "emailFooter": "Gesendet über das Kontaktformular von bulbau.lu. Antworten Sie direkt auf diese E-Mail, um dem Absender zu antworten."
   },
   "Careers": {
     "eyebrow": "Werden Sie Teil des Teams",
