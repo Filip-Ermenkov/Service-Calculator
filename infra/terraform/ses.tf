@@ -25,6 +25,13 @@
 # Feature-flagged like the other opt-in resources so a first apply on a checkout
 # that isn't ready doesn't surprise-create; flip manage_ses = true to provision.
 
+locals {
+  # Custom MAIL FROM subdomain. Kept as a local (not read back off the
+  # mail_from_attributes resource, which exports no additional attributes) so the
+  # MX/SPF record names below are unambiguous regardless of provider version.
+  ses_mail_from_domain = "mail.${var.domain_name}"
+}
+
 # ── The domain identity + Easy DKIM ──────────────────────────────────────────
 resource "aws_sesv2_email_identity" "domain" {
   count          = var.manage_ses ? 1 : 0
@@ -52,7 +59,7 @@ resource "aws_route53_record" "ses_dkim" {
 resource "aws_sesv2_email_identity_mail_from_attributes" "domain" {
   count                  = var.manage_ses ? 1 : 0
   email_identity         = aws_sesv2_email_identity.domain[0].email_identity
-  mail_from_domain       = "mail.${var.domain_name}"
+  mail_from_domain       = local.ses_mail_from_domain
   # If the MX below ever fails to resolve, fall back to amazonses.com rather than
   # rejecting the send — availability over strict alignment for a transactional
   # quote email.
@@ -60,23 +67,28 @@ resource "aws_sesv2_email_identity_mail_from_attributes" "domain" {
 }
 
 # MX for the MAIL FROM subdomain → SES's regional feedback endpoint.
+# depends_on the attributes resource so the subdomain is registered with SES
+# before its DNS is published (ordering only; USE_DEFAULT_VALUE means a missing
+# MX degrades gracefully rather than failing the send).
 resource "aws_route53_record" "ses_mail_from_mx" {
-  count   = var.manage_ses ? 1 : 0
-  zone_id = aws_route53_zone.main.zone_id
-  name    = aws_sesv2_email_identity_mail_from_attributes.domain[0].mail_from_domain
-  type    = "MX"
-  ttl     = 600
-  records = ["10 feedback-smtp.${var.aws_region}.amazonses.com"]
+  count      = var.manage_ses ? 1 : 0
+  zone_id    = aws_route53_zone.main.zone_id
+  name       = local.ses_mail_from_domain
+  type       = "MX"
+  ttl        = 600
+  records    = ["10 feedback-smtp.${var.aws_region}.amazonses.com"]
+  depends_on = [aws_sesv2_email_identity_mail_from_attributes.domain]
 }
 
 # SPF for the MAIL FROM subdomain — authorises Amazon SES to send for it.
 resource "aws_route53_record" "ses_mail_from_spf" {
-  count   = var.manage_ses ? 1 : 0
-  zone_id = aws_route53_zone.main.zone_id
-  name    = aws_sesv2_email_identity_mail_from_attributes.domain[0].mail_from_domain
-  type    = "TXT"
-  ttl     = 600
-  records = ["v=spf1 include:amazonses.com -all"]
+  count      = var.manage_ses ? 1 : 0
+  zone_id    = aws_route53_zone.main.zone_id
+  name       = local.ses_mail_from_domain
+  type       = "TXT"
+  ttl        = 600
+  records    = ["v=spf1 include:amazonses.com -all"]
+  depends_on = [aws_sesv2_email_identity_mail_from_attributes.domain]
 }
 
 # ── DMARC ────────────────────────────────────────────────────────────────────

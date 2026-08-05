@@ -30,5 +30,5 @@ output "ses_verified_for_sending" {
 
 output "ses_mail_from_domain" {
   description = "The custom MAIL FROM subdomain (empty until manage_ses = true)."
-  value       = var.manage_ses ? aws_sesv2_email_identity_mail_from_attributes.domain[0].mail_from_domain : ""
+  value       = var.manage_ses ? local.ses_mail_from_domain : ""
 }

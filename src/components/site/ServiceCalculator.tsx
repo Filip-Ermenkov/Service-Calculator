@@ -368,7 +368,7 @@ export function ServiceCalculator({
         )}
 
         {emailStatus === 'sent' && (
-          <p className="price-note" role="status" style={{ color: 'var(--green, #2f855a)', marginTop: '0.75rem' }}>
+          <p className="price-note" role="status" style={{ color: '#276749', marginTop: '0.75rem' }}>
             {t('emailSent')}
           </p>
         )}
