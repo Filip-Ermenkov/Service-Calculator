@@ -134,6 +134,15 @@ recreated, their random name suffix changes — re-query and re-`apply`.
 
 ## Not managed here (pointers, so you don't go looking)
 
+- **Phase 6 contact form + Cloudflare Turnstile (2026-08-06)** added no Terraform.
+  Turnstile is a Cloudflare service (no AWS resource); its keys are SST secrets
+  (`TurnstileSecretKey`/`TurnstileSiteKey`), and the contact-form relay reuses the
+  existing SES sending identity (below) — so nothing here changed.
+- **Phase 4b email — SES sending identity** IS managed here (`ses.tf`, behind the
+  `manage_ses` gate: domain identity + Easy DKIM + custom MAIL FROM `mail.bulbau.lu`
+  + SPF + DMARC). It must be applied (`manage_ses=true` → `terraform apply`) and the
+  `EmailSender` secret set before the email-quote path (and, for spam-free
+  deliverability, the contact form) sends for real. See `docs/PROGRESS.md`.
 - **Phase 5 translation (2026-08-02)** added no Terraform. AWS Translate needs no
   new resource; the runtime `translate:TranslateText` permission rides on the SST
   **server-function** role (via `sst.config.ts`'s `permissions:` prop), not the

@@ -219,12 +219,23 @@ export function ContactForm({ phone, email }: { phone?: string | null; email?: s
         />
       </div>
 
-      {/* Honeypot: visually hidden + off the tab order + not autofilled. A real
-          user never fills it; a bot that fills every field gets silently dropped. */}
-      <div className="visually-hidden" aria-hidden="true">
-        <label htmlFor="contact-company">Company (leave this field empty)</label>
+      {/* Honeypot: a hidden field a real user never sees, but naive spam bots
+          auto-fill. Hidden by OFF-SCREEN POSITIONING (not display:none): current
+          best practice, because it also catches bots that skip display:none fields,
+          while remaining invisible to humans. Three things keep it from causing a
+          FALSE POSITIVE (silently dropping a real visitor): a non-real field name
+          (`contact-ref`, not "company"/"phone"/etc. that browsers autofill),
+          `autocomplete="off"`, and `aria-hidden` + `tabIndex=-1` so it's off the
+          tab order and unseen by assistive tech. Turnstile is the real control;
+          this is a cheap secondary net that must never flag a human. */}
+      <div
+        aria-hidden="true"
+        style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}
+      >
+        <label htmlFor="contact-ref">Leave this field empty</label>
         <input
-          id="contact-company"
+          id="contact-ref"
+          name="contact-ref"
           type="text"
           tabIndex={-1}
           autoComplete="off"

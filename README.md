@@ -27,9 +27,17 @@ hardening (2026-07-21): CI **schema-drift** + **generated-artifact drift** guard
 (§10.5), and an OWASP-aligned set of **HTTP security response headers** on every
 route (HSTS/CSP/`nosniff`/`Referrer-Policy`/`frame-ancestors`/`Permissions-Policy`,
 served from `src/lib/security/headers.ts` via `next.config.ts`; see
-`docs/TECHSPEC.md` §7). **Next: Phase 4
-part 2** (Send-to-Email via SES, gated on the `bulbau.lu` domain / a verified SES
-identity). Web analytics was evaluated and **deliberately left out of scope**
+`docs/TECHSPEC.md` §7). **Since then: Phase 5 part 1** (EN→FR/DE auto-translation
+on save via AWS Translate), **on-demand CloudFront invalidation**, **Phase 4 part 2**
+(email-the-quote via SES — code deployed; live delivery gated on SES production
+access + a verified mailbox), and **Phase 6** (a dedicated `/contact` page +
+`POST /api/contact` SES relay with **Cloudflare Turnstile** + honeypot + IP rate
+limiting, Turnstile also on the email-quote action; env-gated, migration-free —
+2026-08-06). **Next: Phase 7** (Well-Architected hardening + public launch), plus
+the config chain to switch the contact form + email delivery fully on
+(prod Turnstile/`EmailSender` secrets, an SES-verified mailbox, published legal
+details) and the Phase 5 part 2 Translation Management UI. See `docs/PROGRESS.md`.
+Web analytics was evaluated and **deliberately left out of scope**
 (see below) — the site stays cookieless with no consent banner. Visit
 `http://localhost:3000` (redirects to `/en`); the admin panel stays at `/admin`
 (unlocalized). `docs/PROGRESS.md` is the source of truth for progress and next steps.
