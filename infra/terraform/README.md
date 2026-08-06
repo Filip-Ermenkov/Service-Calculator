@@ -148,6 +148,12 @@ recreated, their random name suffix changes — re-query and re-`apply`.
   **server-function** role (via `sst.config.ts`'s `permissions:` prop), not the
   Terraform-managed deploy role, and it needs no secret. The 30s Lambda
   `server.timeout` is also an SST/`sst.config.ts` setting.
+- **Phase 5 part 2 — Translation Management admin screen (2026-08-06)** added no
+  Terraform and no infra of any kind. It is pure app code inside the existing Web
+  function (a custom `/admin/translations` Payload Root View + a `POST /api/admin/translations`
+  write route) reusing the existing DB access, the Phase 5 part 1 Translate
+  permission, and the existing revalidate/CDN path — migration-free, no new secret,
+  no new resource. Deployed as commit `e3121af`. See `docs/PROGRESS.md` → "Phase 5 part 2".
 - **CloudFront on-demand invalidation — DONE 2026-08-04, and (as predicted) entirely
   app/SST-side, NOT in this Terraform layer.** The runtime `cloudfront:CreateInvalidation`
   + `ssm:GetParameter` permissions ride on the SST **server-function** role (via

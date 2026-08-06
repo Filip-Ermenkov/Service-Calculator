@@ -33,10 +33,15 @@ on save via AWS Translate), **on-demand CloudFront invalidation**, **Phase 4 par
 access + a verified mailbox), and **Phase 6** (a dedicated `/contact` page +
 `POST /api/contact` SES relay with **Cloudflare Turnstile** + honeypot + IP rate
 limiting, Turnstile also on the email-quote action; env-gated, migration-free —
-2026-08-06). **Next: Phase 7** (Well-Architected hardening + public launch), plus
-the config chain to switch the contact form + email delivery fully on
-(prod Turnstile/`EmailSender` secrets, an SES-verified mailbox, published legal
-details) and the Phase 5 part 2 Translation Management UI. See `docs/PROGRESS.md`.
+2026-08-06), and **Phase 5 part 2** (the **Translation Management admin screen** at
+`/admin/translations` — a custom Payload Root View reviewing every EN/FR/DE string
+with inline plain-text override + Re-translate and rich-text deep-links, built
+migration-free over the native per-locale values via `POST /api/admin/translations`;
+2026-08-06, commit `e3121af`). **⭐ Every planned feature (§12 roadmap Phases 0–6)
+is now built and in production.** **Next: Phase 7** (Well-Architected hardening +
+public launch), plus the externally-gated config chain to switch the contact form +
+email delivery fully on (prod Turnstile/`EmailSender` secrets, an SES-verified
+mailbox, SES production access, published legal details). See `docs/PROGRESS.md`.
 Web analytics was evaluated and **deliberately left out of scope**
 (see below) — the site stays cookieless with no consent banner. Visit
 `http://localhost:3000` (redirects to `/en`); the admin panel stays at `/admin`
