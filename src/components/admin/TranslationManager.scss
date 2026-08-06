@@ -1,0 +1,234 @@
+// Translation Management screen (Phase 5 part 2). Uses Payload's theme variables
+// so it adapts to the admin light/dark themes automatically.
+.translation-manager {
+  --tm-border: var(--theme-elevation-150);
+  --tm-surface: var(--theme-elevation-50);
+  --tm-surface-2: var(--theme-elevation-100);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--base);
+
+  &__header {
+    h1 {
+      margin: 0 0 calc(var(--base) / 2);
+    }
+  }
+
+  &__intro,
+  &__summary {
+    color: var(--theme-elevation-600);
+    font-size: 0.85rem;
+    max-width: 60rem;
+    margin: 0 0 calc(var(--base) / 2);
+  }
+
+  &__summary strong {
+    color: var(--theme-text);
+  }
+
+  &__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--base);
+    padding: calc(var(--base) / 2) 0;
+  }
+
+  &__search {
+    flex: 1 1 20rem;
+    min-width: 14rem;
+    padding: calc(var(--base) / 3) calc(var(--base) / 2);
+    border: 1px solid var(--tm-border);
+    border-radius: 4px;
+    background: var(--theme-input-bg, var(--tm-surface));
+    color: var(--theme-text);
+    font-size: 0.9rem;
+  }
+
+  &__filter {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--base) / 3);
+    font-size: 0.85rem;
+
+    select {
+      padding: calc(var(--base) / 4) calc(var(--base) / 2);
+      border: 1px solid var(--tm-border);
+      border-radius: 4px;
+      background: var(--theme-input-bg, var(--tm-surface));
+      color: var(--theme-text);
+    }
+  }
+
+  &__attention {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--base) / 3);
+    font-size: 0.85rem;
+  }
+
+  &__empty {
+    color: var(--theme-elevation-600);
+    padding: var(--base) 0;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+
+    th,
+    td {
+      text-align: left;
+      vertical-align: top;
+      padding: calc(var(--base) / 2);
+      border-bottom: 1px solid var(--tm-border);
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--tm-surface-2);
+      z-index: 1;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    // Give the four content columns a sensible balance.
+    th:nth-child(1),
+    td:nth-child(1) {
+      width: 18%;
+    }
+    th:nth-child(2),
+    td:nth-child(2) {
+      width: 28%;
+    }
+  }
+
+  &__source {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__doc {
+    font-weight: 600;
+  }
+
+  &__field {
+    color: var(--theme-elevation-600);
+  }
+
+  &__en {
+    color: var(--theme-text);
+    white-space: pre-wrap;
+  }
+}
+
+// Per-target editable cell.
+.tcell {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--base) / 3);
+
+  &__value {
+    white-space: pre-wrap;
+  }
+
+  &__placeholder {
+    color: var(--theme-elevation-400);
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--base) / 2);
+    flex-wrap: wrap;
+  }
+
+  &__link {
+    color: var(--theme-success-500, #2e8b57);
+    text-decoration: underline;
+    font-size: 0.8rem;
+  }
+
+  &__textarea {
+    width: 100%;
+    padding: calc(var(--base) / 3);
+    border: 1px solid var(--tm-border);
+    border-radius: 4px;
+    background: var(--theme-input-bg, var(--theme-elevation-50));
+    color: var(--theme-text);
+    font: inherit;
+    resize: vertical;
+  }
+
+  &__actions {
+    display: flex;
+    gap: calc(var(--base) / 3);
+    flex-wrap: wrap;
+  }
+
+  &__error {
+    color: var(--theme-error-500, #c0392b);
+    font-size: 0.8rem;
+    margin: 0;
+  }
+}
+
+// Compact buttons (Payload's own Button is heavier than we want inline).
+.translation-manager .btn {
+  padding: calc(var(--base) / 4) calc(var(--base) / 2);
+  border: 1px solid var(--tm-border);
+  border-radius: 4px;
+  background: var(--theme-elevation-100);
+  color: var(--theme-text);
+  cursor: pointer;
+  font-size: 0.8rem;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  &--primary {
+    background: var(--theme-success-500, #2e8b57);
+    border-color: transparent;
+    color: #fff;
+  }
+
+  &--ghost {
+    background: transparent;
+  }
+}
+
+// Status pills.
+.translation-manager .pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--translated {
+    background: color-mix(in srgb, var(--theme-success-500, #2e8b57) 18%, transparent);
+    color: var(--theme-success-600, #1f6b40);
+  }
+
+  &--untranslated {
+    background: color-mix(in srgb, var(--theme-warning-500, #d68a00) 20%, transparent);
+    color: var(--theme-warning-700, #8a5a00);
+  }
+
+  &--empty {
+    background: var(--theme-elevation-100);
+    color: var(--theme-elevation-500);
+  }
+
+  &--richtext {
+    background: var(--theme-elevation-100);
+    color: var(--theme-elevation-600);
+  }
+}

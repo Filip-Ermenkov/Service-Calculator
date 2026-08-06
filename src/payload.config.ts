@@ -29,6 +29,9 @@ export default buildConfig({
       // slot specifically, and src/access/requireTotpVerified.ts for the
       // actual enforcement (this component is UX, not the security boundary).
       beforeDashboard: ['/components/admin/BeforeDashboardTotpGate'],
+      // Adds a "Translations" link to the admin nav that opens the custom
+      // Translation Management Root View below (Phase 5 part 2, §5.7).
+      afterNavLinks: ['/components/admin/TranslationsNavLink'],
       views: {
         // New Root Views (not overrides of any built-in Payload view) for
         // the TOTP enrollment and per-login verification steps. Payload's
@@ -41,6 +44,14 @@ export default buildConfig({
         totpVerify: {
           Component: '/components/admin/TotpVerifyView',
           path: '/totp-verify',
+        },
+        // Translation Management (Phase 5 part 2, FUNCTIONALITY.md §5.7): a
+        // cross-collection review + override screen for the FR/DE translations
+        // produced by the auto-translation pipeline. New Root View at
+        // /admin/translations.
+        translations: {
+          Component: '/components/admin/TranslationsView',
+          path: '/translations',
         },
       },
     },
