@@ -5,7 +5,7 @@ import { JsonLd } from '@/components/site/JsonLd'
 import { ArrowRight, Bolt } from '@/components/site/icons'
 import { Link } from '@/i18n/navigation'
 import type { Locale } from '@/i18n/routing'
-import { getCompanyInfo, getServices, mediaProps } from '@/lib/content'
+import { getCompanyInfo, getServiceCardLimit, getServices, mediaProps } from '@/lib/content'
 import { SITE_URL, pageMetadata } from '@/lib/seo'
 
 // ISR: statically generated, revalidated at most every 5 minutes as the always-
@@ -38,7 +38,9 @@ export default async function HomePage({
   setRequestLocale(locale)
 
   const t = await getTranslations({ locale, namespace: 'Home' })
-  const services = await getServices(locale as Locale)
+  const allServices = await getServices(locale as Locale)
+  const cardLimit = await getServiceCardLimit()
+  const services = cardLimit > 0 ? allServices.slice(0, cardLimit) : allServices
   const company = await getCompanyInfo(locale as Locale)
 
   const localBusiness = {
@@ -57,32 +59,22 @@ export default async function HomePage({
 
       {/* Hero */}
       <section className="grid-bg hero" style={{ minHeight: 640, padding: '6rem 0' }}>
-        <div
-          aria-hidden="true"
-          style={{ position: 'absolute', top: '2.5rem', left: '2rem', width: 40, height: 40, borderTop: '2px solid rgba(224,90,0,0.4)', borderLeft: '2px solid rgba(224,90,0,0.4)' }}
-        />
-        <div
-          aria-hidden="true"
-          style={{ position: 'absolute', bottom: '2.5rem', right: '2rem', width: 40, height: 40, borderBottom: '2px solid rgba(224,90,0,0.4)', borderRight: '2px solid rgba(224,90,0,0.4)' }}
-        />
         <div className="container">
-          <div className="hero-content">
+          <div className="hero-center animate-stagger">
             <div className="hero-badge">{t('heroBadge')}</div>
-            <h1 className="display-xl" style={{ color: '#fff', maxWidth: 780, lineHeight: 1.02 }}>
+            <h1 className="display-xl" style={{ lineHeight: 1.02 }}>
               {t('heroTitleLine1')}
               <br />
               <span style={{ color: 'var(--orange)' }}>{t('heroTitleAccent')}</span>
               <br />
               {t('heroTitleLine3')}
             </h1>
-            <p style={{ color: 'var(--g400)', fontSize: '1.0625rem', marginTop: '1.5rem', maxWidth: 500, lineHeight: 1.7 }}>
-              {t('heroSubtitle')}
-            </p>
-            <div className="flex gap-2 flex-wrap" style={{ marginTop: '2.5rem' }}>
-              <Link href="/contact" className="btn btn-primary btn-lg">
+            <p className="hero-lead">{t('heroSubtitle')}</p>
+            <div className="btn-group" style={{ marginTop: '2.5rem' }}>
+              <Link href="/contact" className="btn btn-primary">
                 {t('heroGetInTouch')}
               </Link>
-              <Link href="/projects" className="btn btn-outline-white btn-lg">
+              <Link href="/projects" className="btn btn-outline-white">
                 {t('heroViewProjects')}
               </Link>
             </div>
@@ -93,10 +85,10 @@ export default async function HomePage({
       {/* Services */}
       <section className="section bg-white">
         <div className="container">
-          <div style={{ marginBottom: '3rem' }}>
+          <div className="reveal section-head" style={{ marginBottom: '3rem' }}>
             <span className="eyebrow">{t('servicesEyebrow')}</span>
-            <h2 className="display-lg heading-accent">{t('servicesTitle')}</h2>
-            <p style={{ color: 'var(--g500)', maxWidth: 540, marginTop: '0.75rem', fontSize: '0.9375rem' }}>
+            <h2 className="display-lg">{t('servicesTitle')}</h2>
+            <p style={{ color: 'var(--g500)', marginTop: '0.75rem', fontSize: '0.9375rem' }}>
               {t('servicesSubtitle')}
             </p>
           </div>
@@ -106,7 +98,7 @@ export default async function HomePage({
               <p className="empty-state-title">{t('servicesEmpty')}</p>
             </div>
           ) : (
-            <div className="services-grid">
+            <div className="services-grid reveal">
               {services.map((service) => {
                 const img = mediaProps(service.card?.cardImage ?? service.heroImage)
                 const title = service.card?.cardTitle || service.title
@@ -142,19 +134,15 @@ export default async function HomePage({
       {/* Stats strip */}
       <section className="section grid-bg-light">
         <div className="container">
-          <div className="grid-3" style={{ gap: '2.5rem' }}>
+          <div className="stats-grid reveal-stagger">
             {[
               { value: t('statProjects'), label: t('statProjectsLabel') },
               { value: t('statYears'), label: t('statYearsLabel') },
               { value: t('statCertified'), label: t('statCertifiedLabel') },
             ].map((stat) => (
-              <div key={stat.label}>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '3rem', fontWeight: 900, color: 'var(--orange)', lineHeight: 1 }}>
-                  {stat.value}
-                </div>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--g600)', marginTop: '0.35rem' }}>
-                  {stat.label}
-                </div>
+              <div className="stat" key={stat.label}>
+                <div className="stat-value">{stat.value}</div>
+                <div className="stat-label">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -163,7 +151,7 @@ export default async function HomePage({
 
       {/* CTA */}
       <section className="section bg-black">
-        <div className="container" style={{ textAlign: 'center' }}>
+        <div className="container reveal" style={{ textAlign: 'center' }}>
           <span className="eyebrow">{t('ctaEyebrow')}</span>
           <h2 className="display-lg" style={{ color: '#fff', maxWidth: 600, margin: '0 auto 1.5rem' }}>
             {t('ctaTitle')}
@@ -171,11 +159,11 @@ export default async function HomePage({
           <p style={{ color: 'var(--g400)', maxWidth: 480, margin: '0 auto 2rem', fontSize: '0.9375rem' }}>
             {t('ctaSubtitle')}
           </p>
-          <div className="flex gap-2 justify-center flex-wrap">
-            <Link href="/contact" className="btn btn-primary btn-lg">
+          <div className="btn-group">
+            <Link href="/contact" className="btn btn-primary">
               {t('ctaContact')}
             </Link>
-            <Link href="/projects" className="btn btn-outline-white btn-lg">
+            <Link href="/projects" className="btn btn-outline-white">
               {t('ctaSeeWork')}
             </Link>
           </div>

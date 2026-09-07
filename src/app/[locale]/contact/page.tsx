@@ -40,23 +40,18 @@ export default async function ContactPage({
   return (
     <>
       <section className="grid-bg" style={{ padding: '4rem 0 3rem' }}>
-        <div className="container">
+        <div className="container page-hero">
           <span className="eyebrow">{t('eyebrow')}</span>
           <h1 className="display-lg" style={{ color: '#fff' }}>
             {t('title')}
           </h1>
-          <p style={{ color: 'var(--g300)', maxWidth: '38rem', marginTop: '0.75rem' }}>
-            {t('intro')}
-          </p>
+          <p style={{ color: 'var(--g300)' }}>{t('intro')}</p>
         </div>
       </section>
 
       <section className="section bg-white">
         <div className="container">
-          <div
-            className="grid-2-about"
-            style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '3rem', alignItems: 'start' }}
-          >
+          <div className="split-2">
             <div>
               <span className="eyebrow">{t('formEyebrow')}</span>
               <h2 className="display-md heading-accent" style={{ marginBottom: '1.5rem' }}>

@@ -44,7 +44,7 @@ export default async function PrivacyPolicyPage({
   return (
     <>
       <section className="grid-bg" style={{ padding: '4rem 0 3rem' }}>
-        <div className="container">
+        <div className="container page-hero">
           <h1 className="display-lg" style={{ color: '#fff' }}>
             {t('privacyTitle')}
           </h1>

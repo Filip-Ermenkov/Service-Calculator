@@ -51,6 +51,9 @@ export async function login({
 
   await page.waitForURL(`${serverURL}/admin`)
 
-  const dashboardArtifact = page.locator('.step-nav__home')
+  // The dashboard's own greeting heading. (Not the top-bar page title: that is
+  // published to Payload's StepNav from a client effect, so it settles a beat
+  // after navigation, whereas this is server-rendered with the view.)
+  const dashboardArtifact = page.locator('.adash-greet__title')
   await expect(dashboardArtifact).toBeVisible()
 }

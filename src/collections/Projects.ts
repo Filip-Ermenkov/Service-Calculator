@@ -65,8 +65,14 @@ export const Projects: CollectionConfig = {
   slug: 'projects',
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', 'completionDate', 'service', '_status'],
+    // The prototype's columns: Project | Category | Completion Date | Status |
+    // Actions (/prototype/admin/projects.html). `serviceName` is the category
+    // snapshot; `statusBadge` and `rowActions` are list-only `ui` fields below.
+    defaultColumns: ['title', 'serviceName', 'completionDate', 'statusBadge', 'rowActions'],
     group: 'Content',
+    components: {
+      beforeListTable: ['/components/admin/ListCardHeader#ListCardHeader'],
+    },
   },
   // Public Projects grid is "sorted by completion date, newest first, by
   // default" (FUNCTIONALITY.md §3.2).
@@ -86,40 +92,112 @@ export const Projects: CollectionConfig = {
     afterChange: [translateCollectionAfterChange, revalidateContentAfterChange],
     afterDelete: [revalidateContentAfterDelete],
   },
+  // Shaped to the prototype's project editor (/prototype/admin/projects.html):
+  // one titled section card, title + completion date on one row, category +
+  // status on the next, then the description and the photo drop zone. The
+  // `collapsible`/`row` wrappers are presentational only — no data nesting, no
+  // schema change — exactly as in src/collections/Services.ts.
   fields: [
     {
-      name: 'title',
-      type: 'text',
-      required: true,
-      localized: true,
-    },
-    {
-      name: 'description',
-      type: 'richText',
-      localized: true,
-    },
-    {
-      name: 'photo',
-      type: 'upload',
-      relationTo: 'media',
-    },
-    {
-      name: 'completionDate',
-      type: 'date',
-      required: true,
+      type: 'collapsible',
+      label: 'Project Details',
       admin: {
-        date: { pickerAppearance: 'dayOnly', displayFormat: 'dd/MM/yyyy' },
+        initCollapsed: false,
+        className: 'asec asec--project',
+        components: {
+          Label: '/components/admin/AdminSectionLabel#ProjectDetailsLabel',
+        },
+      },
+      fields: [
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'title',
+              label: 'Project Title',
+              type: 'text',
+              required: true,
+              localized: true,
+              admin: { width: '50%' },
+            },
+            {
+              name: 'completionDate',
+              label: 'Completion Date',
+              type: 'date',
+              required: true,
+              admin: {
+                width: '50%',
+                date: { pickerAppearance: 'dayOnly', displayFormat: 'dd/MM/yyyy' },
+              },
+            },
+          ],
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              // Service-category link, used for the filter on the public Projects
+              // page. The label is snapshotted onto `serviceName` (below) by a
+              // beforeChange hook, so it survives the service being deleted
+              // (FUNCTIONALITY.md §7).
+              name: 'service',
+              label: 'Service Category',
+              type: 'relationship',
+              relationTo: 'services',
+              admin: {
+                width: '50%',
+                description:
+                  'Used by the category filter on the public Projects page.',
+              },
+            },
+            // Publish state — Payload's own Publish / Unpublish operations behind
+            // the prototype's select. See the component.
+            {
+              name: 'statusControl',
+              type: 'ui',
+              label: 'Status',
+              admin: {
+                width: '50%',
+                components: {
+                  Field: '/components/admin/PublishStatusField#PublishStatusField',
+                },
+              },
+            },
+          ],
+        },
+        {
+          name: 'description',
+          label: 'Description',
+          type: 'richText',
+          localized: true,
+        },
+        {
+          name: 'photo',
+          label: 'Photo',
+          type: 'upload',
+          relationTo: 'media',
+          admin: { description: 'PNG or JPG up to 5 MB.' },
+        },
+      ],
+    },
+    // ── List-only columns ────────────────────────────────────────────────
+    // `ui` fields store nothing and render nothing in the editor (Payload's UI
+    // field returns null without a `Field` component); they exist purely to give
+    // the list table the prototype's status pill and Actions column.
+    {
+      name: 'statusBadge',
+      label: 'Status',
+      type: 'ui',
+      admin: {
+        components: { Cell: '/components/admin/StatusBadgeCell#StatusBadgeCell' },
       },
     },
     {
-      // Service-category link, used for the filter on the public Projects page.
-      // The label is snapshotted onto `serviceName` (below) by a beforeChange
-      // hook, so it survives the service being deleted (FUNCTIONALITY.md §7).
-      name: 'service',
-      type: 'relationship',
-      relationTo: 'services',
+      name: 'rowActions',
+      label: 'Actions',
+      type: 'ui',
       admin: {
-        description: 'Service category this project belongs to (for filtering).',
+        components: { Cell: '/components/admin/RowActionsCell#RowActionsCell' },
       },
     },
     {
@@ -128,6 +206,8 @@ export const Projects: CollectionConfig = {
       // Retained verbatim if the service is later deleted, so historical
       // portfolio entries never lose their category label.
       name: 'serviceName',
+      // "Category" is what the prototype's list column calls it.
+      label: 'Category',
       type: 'text',
       admin: {
         position: 'sidebar',

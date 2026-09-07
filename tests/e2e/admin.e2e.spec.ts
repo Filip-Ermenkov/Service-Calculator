@@ -24,7 +24,7 @@ test.describe('Admin Panel', () => {
   test('can navigate to dashboard', async () => {
     await page.goto('http://localhost:3000/admin')
     await expect(page).toHaveURL('http://localhost:3000/admin')
-    const dashboardArtifact = page.locator('.step-nav__home').first()
+    const dashboardArtifact = page.locator('.adash-greet__title').first()
     await expect(dashboardArtifact).toBeVisible()
   })
 

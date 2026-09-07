@@ -46,7 +46,7 @@ export default async function AboutPage({
   return (
     <>
       <section className="grid-bg" style={{ padding: '4rem 0 3rem' }}>
-        <div className="container">
+        <div className="container page-hero">
           <span className="eyebrow">{t('eyebrow')}</span>
           <h1 className="display-lg" style={{ color: '#fff' }}>
             {t('title')}
@@ -56,7 +56,7 @@ export default async function AboutPage({
 
       <section className="section bg-white">
         <div className="container">
-          <div className="grid-2-about" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '3rem', alignItems: 'start' }}>
+          <div className="split-2">
             <div>
               {company?.aboutUsContent ? (
                 <RichText data={company.aboutUsContent} className="prose" />

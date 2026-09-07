@@ -38,6 +38,7 @@ export const TRANSLATABLE_FIELDS: Record<string, TranslatableField[]> = {
     { path: 'card.cardDescription', type: 'plain' },
     { path: 'disclaimer', type: 'richText' },
     { path: 'calculatorFields[].label', type: 'plain' },
+    { path: 'calculatorFields[].unit', type: 'plain' },
     { path: 'calculatorFields[].options[].optionLabel', type: 'plain' },
   ],
   projects: [

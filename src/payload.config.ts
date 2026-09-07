@@ -12,6 +12,7 @@ import { Projects } from './collections/Projects'
 import { CareerListings } from './collections/CareerListings'
 import { CompanyInfo } from './globals/CompanyInfo'
 import { LegalInfo } from './globals/LegalInfo'
+import { HomeSettings } from './globals/HomeSettings'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -23,6 +24,29 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
     components: {
+      // Brand graphics (Phase 1 of the bespoke admin) — replace Payload's
+      // default logo/icon with the Bulbau mark so the login screen and sidebar
+      // carry the public site's identity. The design tokens themselves live in
+      // src/app/(payload)/custom.scss (auto-loaded by the admin RootLayout).
+      // NOTE: after adding/removing entries here, regenerate the import map:
+      //   npm run generate:importmap
+      graphics: {
+        Logo: '/components/admin/BrandLogo',
+        Icon: '/components/admin/BrandIcon',
+      },
+      // Top-bar actions, rendered by Payload into `.app-header__actions` on
+      // EVERY admin view — the prototype's topbar "View website" button
+      // (/prototype/admin/*.html). Declared once here rather than repeated per
+      // screen. Styled by `.atopbar-link` in src/app/(payload)/custom.scss.
+      actions: ['/components/admin/ViewWebsiteAction'],
+      // "Admin Login" heading above the login fields + a "Back to website" link
+      // below them (the wordmark comes from graphics.Logo). Styled in custom.scss.
+      beforeLogin: ['/components/admin/LoginIntro'],
+      afterLogin: ['/components/admin/BackToWebsite'],
+      // Replace Payload's default sidebar with the project's own bespoke admin
+      // sidebar (grouped sections + logo header + user footer), matching
+      // /prototype/admin. Rendered inside DefaultTemplate on every admin page.
+      Nav: '/components/admin/AdminNav',
       // Additive slot (renders before the default Dashboard contents, does
       // not replace them) — the redirect gate for "logged in but hasn't
       // completed TOTP yet". See BeforeDashboardTotpGate.tsx for why this
@@ -33,10 +57,27 @@ export default buildConfig({
       // Translation Management Root View below (Phase 5 part 2, §5.7).
       afterNavLinks: ['/components/admin/TranslationsNavLink'],
       views: {
+        // Custom Dashboard — OVERRIDES Payload's default `/admin` landing view
+        // with the bespoke industrial dashboard (KPI cards + quick actions).
+        // See DashboardView.tsx: it re-applies the TOTP gate itself, since the
+        // `beforeDashboard` slot above doesn't render on a replaced view.
+        dashboard: {
+          Component: '/components/admin/DashboardView',
+        },
         // New Root Views (not overrides of any built-in Payload view) for
         // the TOTP enrollment and per-login verification steps. Payload's
         // own /admin/login view is untouched — it still handles the
         // password (first) factor exactly as it always has.
+        // Custom Services management screen — the bespoke list from
+        // /prototype/admin/services (drag-order + card summary + inline actions +
+        // Home-page card-count setting). Registered as a Root View at
+        // /admin/services (the nav "Services" link points here); document editing
+        // still uses Payload's native editor at /admin/collections/services/<id>.
+        // Writes go through /api/admin/services. See ServicesView.tsx.
+        services: {
+          Component: '/components/admin/ServicesView',
+          path: '/services',
+        },
         totpSetup: {
           Component: '/components/admin/TotpSetupView',
           path: '/totp-setup',
@@ -56,8 +97,27 @@ export default buildConfig({
       },
     },
   },
+  // Auth-screen label overrides to match the prototype wording. Payload
+  // deep-merges these onto the built-in English strings (deepMergeSimple), so
+  // every other translation is preserved. NOTE: config changes require a dev
+  // server restart to take effect (they don't hot-reload).
+  i18n: {
+    translations: {
+      en: {
+        authentication: {
+          login: 'Continue',
+          forgotPassword: 'Reset Password',
+          forgotPasswordEmailInstructions:
+            "Enter your email and we'll send you a reset link. The link expires after 1 hour.",
+        },
+        general: {
+          email: 'Email Address',
+        },
+      },
+    },
+  },
   collections: [Users, Media, Services, Projects, CareerListings],
-  globals: [CompanyInfo, LegalInfo],
+  globals: [CompanyInfo, LegalInfo, HomeSettings],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

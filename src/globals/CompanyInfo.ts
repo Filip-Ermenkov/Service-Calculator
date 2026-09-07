@@ -15,7 +15,7 @@ import { translateGlobalAfterChange } from '@/lib/translation/hook'
  */
 export const CompanyInfo: GlobalConfig = {
   slug: 'company-info',
-  label: 'Company Info',
+  label: 'About & Company Info',
   admin: {
     group: 'Settings',
     description:
@@ -34,36 +34,103 @@ export const CompanyInfo: GlobalConfig = {
     // Auto-translate aboutUsContent EN → FR/DE on save (Phase 5).
     afterChange: [translateGlobalAfterChange, revalidateGlobalAfterChange],
   },
+  // Shaped to the prototype's "About & Company Info" screen
+  // (/prototype/admin/about.html): the About Us copy in its own titled section,
+  // then the contact details as two two-column rows behind a highlighted note
+  // that these values are used site-wide. Presentational wrappers only.
+  //
+  // The prototype's third section, "PDF Quote Branding" (a logo upload for the
+  // PDF header), is deliberately absent: the quote PDF renders the wordmark as
+  // styled text, matching the site itself (see src/lib/pdf/template.ts), so an
+  // upload field here would collect a file nothing ever reads.
   fields: [
     {
-      name: 'email',
-      type: 'email',
-      required: true,
+      type: 'collapsible',
+      label: 'About Us Page — Main Content',
       admin: {
-        description: 'Contact-form destination and public contact address.',
+        initCollapsed: false,
+        className: 'asec asec--about',
+        components: {
+          Label: '/components/admin/AdminSectionLabel#AboutContentLabel',
+        },
       },
+      fields: [
+        {
+          // Localized: authored in EN, translated to FR/DE by the Phase 5 pipeline.
+          name: 'aboutUsContent',
+          label: 'Our Story',
+          type: 'richText',
+          localized: true,
+          admin: {
+            description:
+              'Shown in the "Our Story" section of the About Us page. Write in ' +
+              'English — the French and German versions are generated automatically.',
+          },
+        },
+      ],
     },
     {
-      name: 'phone',
-      type: 'text',
-      admin: { description: 'Public phone number (click-to-call on mobile).' },
-    },
-    {
-      name: 'facebookUrl',
-      type: 'text',
-      label: 'Facebook URL',
-    },
-    {
-      name: 'instagramUrl',
-      type: 'text',
-      label: 'Instagram URL',
-    },
-    {
-      // Localized: authored in EN, translated to FR/DE in Phase 5.
-      name: 'aboutUsContent',
-      type: 'richText',
-      localized: true,
-      admin: { description: 'About Us page body (rich text).' },
+      type: 'collapsible',
+      label: 'Company Contact Details',
+      admin: {
+        initCollapsed: false,
+        className: 'asec asec--contact',
+        components: {
+          Label: '/components/admin/AdminSectionLabel#ContactDetailsLabel',
+        },
+      },
+      fields: [
+        {
+          name: 'contactNote',
+          type: 'ui',
+          admin: {
+            components: {
+              Field: '/components/admin/ContactDetailsNote#ContactDetailsNote',
+            },
+          },
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'phone',
+              label: 'Phone Number',
+              type: 'text',
+              admin: {
+                width: '50%',
+                description: 'Click-to-call on mobile.',
+              },
+            },
+            {
+              name: 'email',
+              label: 'Email Address',
+              type: 'email',
+              required: true,
+              admin: {
+                width: '50%',
+                description: 'Contact-form destination and public contact address.',
+              },
+            },
+          ],
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'facebookUrl',
+              label: 'Facebook Profile URL',
+              type: 'text',
+              admin: { width: '50%' },
+            },
+            {
+              name: 'instagramUrl',
+              label: 'Instagram Profile URL',
+              type: 'text',
+              admin: { width: '50%' },
+            },
+          ],
+        },
+      ],
     },
   ],
 }

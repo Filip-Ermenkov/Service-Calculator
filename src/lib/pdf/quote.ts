@@ -111,9 +111,10 @@ function valueDisplay(field: PricingField, raw: RawInput, text: QuoteText): stri
     const match = field.options.find((o) => String(o.value) === String(raw))
     return match?.label ?? text.notSpecified
   }
-  // number
+  // number — append the field's unit so the PDF reads like the on-screen row
+  // ("40 m²"), never as part of the arithmetic.
   if (raw === '' || raw === null || raw === undefined) return text.notSpecified
-  return String(raw)
+  return field.unit ? `${String(raw)} ${field.unit}` : String(raw)
 }
 
 /**

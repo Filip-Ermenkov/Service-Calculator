@@ -11,6 +11,7 @@ import {
 import { TRANSLATABLE_FIELDS } from '@/lib/translation/registry'
 import { isStepUpVerifiedFromCookieMap } from '@/lib/totp/requestHelpers'
 
+import { AdminPageTitle } from './AdminPageTitle'
 import { TranslationManager } from './TranslationManager'
 
 /**
@@ -125,6 +126,7 @@ export default async function TranslationsView(props: AdminViewServerProps) {
       visibleEntities={initPageResult.visibleEntities}
     >
       <Gutter>
+        <AdminPageTitle title="Translations" />
         <TranslationManager entries={entries} stats={stats} adminRoute={adminRoute} />
       </Gutter>
     </DefaultTemplate>

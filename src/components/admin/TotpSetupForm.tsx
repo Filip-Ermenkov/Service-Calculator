@@ -75,26 +75,30 @@ export function TotpSetupForm() {
     }
   }
 
-  if (loading) return <p>Preparing your 2FA setup&hellip;</p>
-  if (error && !setupData) return <p style={{ color: 'var(--theme-error-500, #d00)' }}>{error}</p>
+  if (loading) return <p className="amfa-sub">Preparing your 2FA setup&hellip;</p>
+  if (error && !setupData) return <p className="amfa-error" role="alert">{error}</p>
   if (!setupData) return null
 
   return (
-    <div>
-      {/* eslint-disable-next-line @next/next/no-img-element -- data: URL, no Next image optimization applies */}
-      <img
-        src={setupData.qrCodeDataUrl}
-        alt="Scan this QR code with your authenticator app"
-        width={256}
-        height={256}
-      />
-      <p>
-        Can&apos;t scan? Enter this code manually: <code>{setupData.secret}</code>
+    <div className="amfa-setup">
+      <div className="amfa-qr">
+        {/* eslint-disable-next-line @next/next/no-img-element -- data: URL, no Next image optimization applies */}
+        <img
+          src={setupData.qrCodeDataUrl}
+          alt="Scan this QR code with your authenticator app"
+          width={200}
+          height={200}
+        />
+      </div>
+      <p className="amfa-secret">
+        Can&apos;t scan? Enter this code manually:
+        <code>{setupData.secret}</code>
       </p>
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="totp-code">Enter the 6-digit code from your app</label>
+      <form className="amfa-form" onSubmit={handleSubmit}>
+        <label className="amfa-label" htmlFor="totp-code">6-digit code from your app</label>
         <input
           id="totp-code"
+          className="amfa-code"
           name="code"
           type="text"
           inputMode="numeric"
@@ -102,11 +106,12 @@ export function TotpSetupForm() {
           pattern="[0-9]{6}"
           maxLength={6}
           required
+          placeholder="000000"
           value={code}
           onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
         />
-        {error && <p style={{ color: 'var(--theme-error-500, #d00)' }}>{error}</p>}
-        <button type="submit" disabled={submitting || code.length !== 6}>
+        {error && <p className="amfa-error" role="alert">{error}</p>}
+        <button className="amfa-btn" type="submit" disabled={submitting || code.length !== 6}>
           {submitting ? 'Verifying&hellip;' : 'Confirm and enable 2FA'}
         </button>
       </form>

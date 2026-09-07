@@ -160,6 +160,20 @@ describe('computePrice + helpers (src/lib/pricing/index.ts)', () => {
     expect(fields[3].options).toEqual([{ label: 'Standard', value: 0 }, { label: 'Premium', value: 1000 }])
   })
 
+  it('toPricingFields normalises unit + defaultOn', () => {
+    const [withUnit, blankUnit, onByDefault] = toPricingFields([
+      { fieldKey: 'a', label: 'A', type: 'number', unit: '  m²  ' },
+      { fieldKey: 'b', label: 'B', type: 'number', unit: '   ' },
+      { fieldKey: 'c', label: 'C', type: 'toggle', defaultOn: true },
+    ])
+    // Trimmed when present, null when blank/absent — never an empty string, so
+    // the calculator can branch on truthiness alone.
+    expect(withUnit.unit).toBe('m²')
+    expect(blankUnit.unit).toBeNull()
+    expect(withUnit.defaultOn).toBe(false)
+    expect(onByDefault.defaultOn).toBe(true)
+  })
+
   it('coerces number/dropdown/toggle raw inputs', () => {
     expect(coerceFieldValue(fields[0], '12.5')).toBe(12.5)
     expect(coerceFieldValue(fields[0], '')).toBe(0)
@@ -379,10 +393,10 @@ describe('PDF quote assembly + template (src/lib/pdf/*)', () => {
   const company = { name: 'Bulbau', phone: '+352 123', email: 'hi@bulbau.lu' }
   const now = new Date('2026-07-20T10:00:00Z')
   const fields: PricingField[] = [
-    { fieldKey: 'area', label: 'Roof area', type: 'number', options: [], unitPrice: 50, sign: 'add', required: true },
-    { fieldKey: 'panels', label: 'Panels', type: 'number', options: [], unitPrice: 200, sign: 'add', required: false },
-    { fieldKey: 'grid', label: 'Grid tie', type: 'toggle', options: [], unitPrice: -100, sign: 'add', required: false },
-    { fieldKey: 'tier', label: 'Tier', type: 'dropdown', options: [{ label: 'Basic', value: 0 }, { label: 'Premium', value: 500 }], unitPrice: 1, sign: 'add', required: false },
+    { fieldKey: 'area', label: 'Roof area', type: 'number', options: [], unitPrice: 50, sign: 'add', required: true, unit: 'm²', defaultOn: false },
+    { fieldKey: 'panels', label: 'Panels', type: 'number', options: [], unitPrice: 200, sign: 'add', required: false, unit: null, defaultOn: false },
+    { fieldKey: 'grid', label: 'Grid tie', type: 'toggle', options: [], unitPrice: -100, sign: 'add', required: false, unit: null, defaultOn: false },
+    { fieldKey: 'tier', label: 'Tier', type: 'dropdown', options: [{ label: 'Basic', value: 0 }, { label: 'Premium', value: 500 }], unitPrice: 1, sign: 'add', required: false, unit: null, defaultOn: false },
   ]
 
   it('builds a priced model (default path) with contributions and formatted total', () => {
@@ -395,6 +409,13 @@ describe('PDF quote assembly + template (src/lib/pdf/*)', () => {
     expect(m.lines.find((l) => l.label === 'Grid tie')?.valueDisplay).toBe('Yes')
     // the priced default path shows a contribution per field
     expect(m.lines.find((l) => l.label === 'Roof area')?.contributionDisplay).toContain('500')
+  })
+
+  it('shows a number field’s unit in the quote value ("10 m²")', () => {
+    const m = buildQuoteModel({ fields, formula: null, rawInputs: { area: '10', panels: '2', grid: false, tier: '0' }, locale: 'en', company, text, serviceTitle: 'Solar', now })
+    expect(m.lines.find((l) => l.label === 'Roof area')?.valueDisplay).toBe('10 m²')
+    // A field with no unit is unchanged — no stray trailing space.
+    expect(m.lines.find((l) => l.label === 'Panels')?.valueDisplay).toBe('2')
   })
 
   it('withholds the total when a required number field is blank (mirrors the page)', () => {
@@ -413,7 +434,7 @@ describe('PDF quote assembly + template (src/lib/pdf/*)', () => {
   })
 
   it('renders the §7 contact state for a non-positive total', () => {
-    const negField: PricingField[] = [{ fieldKey: 'x', label: 'X', type: 'number', options: [], unitPrice: -10, sign: 'add', required: true }]
+    const negField: PricingField[] = [{ fieldKey: 'x', label: 'X', type: 'number', options: [], unitPrice: -10, sign: 'add', required: true, unit: null, defaultOn: false }]
     const m = buildQuoteModel({ fields: negField, formula: null, rawInputs: { x: '5' }, locale: 'en', company, text, serviceTitle: 'S', now })
     expect(m.hasTotal).toBe(false)
     const html = renderQuoteHtml(m)
@@ -429,7 +450,7 @@ describe('PDF quote assembly + template (src/lib/pdf/*)', () => {
 
   it('escapes all interpolated content (no HTML injection)', () => {
     const xss = { ...text, title: '<script>x</script>' }
-    const f: PricingField[] = [{ fieldKey: 'a', label: '<b>Area</b>', type: 'number', options: [], unitPrice: 50, sign: 'add', required: true }]
+    const f: PricingField[] = [{ fieldKey: 'a', label: '<b>Area</b>', type: 'number', options: [], unitPrice: 50, sign: 'add', required: true, unit: null, defaultOn: false }]
     const m = buildQuoteModel({ fields: f, formula: null, rawInputs: { a: '2' }, locale: 'en', company, text: xss, serviceTitle: 'S&Co', now })
     const html = renderQuoteHtml(m)
     expect(html.startsWith('<!DOCTYPE html>')).toBe(true)

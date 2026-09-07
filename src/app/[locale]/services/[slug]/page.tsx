@@ -94,7 +94,7 @@ export default async function ServicePage({
       {/* Service hero */}
       <section className="grid-bg" style={{ padding: '4rem 0 3.5rem' }}>
         <div className="container">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '3rem', alignItems: 'center' }} className="service-hero-grid">
+          <div className="svc-hero">
             <div>
               <Link
                 href="/"
@@ -145,9 +145,9 @@ export default async function ServicePage({
       {/* Live price calculator (Phase 3) — real-time evaluation via @/lib/pricing */}
       <section className="section bg-white">
         <div className="container">
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div className="section-head" style={{ marginBottom: '1.5rem' }}>
             <span className="eyebrow">{t('estimatorEyebrow')}</span>
-            <h2 className="display-md heading-accent">{t('estimatorTitle')}</h2>
+            <h2 className="display-md">{t('estimatorTitle')}</h2>
           </div>
 
           {!hasCalculator ? (

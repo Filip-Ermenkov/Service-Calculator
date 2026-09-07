@@ -21,13 +21,18 @@ import { translateCollectionAfterChange } from '@/lib/translation/hook'
 export const CareerListings: CollectionConfig = {
   slug: 'career-listings',
   labels: {
-    singular: 'Career Listing',
-    plural: 'Career Listings',
+    singular: 'Job Opening',
+    plural: 'Careers',
   },
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', 'status', 'updatedAt'],
+    // The prototype's columns: Position | Status | Actions
+    // (/prototype/admin/careers.html). `rowActions` is a list-only `ui` field.
+    defaultColumns: ['title', 'status', 'rowActions'],
     group: 'Content',
+    components: {
+      beforeListTable: ['/components/admin/ListCardHeader#ListCardHeader'],
+    },
     description:
       'Open positions. Drag to reorder — this sets the display order on the ' +
       'public Careers page.',
@@ -47,36 +52,78 @@ export const CareerListings: CollectionConfig = {
     afterChange: [translateCollectionAfterChange, revalidateContentAfterChange],
     afterDelete: [revalidateContentAfterDelete],
   },
+  // Shaped to the prototype's job editor (/prototype/admin/careers.html): one
+  // titled section card with the job title and its Active/Archived status on a
+  // single row, then the description and the photo drop zone. Presentational
+  // wrappers only — no data nesting, no schema change.
   fields: [
     {
-      name: 'title',
-      type: 'text',
-      required: true,
-      localized: true,
-    },
-    {
-      name: 'description',
-      type: 'richText',
-      localized: true,
-      admin: { description: 'Role summary, responsibilities, requirements.' },
-    },
-    {
-      name: 'photo',
-      type: 'upload',
-      relationTo: 'media',
-    },
-    {
-      name: 'status',
-      type: 'select',
-      required: true,
-      defaultValue: 'active',
-      options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Archived', value: 'archived' },
-      ],
+      type: 'collapsible',
+      label: 'Job Opening',
       admin: {
-        description: 'Archived listings are hidden from the public site.',
-        position: 'sidebar',
+        initCollapsed: false,
+        className: 'asec asec--job',
+        components: {
+          Label: '/components/admin/AdminSectionLabel#JobOpeningLabel',
+        },
+      },
+      fields: [
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'title',
+              label: 'Job Title',
+              type: 'text',
+              required: true,
+              localized: true,
+              admin: { width: '50%' },
+            },
+            {
+              // NOT Payload's draft/publish state — §5.5 models careers as an
+              // Active/Archived visibility toggle, so this is a real stored
+              // field and sits inline exactly like the prototype's select.
+              name: 'status',
+              label: 'Status',
+              type: 'select',
+              required: true,
+              defaultValue: 'active',
+              options: [
+                { label: 'Active', value: 'active' },
+                { label: 'Archived', value: 'archived' },
+              ],
+              admin: {
+                width: '50%',
+                description: 'Archived listings are hidden from the public site.',
+                // Drawn as the prototype's status pill in the list table.
+                components: { Cell: '/components/admin/StatusBadgeCell#StatusBadgeCell' },
+              },
+            },
+          ],
+        },
+        {
+          name: 'description',
+          label: 'Description (role, responsibilities, requirements)',
+          type: 'richText',
+          localized: true,
+        },
+        {
+          name: 'photo',
+          label: 'Photo',
+          type: 'upload',
+          relationTo: 'media',
+          admin: { description: 'PNG or JPG up to 5 MB.' },
+        },
+      ],
+    },
+    // List-only column: the prototype's Edit / Archive-Restore / Delete actions.
+    // Stores nothing and renders nothing in the editor.
+    {
+      name: 'rowActions',
+      label: 'Actions',
+      type: 'ui',
+      admin: {
+        components: { Cell: '/components/admin/RowActionsCell#RowActionsCell' },
       },
     },
   ],

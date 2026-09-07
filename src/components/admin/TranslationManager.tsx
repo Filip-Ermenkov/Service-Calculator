@@ -25,7 +25,10 @@ import './TranslationManager.scss'
  * full reload.
  */
 
-const LOCALE_LABEL: Record<TargetLocaleCode, string> = { fr: 'Français', de: 'Deutsch' }
+// Column headings follow the prototype's translations table
+// (/prototype/admin/translations.html): the language named in English, with its
+// code, so the three columns scan as one set.
+const LOCALE_LABEL: Record<TargetLocaleCode, string> = { fr: 'French (FR)', de: 'German (DE)' }
 
 const baseClass = 'translation-manager'
 
@@ -93,7 +96,7 @@ export function TranslationManager({
   return (
     <div className={baseClass}>
       <header className={`${baseClass}__header`}>
-        <h1>Translation Management</h1>
+        <h1>Translations</h1>
         <p className={`${baseClass}__intro`}>
           Review and correct the French and German translations of your content. Content is written
           in English and translated automatically; anything below that still shows the English text
@@ -112,15 +115,15 @@ export function TranslationManager({
         <input
           type="search"
           className={`${baseClass}__search`}
-          placeholder="Search content, field, or translation…"
+          placeholder="Search strings…"
           value={query}
           aria-label="Search translations"
           onChange={(ev) => setQuery(ev.target.value)}
         />
         <label className={`${baseClass}__filter`}>
-          <span>Content type</span>
+          <span className="visually-hidden">Section</span>
           <select value={entityFilter} onChange={(ev) => setEntityFilter(ev.target.value)}>
-            <option value="all">All</option>
+            <option value="all">All sections</option>
             {entities.map((slug) => (
               <option key={slug} value={slug}>
                 {slug}
@@ -156,7 +159,9 @@ export function TranslationManager({
           <tbody>
             {filtered.map((entry) => (
               <tr key={entry.id}>
-                <td className={`${baseClass}__source`}>
+                {/* data-label drives the phone layout: below 769px each row
+                    becomes one labelled card (see TranslationManager.scss). */}
+                <td className={`${baseClass}__source`} data-label="Content" data-primary>
                   <span className={`${baseClass}__doc`}>{entry.docLabel}</span>
                   <span className={`${baseClass}__field`}>
                     {entry.fieldLabel}
@@ -166,9 +171,11 @@ export function TranslationManager({
                     <span className="pill pill--richtext">Rich text</span>
                   )}
                 </td>
-                <td className={`${baseClass}__en`}>{entry.en || <em>(empty)</em>}</td>
+                <td className={`${baseClass}__en`} data-label="English (source)">
+                  {entry.en || <em>(empty)</em>}
+                </td>
                 {TARGET_LOCALES.map((locale) => (
-                  <td key={locale} className={`${baseClass}__target`}>
+                  <td key={locale} className={`${baseClass}__target`} data-label={LOCALE_LABEL[locale]}>
                     <TargetCell
                       entry={entry}
                       locale={locale}

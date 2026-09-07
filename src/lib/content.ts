@@ -71,6 +71,27 @@ export async function getServices(locale: Locale): Promise<Service[]> {
   }
 }
 
+/**
+ * How many service cards the Home page should show, from the drag order
+ * (home-settings global; set on the Services admin screen). 0 = show all.
+ * Resilient → 0 (all) on any failure or before the global's first save.
+ */
+export async function getServiceCardLimit(): Promise<number> {
+  try {
+    const payload = await getPayloadClient()
+    const s = (await payload.findGlobal({
+      slug: 'home-settings' as never,
+      depth: 0,
+      overrideAccess: false,
+    })) as { serviceCardLimit?: number } | null
+    const n = typeof s?.serviceCardLimit === 'number' ? s.serviceCardLimit : 0
+    return n > 0 ? n : 0
+  } catch (err) {
+    console.error('[content] getServiceCardLimit failed:', err)
+    return 0
+  }
+}
+
 /** Look up one published service by its URL slug (→ null for draft/unknown). */
 export async function getServiceBySlug(
   slug: string,

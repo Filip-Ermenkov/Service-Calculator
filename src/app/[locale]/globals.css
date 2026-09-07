@@ -48,17 +48,37 @@
   --transition:   0.2s ease;
   --shadow-card:  0 4px 24px rgba(0,0,0,0.08);
   --shadow-hover: 0 10px 40px rgba(0,0,0,0.14);
+
+  /* ---- Fluid scales (Utopia approach: rem min/max for zoom accessibility, a
+     vw preferred term for smooth interpolation). These let type and rhythm
+     scale continuously across EVERY width instead of jumping at breakpoints,
+     so nothing looks cramped between the classic device sizes. ---- */
+  --container-gutter: clamp(1rem, 3.5vw, 1.5rem);
+  --space-section:    clamp(3rem, 6vw, 5rem);
+  --space-section-sm: clamp(2rem, 4vw, 3rem);
+  --gap-grid:         clamp(1rem, 2.2vw, 1.5rem);
+
+  /* Fluid body/lead sizes (headings already use clamp via .display-*). */
+  --fs-body:  0.9375rem;
+  --fs-lead:  clamp(1rem, 0.95rem + 0.4vw, 1.0625rem);
 }
 
 /* ---- Reset ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+/* overflow-x: clip stops any stray horizontal scroll (the "white strip on the
+   right" on phones) WITHOUT creating a scroll container — so, unlike
+   `overflow: hidden`, it never breaks the sticky header. overflow-wrap makes
+   long unbreakable strings (emails, URLs, long compound words in DE/FR) wrap
+   instead of pushing the layout wider than the screen. */
+html { scroll-behavior: smooth; overflow-x: clip; }
 body {
   font-family: var(--font-body);
   color: var(--g900);
   background: var(--white);
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+  overflow-wrap: break-word;
 }
 img { display: block; max-width: 100%; }
 a { text-decoration: none; color: inherit; }
@@ -93,9 +113,36 @@ textarea:focus-visible {
 }
 
 /* ---- Layout ---- */
-.container { max-width: 1280px; margin: 0 auto; padding: 0 1.5rem; }
-.section { padding: 5rem 0; }
-.section-sm { padding: 3rem 0; }
+.container { max-width: 1280px; margin: 0 auto; padding: 0 var(--container-gutter); }
+.section { padding: var(--space-section) 0; }
+.section-sm { padding: var(--space-section-sm) 0; }
+
+/* ---- Responsive two-column split (main + aside) ----
+   Replaces the old inline `grid-template-columns` on the service hero, About and
+   Contact pages, which could not collapse on mobile (inline styles beat media
+   queries). Mobile-first: one column by default, two columns only once there's
+   room. minmax(0,1fr) lets the flexible column shrink instead of overflowing. */
+.split-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(2rem, 4vw, 3rem);
+  align-items: start;
+}
+@media (min-width: 860px) {
+  .split-2 { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+}
+
+/* Service hero: flexible content + a media panel that drops below on small
+   screens and sits beside the copy on wide ones. */
+.svc-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(1.75rem, 4vw, 3rem);
+  align-items: center;
+}
+@media (min-width: 820px) {
+  .svc-hero { grid-template-columns: minmax(0, 1fr) clamp(220px, 24vw, 300px); }
+}
 
 /* ---- Backgrounds ---- */
 .bg-black  { background: var(--black); }
@@ -221,6 +268,7 @@ textarea:focus-visible {
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   font-weight: 600;
   font-size: 0.8125rem;
@@ -321,7 +369,9 @@ textarea:focus-visible {
 .lang-btn:last-child { border-right: none; }
 .lang-btn.active { background: var(--orange); color: var(--white); }
 .lang-btn:not(.active):hover { color: var(--white); background: rgba(255,255,255,0.06); }
-.hamburger { display: none; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; background: none; border: none; color: var(--white); padding: 0.25rem; cursor: pointer; }
+/* Orange button with white stripes (the menu icon lines are currentColor). */
+.hamburger { display: none; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; background: var(--orange); border: none; color: var(--white); padding: 0.25rem; cursor: pointer; transition: background var(--transition); }
+.hamburger:hover { background: var(--orange-h); }
 .mobile-menu { display: none; flex-direction: column; background: var(--g900); border-top: 1px solid rgba(255,255,255,0.06); }
 .mobile-menu.open { display: flex; }
 .mobile-menu a {
@@ -330,14 +380,42 @@ textarea:focus-visible {
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  text-align: center;
   color: var(--g400);
   border-bottom: 1px solid rgba(255,255,255,0.06);
   transition: color var(--transition);
 }
 .mobile-menu a:hover, .mobile-menu a.active { color: var(--white); }
+/* ---- Mobile header: three symmetric zones ----
+   logo + wordmark on the LEFT, the language switcher CENTRED, the menu button on
+   the RIGHT. A 3-column grid (1fr auto 1fr) keeps the switcher on the page's
+   centre line; the compaction rules below keep the whole row inside the smallest
+   phones so it can never cause a horizontal scroll. */
 @media (max-width: 768px) {
   .nav-links { display: none; }
   .hamburger { display: inline-flex; }
+
+  /* Three zones on ONE baseline: the logo mark (left), the language switcher
+     (centre), and the menu button (right). The "Bulbau" wordmark is hidden on
+     mobile — the square mark alone reads cleanly and makes the left and right
+     zones the same size, so the switcher sits dead-centre. All three controls
+     are forced to the SAME 44px height (the `.site-header` prefix outranks the
+     generic touch-target rule) so their tops and bottoms line up exactly. */
+  .site-header nav {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .site-header nav > .logo { justify-self: start; }
+  .site-header nav > .lang-switcher { justify-self: center; }
+  .site-header nav > .hamburger { justify-self: end; }
+
+  .site-header .logo-name { display: none; }
+  .site-header .logo-mark { width: 44px; height: 44px; font-size: 1.35rem; }
+  .site-header .lang-switcher { height: 44px; }
+  .site-header .lang-switcher .lang-btn { min-height: 0; }
+  .site-header .hamburger { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
 }
 
 /* ---- Footer ---- */
@@ -375,7 +453,20 @@ textarea:focus-visible {
 }
 .footer-social a:hover { border-color: var(--orange); color: var(--orange); }
 @media (max-width: 900px) { .footer-inner { grid-template-columns: 1fr 1fr; gap: 2rem; } }
-@media (max-width: 600px) { .footer-inner { grid-template-columns: 1fr; } }
+/* Single-column footer on phones: centre every column so the whole block reads
+   as one tidy, symmetric stack (brand, links, social, contacts, bottom bar). */
+@media (max-width: 600px) {
+  .footer-inner { grid-template-columns: 1fr; text-align: center; }
+  .footer-col { display: flex; flex-direction: column; align-items: center; }
+  .footer-col .logo { justify-content: center; }
+  .footer-social { justify-content: center; }
+  .footer-bottom {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+    justify-content: center;
+  }
+}
 
 /* ---- Hero ---- */
 .hero { min-height: 600px; display: flex; align-items: center; position: relative; overflow: hidden; }
@@ -389,13 +480,123 @@ textarea:focus-visible {
 }
 .hero-badge::before { content: ''; width: 6px; height: 6px; background: var(--orange); border-radius: 50%; }
 
+/* ---- Centered hero content (Home) ---- */
+/* A single centered column: badge, title, lead, and actions all share one axis
+   so the block is perfectly symmetric at every width. */
+.hero-center {
+  position: relative;
+  z-index: 1;
+  max-width: 60rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.hero-center .display-xl { color: var(--white); text-wrap: balance; }
+.hero-center .hero-lead {
+  color: var(--g400);
+  font-size: var(--fs-lead);
+  line-height: 1.7;
+  max-width: 44ch;
+  margin-top: 1.25rem;
+}
+
+/* ---- Action button group: centered + equal width ---- */
+/* Paired call-to-action buttons read as one unit: identical width (so a short
+   label and a long label match), centred as a group, and stacked full-width on
+   the narrowest phones for easy tapping. */
+.btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+}
+.btn-group .btn { min-width: 10rem; }
+@media (max-width: 480px) {
+  .btn-group { flex-direction: column; align-items: stretch; width: 100%; max-width: 22rem; margin-inline: auto; }
+  .btn-group .btn { width: 100%; min-width: 0; }
+}
+
+/* ---- Stats strip: centered, evenly structured ---- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: clamp(1.5rem, 4vw, 2.5rem);
+  align-items: start;
+}
+.stat { text-align: center; }
+.stat-value {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 3rem);
+  font-weight: 900;
+  color: var(--orange);
+  line-height: 1;
+}
+.stat-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--g600);
+  margin-top: 0.6rem;
+}
+
+/* ---- Consistent, centered page intros (site-wide symmetry) ---- */
+/* Top-of-page hero intro (Projects, About, Contact, Careers, Legal, Privacy):
+   centered eyebrow + title + optional lead, on the same axis as the Home hero. */
+.page-hero { text-align: center; }
+.page-hero > p {
+  max-width: 46rem;
+  margin-inline: auto;
+  margin-top: 0.85rem;
+}
+/* In-page section intro above a full-width grid (services, open positions,
+   estimator): centered and symmetric — no left accent bar. */
+.section-head { max-width: 48rem; margin-inline: auto; text-align: center; }
+.section-head > p { max-width: 40rem; margin-inline: auto; }
+
+/* ---- Hero corner frame (Home) ----
+   Two mirrored orange angles that bracket the centred hero content: top-left and
+   bottom-right, each inset to the container's content edge so they line up with
+   the same straight lines the text follows. Pseudo-elements (not stray divs) so
+   they can never drift out of alignment. Hidden on small screens where they'd
+   crowd the content. */
+.hero .container { position: relative; }
+@media (min-width: 641px) {
+  .hero .container::before,
+  .hero .container::after {
+    content: '';
+    position: absolute;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 0 solid rgba(191, 76, 0, 0.5);
+    pointer-events: none;
+  }
+  .hero .container::before {
+    top: -1.5rem;
+    left: var(--container-gutter);
+    border-top-width: 2px;
+    border-left-width: 2px;
+  }
+  .hero .container::after {
+    bottom: -1.5rem;
+    right: var(--container-gutter);
+    border-bottom-width: 2px;
+    border-right-width: 2px;
+  }
+}
+
 /* ---- Service cards ---- */
+/* Auto-fill grid: cards are ~20rem and the track count adapts to the available
+   width at EVERY size (no fixed breakpoints to look wrong between). min(100%, …)
+   guarantees a single clean column on the narrowest phones with no overflow.
+   The 1.5px gap over a g200 background draws the industrial hairlines. */
 .services-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
   gap: 1.5px; background: var(--g200); border: 1.5px solid var(--g200);
 }
-@media (max-width: 900px)  { .services-grid { grid-template-columns: repeat(2,1fr); } }
-@media (max-width: 560px)  { .services-grid { grid-template-columns: 1fr; } }
 .service-card { background: var(--white); display: block; overflow: hidden; transition: all 0.28s ease; position: relative; color: inherit; }
 .service-card::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
@@ -420,10 +621,11 @@ textarea:focus-visible {
 .service-card:hover .card-arrow { gap: 0.7rem; }
 
 /* ---- Project cards ---- */
-.projects-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
-@media (max-width: 1100px) { .projects-grid { grid-template-columns: repeat(3,1fr); } }
-@media (max-width: 768px)  { .projects-grid { grid-template-columns: repeat(2,1fr); } }
-@media (max-width: 480px)  { .projects-grid { grid-template-columns: 1fr; } }
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--gap-grid);
+}
 .project-card { border: 1px solid var(--g200); overflow: hidden; transition: all 0.25s ease; background: var(--white); }
 .project-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-4px); border-color: var(--g300); }
 .project-card:hover .card-img-inner { transform: scale(1.05); }
@@ -493,6 +695,24 @@ textarea:focus-visible {
   background-repeat: no-repeat; background-position: right 0.7rem center; cursor: pointer; transition: border-color var(--transition);
 }
 .calc-select:focus { border-color: var(--orange); }
+/* Narrow-screen hardening: the control column may wrap under the label on a
+   phone (calc-row is flex-wrap). Let the inputs shrink to the row instead of
+   overflowing their fixed 160/200px widths, and let the control fill the width
+   once wrapped so it stays tap-friendly. */
+.calc-control { flex-wrap: wrap; }
+.calc-input, .calc-select { max-width: 100%; }
+/* Unit beside a number input ("m²", "kW"): the admin sets it per field. It is
+   labelling, never arithmetic — the input references it via aria-describedby. */
+.calc-unit { font-size: 0.8rem; font-weight: 600; color: var(--g500); white-space: nowrap; }
+@media (max-width: 560px) {
+  .calc-control { width: 100%; }
+  .calc-select { width: 100%; }
+  /* Grow to the row rather than a hard 100%, so a unit stays on the same line
+     as its input instead of being pushed underneath it. */
+  .calc-input { width: auto; flex: 1 1 8rem; min-width: 0; }
+}
+/* Quote action buttons row (Download / Email). */
+.calc-actions { display: flex; flex-direction: column; }
 .toggle { position: relative; width: 48px; height: 26px; flex-shrink: 0; display: inline-block; }
 .toggle input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; inset: 0; background: var(--g300); cursor: pointer; transition: 0.3s; }
@@ -548,9 +768,11 @@ textarea:focus-visible {
 .contact-value a:hover { color: var(--orange); }
 
 /* ---- Careers cards ---- */
-.careers-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.5rem; }
-@media (max-width: 900px) { .careers-grid { grid-template-columns: repeat(2,1fr); } }
-@media (max-width: 560px) { .careers-grid { grid-template-columns: 1fr; } }
+.careers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--gap-grid);
+}
 .career-card { border: 1px solid var(--g200); overflow: hidden; background: var(--white); transition: all 0.25s ease; display: flex; flex-direction: column; }
 .career-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-4px); }
 .career-card-img { height: 200px; overflow: hidden; }
@@ -599,4 +821,119 @@ textarea:focus-visible {
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ============================================================
+   MOTION & INTERACTION LAYER (2026)
+   ------------------------------------------------------------
+   A dependency-free, progressive-enhancement motion system:
+   • Below-the-fold reveals use native CSS *scroll-driven* animations
+     (`animation-timeline: view()`) — they run off the main thread, need zero
+     JavaScript, and cost nothing at hydration. (~90% global support in 2026.)
+   • The hero uses a one-shot load entrance (no scroll timeline, since it's
+     already on-screen at load).
+   Everything decorative is gated behind BOTH:
+     @media (prefers-reduced-motion: no-preference)  — honour the OS setting
+     @supports (animation-timeline: view())          — reveals only where supported
+   The DEFAULT (ungated) state is always fully visible, so with reduced motion,
+   an old browser, or JS disabled, content simply appears — no opacity:0 trap.
+   Only transform/opacity animate (GPU-friendly, no layout thrash).
+   ============================================================ */
+:root {
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast:    0.18s;
+  --dur:         0.3s;
+  --dur-slow:    0.6s;
+}
+
+@keyframes fade-rise {
+  from { opacity: 0; transform: translate3d(0, 1.5rem, 0); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* --- Hero / above-the-fold: run once on load --- */
+  .animate-in { animation: fade-rise var(--dur-slow) var(--ease-out) both; }
+  /* Staggered entrance for a group of hero children */
+  .animate-stagger > * { animation: fade-rise var(--dur-slow) var(--ease-out) both; }
+  .animate-stagger > *:nth-child(1) { animation-delay: 0.02s; }
+  .animate-stagger > *:nth-child(2) { animation-delay: 0.10s; }
+  .animate-stagger > *:nth-child(3) { animation-delay: 0.18s; }
+  .animate-stagger > *:nth-child(4) { animation-delay: 0.26s; }
+  .animate-stagger > *:nth-child(5) { animation-delay: 0.34s; }
+
+  /* --- Below-the-fold: reveal as the element scrolls into view --- */
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: fade-rise var(--dur-slow) var(--ease-out) both;
+      animation-timeline: view();
+      /* Start as it enters the viewport, finish by the time it's 32% covered. */
+      animation-range: entry 0% cover 32%;
+    }
+    /* Each child owns its own view timeline, so items lower in the document
+       animate a beat later as you scroll past them — a natural stagger with no
+       per-item delays. Use on grids/lists with real gaps. */
+    .reveal-stagger > * {
+      animation: fade-rise var(--dur-slow) var(--ease-out) both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 26%;
+    }
+  }
+}
+
+/* ---- Micro-interactions: press / hover feedback on controls ---- */
+/* Smoother multi-property transition + a subtle press so every click feels
+   physical. Transform is tiny and reversible; kept out of the reduced-motion
+   guard because it's essential interaction feedback, not decoration. */
+.btn {
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.btn:active { transform: translateY(1px) scale(0.995); }
+.btn-primary:hover { box-shadow: 0 6px 20px rgba(191, 76, 0, 0.28); }
+.btn-dark:hover    { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22); }
+
+/* Card arrow already nudges on hover; add a touch of lift easing parity. */
+.service-card, .project-card, .career-card { transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out); }
+
+/* Animated underline for text links inside prose/footers (grows from the left). */
+.link-underline { position: relative; }
+.link-underline::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: -2px;
+  width: 100%; height: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur) var(--ease-out);
+}
+.link-underline:hover::after,
+.link-underline:focus-visible::after { transform: scaleX(1); }
+
+/* ---- Touch ergonomics ---- */
+/* On touch (coarse) pointers, guarantee a comfortable 48x48 CSS-px target on
+   the compact controls, exceeding WCAG 2.5.8's 24px minimum with margin. Scoped
+   to coarse pointers so desktop density is untouched. */
+@media (pointer: coarse) {
+  /* Comfortable 48px tap HEIGHT on the language pills; their WIDTH is governed
+     by the responsive header rules above (>=38-44px — still well past WCAG's
+     24px floor) so three of them plus the logo and menu button always fit a
+     narrow phone without forcing a sideways scroll. */
+  .lang-btn { min-height: 48px; }
+  .hamburger { min-width: 48px; min-height: 48px; }
+  .footer-col ul a, .footer-social a { min-height: 48px; display: inline-flex; align-items: center; }
+  .footer-social a { min-width: 48px; justify-content: center; }
 }

@@ -59,7 +59,7 @@ export default async function LegalNoticePage({
   return (
     <>
       <section className="grid-bg" style={{ padding: '4rem 0 3rem' }}>
-        <div className="container">
+        <div className="container page-hero">
           <h1 className="display-lg" style={{ color: '#fff' }}>
             {t('legalNoticeTitle')}
           </h1>

@@ -28,13 +28,18 @@ export default async function TotpSetupView({ initPageResult }: AdminViewServerP
   }
 
   return (
-    <div style={{ maxWidth: 480, margin: '48px auto', padding: '0 24px' }}>
-      <h1>{user.totpEnabled ? 'Re-link two-factor authentication' : 'Set up two-factor authentication'}</h1>
-      <p>
-        Scan this QR code with an authenticator app (Google Authenticator, Authy, Microsoft
-        Authenticator, 1Password, etc.), then enter the 6-digit code it shows to confirm.
-      </p>
-      <TotpSetupForm />
+    <div className="amfa">
+      <div className="amfa-card amfa-card--wide">
+        <span className="amfa-mark" aria-hidden="true">B</span>
+        <h1 className="amfa-title">
+          {user.totpEnabled ? 'Re-link two-factor authentication' : 'Set up two-factor authentication'}
+        </h1>
+        <p className="amfa-sub">
+          Scan this QR code with an authenticator app (Google Authenticator, Authy, Microsoft
+          Authenticator, 1Password, etc.), then enter the 6-digit code it shows to confirm.
+        </p>
+        <TotpSetupForm />
+      </div>
     </div>
   )
 }

@@ -18,7 +18,7 @@ export default function NotFound() {
         <p style={{ color: 'var(--g500)', marginTop: '1rem', marginBottom: '2rem' }}>
           Sorry, we couldn’t find the page you were looking for.
         </p>
-        <Link href="/" className="btn btn-primary btn-lg">
+        <Link href="/" className="btn btn-primary">
           Back to home
         </Link>
       </div>

@@ -96,10 +96,12 @@ export interface Config {
   globals: {
     'company-info': CompanyInfo;
     'legal-info': LegalInfo;
+    'home-settings': HomeSetting;
   };
   globalsSelect: {
     'company-info': CompanyInfoSelect<false> | CompanyInfoSelect<true>;
     'legal-info': LegalInfoSelect<false> | LegalInfoSelect<true>;
+    'home-settings': HomeSettingsSelect<false> | HomeSettingsSelect<true>;
   };
   locale: 'en' | 'fr' | 'de';
   widgets: {
@@ -190,9 +192,6 @@ export interface Service {
    * URL path for this item, e.g. "solar-panels" → /services/solar-panels. Auto-filled from the title; edit to customise. Must be unique.
    */
   slug?: string | null;
-  /**
-   * Detailed description shown on the service page.
-   */
   description?: {
     root: {
       type: string;
@@ -208,41 +207,52 @@ export interface Service {
     };
     [k: string]: unknown;
   } | null;
-  /**
-   * Service-page hero image.
-   */
-  heroImage?: (number | null) | Media;
-  /**
-   * How this service appears in the grid on the Home page. The card image and title can differ from the hero image and service title.
-   */
   card?: {
     /**
      * Defaults to the service title if left blank.
      */
     cardTitle?: string | null;
-    /**
-     * Short blurb (1–3 sentences) for the card.
-     */
     cardDescription?: string | null;
+    /**
+     * PNG or JPG up to 5 MB · recommended 800×600.
+     */
     cardImage?: (number | null) | Media;
   };
   /**
-   * Input fields shown in this service’s price calculator. A visual builder replaces raw editing of these in Phase 3 (TECHSPEC §6.4). Leave empty for a service with no calculator.
+   * PNG or JPG up to 5 MB · recommended 1600×600.
+   */
+  heroImage?: (number | null) | Media;
+  /**
+   * The input fields shown in this service’s price calculator. Drag to reorder — visitors see them in this order. Leave empty for a service with no calculator.
    */
   calculatorFields?:
     | {
         /**
-         * Stable identifier the pricing formula references, e.g. "roof_area". Lowercase, no spaces. Do not change once a formula uses it.
-         */
-        fieldKey: string;
-        /**
          * The field name the visitor sees.
          */
         label: string;
+        /**
+         * Stable name the price formula refers to, e.g. "roof_area". Lowercase, no spaces. Do not change it once a formula uses it.
+         */
+        fieldKey: string;
         type: 'number' | 'dropdown' | 'toggle';
         /**
-         * Selectable options and their values.
+         * Shown beside the visitor’s input, e.g. "m²", "kW", "hours". Leave blank for a plain number.
          */
+        unit?: string | null;
+        sign?: ('add' | 'subtract') | null;
+        /**
+         * What one unit of this field costs. For a yes/no toggle this is the amount added when it is switched on.
+         */
+        unitPrice?: number | null;
+        /**
+         * Tick to have this toggle already switched on when a visitor opens the calculator.
+         */
+        defaultOn?: boolean | null;
+        /**
+         * The estimate is withheld until every required field is filled in.
+         */
+        required?: boolean | null;
         options?:
           | {
               optionLabel: string;
@@ -250,12 +260,6 @@ export interface Service {
               id?: string | null;
             }[]
           | null;
-        /**
-         * Amount the field’s value is multiplied by to get its contribution to the price.
-         */
-        unitPrice?: number | null;
-        sign?: ('add' | 'subtract') | null;
-        required?: boolean | null;
         id?: string | null;
       }[]
     | null;
@@ -272,7 +276,7 @@ export interface Service {
     | boolean
     | null;
   /**
-   * Estimate-only disclaimer shown around the calculator. Optional — a site-wide default can be applied at render time in Phase 2.
+   * Estimate-only wording shown around the calculator on the service page. Optional.
    */
   disclaimer?: {
     root: {
@@ -300,6 +304,11 @@ export interface Service {
 export interface Project {
   id: number;
   title: string;
+  completionDate: string;
+  /**
+   * Used by the category filter on the public Projects page.
+   */
+  service?: (number | null) | Service;
   description?: {
     root: {
       type: string;
@@ -315,12 +324,10 @@ export interface Project {
     };
     [k: string]: unknown;
   } | null;
-  photo?: (number | null) | Media;
-  completionDate: string;
   /**
-   * Service category this project belongs to (for filtering).
+   * PNG or JPG up to 5 MB.
    */
-  service?: (number | null) | Service;
+  photo?: (number | null) | Media;
   /**
    * Auto-filled from the linked service. Kept even if that service is later deleted, so this project keeps its category label.
    */
@@ -340,8 +347,9 @@ export interface CareerListing {
   _order?: string | null;
   title: string;
   /**
-   * Role summary, responsibilities, requirements.
+   * Archived listings are hidden from the public site.
    */
+  status: 'active' | 'archived';
   description?: {
     root: {
       type: string;
@@ -357,11 +365,10 @@ export interface CareerListing {
     };
     [k: string]: unknown;
   } | null;
-  photo?: (number | null) | Media;
   /**
-   * Archived listings are hidden from the public site.
+   * PNG or JPG up to 5 MB.
    */
-  status: 'active' | 'archived';
+  photo?: (number | null) | Media;
   updatedAt: string;
   createdAt: string;
 }
@@ -503,7 +510,6 @@ export interface ServicesSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
   description?: T;
-  heroImage?: T;
   card?:
     | T
     | {
@@ -511,12 +517,18 @@ export interface ServicesSelect<T extends boolean = true> {
         cardDescription?: T;
         cardImage?: T;
       };
+  heroImage?: T;
   calculatorFields?:
     | T
     | {
-        fieldKey?: T;
         label?: T;
+        fieldKey?: T;
         type?: T;
+        unit?: T;
+        sign?: T;
+        unitPrice?: T;
+        defaultOn?: T;
+        required?: T;
         options?:
           | T
           | {
@@ -524,9 +536,6 @@ export interface ServicesSelect<T extends boolean = true> {
               value?: T;
               id?: T;
             };
-        unitPrice?: T;
-        sign?: T;
-        required?: T;
         id?: T;
       };
   formula?: T;
@@ -541,10 +550,10 @@ export interface ServicesSelect<T extends boolean = true> {
  */
 export interface ProjectsSelect<T extends boolean = true> {
   title?: T;
-  description?: T;
-  photo?: T;
   completionDate?: T;
   service?: T;
+  description?: T;
+  photo?: T;
   serviceName?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -557,9 +566,9 @@ export interface ProjectsSelect<T extends boolean = true> {
 export interface CareerListingsSelect<T extends boolean = true> {
   _order?: T;
   title?: T;
+  status?: T;
   description?: T;
   photo?: T;
-  status?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -612,17 +621,7 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
 export interface CompanyInfo {
   id: number;
   /**
-   * Contact-form destination and public contact address.
-   */
-  email: string;
-  /**
-   * Public phone number (click-to-call on mobile).
-   */
-  phone?: string | null;
-  facebookUrl?: string | null;
-  instagramUrl?: string | null;
-  /**
-   * About Us page body (rich text).
+   * Shown in the "Our Story" section of the About Us page. Write in English — the French and German versions are generated automatically.
    */
   aboutUsContent?: {
     root: {
@@ -639,6 +638,16 @@ export interface CompanyInfo {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * Click-to-call on mobile.
+   */
+  phone?: string | null;
+  /**
+   * Contact-form destination and public contact address.
+   */
+  email: string;
+  facebookUrl?: string | null;
+  instagramUrl?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -691,15 +700,30 @@ export interface LegalInfo {
   createdAt?: string | null;
 }
 /**
+ * Controls how the public Home page presents content. Managed from the Services screen; changes apply immediately.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "home-settings".
+ */
+export interface HomeSetting {
+  id: number;
+  /**
+   * How many service cards to show on the Home page, in the drag order set on the Services screen. 0 = show all.
+   */
+  serviceCardLimit?: number | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "company-info_select".
  */
 export interface CompanyInfoSelect<T extends boolean = true> {
-  email?: T;
+  aboutUsContent?: T;
   phone?: T;
+  email?: T;
   facebookUrl?: T;
   instagramUrl?: T;
-  aboutUsContent?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
@@ -717,6 +741,16 @@ export interface LegalInfoSelect<T extends boolean = true> {
   legalContactEmail?: T;
   privacyPolicyContent?: T;
   _status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "home-settings_select".
+ */
+export interface HomeSettingsSelect<T extends boolean = true> {
+  serviceCardLimit?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

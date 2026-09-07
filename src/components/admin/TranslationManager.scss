@@ -1,139 +1,270 @@
-// Translation Management screen (Phase 5 part 2). Uses Payload's theme variables
-// so it adapts to the admin light/dark themes automatically.
-.translation-manager {
-  --tm-border: var(--theme-elevation-150);
-  --tm-surface: var(--theme-elevation-50);
-  --tm-surface-2: var(--theme-elevation-100);
+/* ============================================================================
+   TRANSLATION MANAGEMENT (FUNCTIONALITY.md §5.7) — /prototype/admin/translations
+   ----------------------------------------------------------------------------
+   The screen is a review table: the English source beside the French and German
+   values, each with a status marker and inline edit / re-translate actions.
 
+   Styled with the admin design system's tokens (src/app/(payload)/custom.scss),
+   so it inherits the industrial look and both themes automatically. Mobile
+   first: below 769px each row becomes a stacked record card driven by the cells'
+   `data-label`, because four columns of prose cannot be read on a phone.
+   ========================================================================== */
+
+.translation-manager {
   display: flex;
   flex-direction: column;
-  gap: var(--base);
+  gap: var(--s-4);
+  padding-top: var(--s-5);
 
-  &__header {
-    h1 {
-      margin: 0 0 calc(var(--base) / 2);
-    }
+  @media (min-width: 769px) {
+    gap: var(--s-5);
+    padding-top: var(--s-6);
   }
 
+  // ---- Intro ---------------------------------------------------------------
   &__intro,
   &__summary {
+    max-width: 62ch;
+    margin: 0;
+    font-size: var(--fs-0);
+    line-height: 1.7;
     color: var(--theme-elevation-600);
-    font-size: 0.85rem;
-    max-width: 60rem;
-    margin: 0 0 calc(var(--base) / 2);
+  }
+
+  &__summary {
+    padding: var(--s-3) var(--s-4);
+    background: var(--theme-elevation-50);
+    border: 1px solid var(--theme-elevation-100);
+    border-inline-start: 3px solid var(--bulbau-orange);
+    font-variant-numeric: tabular-nums;
   }
 
   &__summary strong {
-    color: var(--theme-text);
+    font-family: var(--font-display);
+    font-size: var(--fs-2);
+    font-weight: 800;
+    line-height: 1;
+    color: var(--theme-elevation-900);
   }
 
+  &__header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+  }
+
+  // The intro quotes the "needs translation" pill inline; keep it on the text
+  // baseline so the paragraph does not gain a ragged extra line around it.
+  &__intro .pill {
+    vertical-align: baseline;
+    line-height: 1;
+    padding-block: 0.15em;
+  }
+
+  // ---- Filter bar (the prototype's `.filter-bar`) --------------------------
   &__controls {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--base);
-    padding: calc(var(--base) / 2) 0;
+    gap: var(--s-3);
+    padding: var(--s-4);
+    background: var(--theme-elevation-0);
+    border: 1px solid var(--theme-elevation-100);
   }
 
   &__search {
-    flex: 1 1 20rem;
-    min-width: 14rem;
-    padding: calc(var(--base) / 3) calc(var(--base) / 2);
-    border: 1px solid var(--tm-border);
-    border-radius: 4px;
-    background: var(--theme-input-bg, var(--tm-surface));
+    flex: 1 1 100%;
+    min-width: 0;
+    padding: var(--s-3) var(--s-4);
+    border: 1px solid var(--theme-elevation-150);
+    border-radius: 0;
+    background: var(--theme-input-bg, var(--theme-elevation-0));
     color: var(--theme-text);
-    font-size: 0.9rem;
+    font-family: var(--font-body);
+    font-size: 16px; // no iOS zoom-on-focus
+    transition:
+      border-color var(--t-fast) var(--ease),
+      box-shadow var(--t-fast) var(--ease);
+
+    @media (min-width: 601px) {
+      flex: 1 1 18rem;
+      font-size: var(--fs-0);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--bulbau-orange);
+      box-shadow: var(--bulbau-ring);
+    }
   }
 
   &__filter {
     display: inline-flex;
     align-items: center;
-    gap: calc(var(--base) / 3);
-    font-size: 0.85rem;
+    gap: var(--s-2);
+    flex: 1 1 12rem;
+    font-size: var(--fs-0);
 
     select {
-      padding: calc(var(--base) / 4) calc(var(--base) / 2);
-      border: 1px solid var(--tm-border);
-      border-radius: 4px;
-      background: var(--theme-input-bg, var(--tm-surface));
+      flex: 1;
+      min-width: 0;
+      padding: var(--s-3);
+      border: 1px solid var(--theme-elevation-150);
+      border-radius: 0;
+      background: var(--theme-input-bg, var(--theme-elevation-0));
       color: var(--theme-text);
+      font-family: var(--font-body);
+      font-size: 16px;
+
+      @media (min-width: 601px) {
+        font-size: var(--fs-0);
+      }
+
+      &:focus {
+        outline: none;
+        border-color: var(--bulbau-orange);
+        box-shadow: var(--bulbau-ring);
+      }
     }
   }
 
   &__attention {
     display: inline-flex;
     align-items: center;
-    gap: calc(var(--base) / 3);
-    font-size: 0.85rem;
+    gap: var(--s-2);
+    min-height: 42px;
+    padding-inline: var(--s-3);
+    border: 1px solid var(--theme-elevation-150);
+    font-size: var(--fs-0);
+    color: var(--theme-elevation-700);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+
+    input {
+      accent-color: var(--bulbau-orange);
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover {
+      border-color: var(--bulbau-orange);
+      color: var(--bulbau-orange);
+    }
   }
 
   &__empty {
-    color: var(--theme-elevation-600);
-    padding: var(--base) 0;
+    padding: var(--s-6) var(--s-5);
+    background: var(--theme-elevation-0);
+    border: 1px solid var(--theme-elevation-100);
+    text-align: center;
+    font-size: var(--fs-0);
+    color: var(--theme-elevation-500);
   }
 
+  // ---- Table ---------------------------------------------------------------
   &__table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.85rem;
+    background: var(--theme-elevation-0);
+    border: 1px solid var(--theme-elevation-100);
+    font-size: var(--fs-0);
 
     th,
     td {
       text-align: left;
       vertical-align: top;
-      padding: calc(var(--base) / 2);
-      border-bottom: 1px solid var(--tm-border);
+      padding: var(--s-4);
+      border-bottom: 1px solid var(--theme-elevation-100);
     }
 
     thead th {
       position: sticky;
-      top: 0;
-      background: var(--tm-surface-2);
+      top: var(--app-header-height);
       z-index: 1;
-      font-weight: 600;
+      background: var(--theme-elevation-50);
+      border-bottom: 1px solid var(--theme-elevation-150);
+      font-family: var(--font-display);
+      font-size: var(--fs--2);
+      font-weight: 700;
+      letter-spacing: var(--tracking-label);
+      text-transform: uppercase;
+      color: var(--theme-elevation-600);
       white-space: nowrap;
     }
 
-    // Give the four content columns a sensible balance.
-    th:nth-child(1),
-    td:nth-child(1) {
-      width: 18%;
+    // Vertical rules between the source and the two targets, like the
+    // prototype's `.translation-cell` grid.
+    tbody td + td {
+      border-inline-start: 1px solid var(--theme-elevation-100);
     }
-    th:nth-child(2),
-    td:nth-child(2) {
-      width: 28%;
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover td {
+      background: var(--theme-elevation-50);
+    }
+
+    // Balance the four columns: identity narrow, prose wide. Only while the
+    // table IS a table — below 769px the rows become stacked cards and a
+    // percentage width would squeeze each block into a column-wide sliver.
+    @media (min-width: 769px) {
+      th:nth-child(1),
+      td:nth-child(1) {
+        width: 18%;
+      }
+      th:nth-child(2),
+      td:nth-child(2) {
+        width: 28%;
+      }
     }
   }
 
   &__source {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    // NOTE: this class sits on the <td> itself. `display: flex` would take the
+    // cell out of the table's column sizing, collapsing it to content width
+    // (the document title then wrapped one word per line). Keep it a table cell
+    // and stack its children as blocks instead.
+    > * {
+      display: block;
+    }
+
+    > * + * {
+      margin-top: 2px;
+    }
   }
 
   &__doc {
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-size: var(--fs-1);
+    font-weight: 700;
+    letter-spacing: var(--tracking-display);
+    text-transform: uppercase;
+    color: var(--theme-elevation-900);
   }
 
   &__field {
-    color: var(--theme-elevation-600);
+    font-size: var(--fs--1);
+    color: var(--theme-elevation-500);
   }
 
   &__en {
-    color: var(--theme-text);
+    color: var(--theme-elevation-800);
     white-space: pre-wrap;
   }
 }
 
-// Per-target editable cell.
+/* ---- Per-target editable cell --------------------------------------------- */
 .tcell {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--base) / 3);
+  gap: var(--s-2);
 
   &__value {
     white-space: pre-wrap;
+    color: var(--theme-elevation-700);
   }
 
   &__placeholder {
@@ -143,83 +274,133 @@
   &__row {
     display: flex;
     align-items: center;
-    gap: calc(var(--base) / 2);
+    gap: var(--s-2);
     flex-wrap: wrap;
   }
 
   &__link {
-    color: var(--theme-success-500, #2e8b57);
-    text-decoration: underline;
-    font-size: 0.8rem;
+    font-size: var(--fs--1);
+    font-weight: 600;
+    color: var(--bulbau-orange);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
   }
 
   &__textarea {
     width: 100%;
-    padding: calc(var(--base) / 3);
-    border: 1px solid var(--tm-border);
-    border-radius: 4px;
-    background: var(--theme-input-bg, var(--theme-elevation-50));
+    padding: var(--s-3);
+    border: 1px solid var(--theme-elevation-150);
+    border-radius: 0;
+    background: var(--theme-input-bg, var(--theme-elevation-0));
     color: var(--theme-text);
     font: inherit;
+    font-size: 16px;
     resize: vertical;
+
+    @media (min-width: 601px) {
+      font-size: var(--fs-0);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--bulbau-orange);
+      box-shadow: var(--bulbau-ring);
+    }
   }
 
   &__actions {
     display: flex;
-    gap: calc(var(--base) / 3);
+    gap: var(--s-2);
     flex-wrap: wrap;
   }
 
   &__error {
-    color: var(--theme-error-500, #c0392b);
-    font-size: 0.8rem;
     margin: 0;
+    font-size: var(--fs--1);
+    color: var(--theme-error-500, #c0392b);
   }
 }
 
-// Compact buttons (Payload's own Button is heavier than we want inline).
+/* ---- Inline buttons -------------------------------------------------------
+   Payload's own Button is heavier than this table wants, so these are plain
+   buttons wearing the design system's outline treatment. */
 .translation-manager .btn {
-  padding: calc(var(--base) / 4) calc(var(--base) / 2);
-  border: 1px solid var(--tm-border);
-  border-radius: 4px;
-  background: var(--theme-elevation-100);
-  color: var(--theme-text);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--theme-elevation-200);
+  border-radius: 0;
+  background: transparent;
+  color: var(--theme-elevation-700);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-family: var(--font-body);
+  font-size: var(--fs--1);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+
+  &:hover:not(:disabled) {
+    border-color: var(--bulbau-orange);
+    color: var(--bulbau-orange);
+  }
 
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: default;
   }
 
   &--primary {
-    background: var(--theme-success-500, #2e8b57);
-    border-color: transparent;
+    background: var(--bulbau-orange);
+    border-color: var(--bulbau-orange);
     color: #fff;
+
+    &:hover:not(:disabled) {
+      background: var(--bulbau-orange-hover);
+      border-color: var(--bulbau-orange-hover);
+      color: #fff;
+    }
   }
 
   &--ghost {
-    background: transparent;
+    border-color: transparent;
+    color: var(--theme-elevation-500);
   }
 }
 
-// Status pills.
+/* ---- Status pills — the prototype's `.badge` palette ---------------------- */
 .translation-manager .pill {
-  display: inline-block;
-  padding: 1px 8px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 3px 9px;
+  border-radius: 0;
+  font-size: var(--fs--2);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
 
+  &::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
   &--translated {
-    background: color-mix(in srgb, var(--theme-success-500, #2e8b57) 18%, transparent);
-    color: var(--theme-success-600, #1f6b40);
+    background: var(--bulbau-green-bg);
+    color: var(--bulbau-green-fg);
   }
 
   &--untranslated {
-    background: color-mix(in srgb, var(--theme-warning-500, #d68a00) 20%, transparent);
-    color: var(--theme-warning-700, #8a5a00);
+    background: var(--bulbau-amber-bg);
+    color: var(--bulbau-amber-fg);
   }
 
   &--empty {
@@ -228,7 +409,86 @@
   }
 
   &--richtext {
-    background: var(--theme-elevation-100);
-    color: var(--theme-elevation-600);
+    background: var(--bulbau-orange-bg);
+    color: var(--bulbau-orange);
+  }
+}
+
+/* ============================================================================
+   PHONE — the table becomes one card per string
+   ----------------------------------------------------------------------------
+   Four columns of prose is unreadable below ~768px and horizontal scrolling
+   makes comparing a source with its translation impossible. Each row re-flows
+   into a labelled block instead: the string's identity on top, then the English
+   source and each target stacked under its own heading. Same markup, same
+   semantics — only the flow direction changes.
+   ========================================================================== */
+@media (max-width: 768px) {
+  .translation-manager__table {
+    display: block;
+    border: none;
+    background: transparent;
+
+    thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    tbody,
+    tr,
+    td {
+      display: block;
+      width: auto;
+    }
+
+    tbody tr {
+      margin-bottom: var(--s-4);
+      background: var(--theme-elevation-0);
+      border: 1px solid var(--theme-elevation-100);
+    }
+
+    tbody td,
+    tbody td + td {
+      padding: var(--s-3) var(--s-4);
+      border: none;
+      border-top: 1px solid var(--theme-elevation-100);
+      border-inline-start: none;
+    }
+
+    tbody td[data-label]::before {
+      content: attr(data-label);
+      display: block;
+      margin-bottom: var(--s-2);
+      font-family: var(--font-display);
+      font-size: var(--fs--2);
+      font-weight: 700;
+      letter-spacing: var(--tracking-label);
+      text-transform: uppercase;
+      color: var(--theme-elevation-500);
+    }
+
+    // The identity cell heads the card and needs no label of its own.
+    tbody td:first-child {
+      padding-top: var(--s-4);
+      background: var(--theme-elevation-50);
+      border-top: none;
+      border-bottom: 1px solid var(--theme-elevation-100);
+    }
+
+    tbody td:first-child::before {
+      display: none;
+    }
+
+    tbody tr:hover td {
+      background: var(--theme-elevation-0);
+    }
+
+    tbody tr:hover td:first-child {
+      background: var(--theme-elevation-50);
+    }
   }
 }

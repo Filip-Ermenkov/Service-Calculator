@@ -64,7 +64,7 @@ test.describe('Two-factor authentication', () => {
     await page.click('button[type="submit"]')
 
     await page.waitForURL(`${BASE_URL}/admin`)
-    await expect(page.locator('.step-nav__home')).toBeVisible()
+    await expect(page.locator('.adash-greet__title')).toBeVisible()
 
     await context.close()
   })
@@ -99,7 +99,7 @@ test.describe('Two-factor authentication', () => {
     await page.click('button[type="submit"]')
 
     await page.waitForURL(`${BASE_URL}/admin`)
-    await expect(page.locator('.step-nav__home')).toBeVisible()
+    await expect(page.locator('.adash-greet__title')).toBeVisible()
 
     await context.close()
   })

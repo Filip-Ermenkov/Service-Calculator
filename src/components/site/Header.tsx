@@ -60,40 +60,42 @@ export function Header() {
           ))}
         </ul>
 
-        <div className="flex items-center gap-2">
-          <div className="lang-switcher" role="group" aria-label={tl('label')}>
-            {routing.locales.map((loc) => (
-              <Link
-                key={loc}
-                href={pathname}
-                locale={loc}
-                hrefLang={loc}
-                // Don't prefetch the other locales of the current page: it
-                // pre-populates the client Router Cache with a copy that can go
-                // stale after a content edit (the "switch shows the old
-                // translation" bug), and prefetching all three locales on every
-                // page load is wasteful. A language switch is a deliberate click,
-                // so fetching fresh on click is the right trade-off here.
-                prefetch={false}
-                className={loc === locale ? 'lang-btn active' : 'lang-btn'}
-                aria-current={loc === locale ? 'true' : undefined}
-              >
-                {tl(loc)}
-              </Link>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            className="hamburger"
-            aria-label={open ? th('closeMenu') : th('openMenu')}
-            aria-expanded={open}
-            aria-controls="mobile-menu"
-            onClick={() => setOpen((v) => !v)}
-          >
-            {open ? <Close width={22} height={22} /> : <Menu width={22} height={22} />}
-          </button>
+        {/* lang-switcher and hamburger are direct nav children (not wrapped)
+            so the mobile 3-zone grid can place the switcher on the centre line
+            with the menu button pinned right. On desktop they simply sit at the
+            end of the flex row (hamburger hidden). */}
+        <div className="lang-switcher" role="group" aria-label={tl('label')}>
+          {routing.locales.map((loc) => (
+            <Link
+              key={loc}
+              href={pathname}
+              locale={loc}
+              hrefLang={loc}
+              // Don't prefetch the other locales of the current page: it
+              // pre-populates the client Router Cache with a copy that can go
+              // stale after a content edit (the "switch shows the old
+              // translation" bug), and prefetching all three locales on every
+              // page load is wasteful. A language switch is a deliberate click,
+              // so fetching fresh on click is the right trade-off here.
+              prefetch={false}
+              className={loc === locale ? 'lang-btn active' : 'lang-btn'}
+              aria-current={loc === locale ? 'true' : undefined}
+            >
+              {tl(loc)}
+            </Link>
+          ))}
         </div>
+
+        <button
+          type="button"
+          className="hamburger"
+          aria-label={open ? th('closeMenu') : th('openMenu')}
+          aria-expanded={open}
+          aria-controls="mobile-menu"
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? <Close width={22} height={22} /> : <Menu width={22} height={22} />}
+        </button>
       </nav>
 
       <div className={open ? 'mobile-menu open' : 'mobile-menu'} id="mobile-menu">

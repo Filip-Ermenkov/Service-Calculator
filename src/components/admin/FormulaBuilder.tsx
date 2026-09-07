@@ -18,7 +18,7 @@
  * editor instead — nothing is ever locked out.
  */
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type KeyboardEvent } from 'react'
 import { useAllFormFields, useField } from '@payloadcms/ui'
 import { reduceFieldsToValues } from 'payload/shared'
 
@@ -83,6 +83,121 @@ function SignToggle({ value, onChange }: { value: Sign; onChange: (s: Sign) => v
 }
 
 // ---------------------------------------------------------------------------
+// Formula canvas — a read-only picture of the formula being built
+// ---------------------------------------------------------------------------
+
+/**
+ * The prototype's dark "current formula" strip: the structured model rendered as
+ * colour-coded tokens, so the operator can *see* the arithmetic they assembled
+ * without reading JSON. Purely derived from `model` — there is no second source
+ * of truth and nothing here can drift from what gets compiled and stored.
+ */
+type CanvasToken = {
+  kind: 'field' | 'fixed' | 'num' | 'op' | 'pct'
+  text: string
+  title?: string
+}
+
+function formulaTokens(model: BuilderFormula, fields: PricingField[]): CanvasToken[] {
+  const labelOf = (key: string) =>
+    fields.find((f) => f.fieldKey === key)?.label || key || '(no field)'
+  const out: CanvasToken[] = []
+  const op = (text: string) => out.push({ kind: 'op', text })
+  const fieldToken = (key: string, multiplier: number) => {
+    out.push({ kind: 'field', text: (key || '?').toUpperCase(), title: labelOf(key) })
+    if (multiplier !== 1) {
+      op('×')
+      out.push({ kind: 'num', text: String(multiplier), title: 'Multiplier' })
+    }
+  }
+
+  model.terms.forEach((term, i) => {
+    if (term.sign === 'subtract') op('−')
+    else if (i > 0) op('+')
+
+    if (term.kind === 'field') {
+      fieldToken(term.fieldKey, term.multiplier)
+      return
+    }
+    if (term.kind === 'fixed') {
+      out.push({
+        kind: 'fixed',
+        text: `€${Math.abs(term.amount)}`,
+        title: 'Fixed cost',
+      })
+      return
+    }
+    // group: ( member + member ) × factor
+    op('(')
+    term.members.forEach((m, j) => {
+      if (j > 0) op('+')
+      if (m.kind === 'field') fieldToken(m.fieldKey, m.multiplier)
+      else out.push({ kind: 'fixed', text: `€${m.amount}`, title: 'Fixed cost' })
+    })
+    op(')')
+    const usesField = term.factorType === 'field'
+    if (usesField || term.factorConstant !== 1) {
+      op('×')
+      if (usesField) {
+        out.push({
+          kind: 'field',
+          text: (term.factorField || '?').toUpperCase(),
+          title: labelOf(term.factorField),
+        })
+      } else {
+        out.push({ kind: 'num', text: String(term.factorConstant), title: 'Factor' })
+      }
+    }
+  })
+
+  model.adjustments.forEach((adj) => {
+    const signed = adj.sign === 'subtract' ? -adj.percent : adj.percent
+    const factor = Math.round((1 + signed / 100) * 1e6) / 1e6
+    op('×')
+    out.push({
+      kind: 'pct',
+      text: String(factor),
+      title: `${adj.label || 'Adjustment'} ${signed >= 0 ? '+' : '−'}${Math.abs(adj.percent)}%`,
+    })
+  })
+
+  return out
+}
+
+function FormulaCanvas({
+  fields,
+  model,
+}: {
+  fields: PricingField[]
+  model: BuilderFormula
+}) {
+  const tokens = useMemo(() => formulaTokens(model, fields), [model, fields])
+
+  if (tokens.length === 0) {
+    return (
+      <div className="fb-canvas fb-canvas--empty">
+        No formula yet — the price is the sum of each field&rsquo;s own unit price.
+      </div>
+    )
+  }
+
+  // One readable string for assistive tech, instead of a stream of loose tokens.
+  return (
+    <div
+      aria-label={`Current formula: ${tokens.map((t) => t.text).join(' ')}`}
+      className="fb-canvas"
+      role="img"
+    >
+      {tokens.map((t, i) => (
+        <span className={`fb-token fb-token--${t.kind}`} key={i} title={t.title}>
+          {t.text}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -115,6 +230,9 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
 
   // Sample values for the live preview (fieldKey → raw form value).
   const [sample, setSample] = useState<Record<string, RawInput>>({})
+
+  // Which builder tab is showing (composition ⟷ test/preview).
+  const [tab, setTab] = useState<'compose' | 'test'>('compose')
 
   // Commit a new builder model: update local state + the stored JSONLogic value.
   const commit = (next: BuilderFormula) => {
@@ -273,10 +391,33 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
 
   // -------------------------------------------------------------------------
 
+  const TABS = [
+    { id: 'compose', label: 'Formula Composition' },
+    { id: 'test', label: 'Test / Preview' },
+  ] as const
+
+  // WAI-ARIA tab pattern: arrow keys move between tabs, Home/End jump to the
+  // ends, and only the selected tab stays in the tab order.
+  const onTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    const order = TABS.map((t) => t.id)
+    const i = order.indexOf(tab)
+    let next: (typeof order)[number] | null = null
+    if (e.key === 'ArrowRight') next = order[(i + 1) % order.length]
+    else if (e.key === 'ArrowLeft') next = order[(i - 1 + order.length) % order.length]
+    else if (e.key === 'Home') next = order[0]
+    else if (e.key === 'End') next = order[order.length - 1]
+    if (!next) return
+    e.preventDefault()
+    setTab(next)
+    document.getElementById(`fb-tab-${next}`)?.focus()
+  }
+
   return (
     <div className="fb field-type">
       <div className="fb-head">
-        <label className="field-label">Pricing Formula</label>
+        {/* The section header above already reads "Price Formula Builder", so the
+            field's own label is for assistive tech only. */}
+        <label className="field-label visually-hidden">Price formula</label>
         <div className="fb-modes">
           {mode === 'builder' ? (
             <button type="button" className="fb-link" onClick={switchToRaw}>
@@ -291,181 +432,230 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
       </div>
 
       <p className="fb-help">
-        Build how this service&rsquo;s price is calculated from its calculator
-        fields. Leave empty to just add up each field&rsquo;s own unit price
-        (the default). Order matters: terms are summed top-to-bottom, then each
-        percentage adjustment is applied in turn.
+        Define exactly how the fields above combine to produce the final price.
+        Leave it empty to simply add up each field&rsquo;s own unit price. Terms
+        are summed top to bottom, then each percentage adjustment is applied in
+        turn.
       </p>
 
-      {mode === 'raw' ? (
-        <div className="fb-raw">
-          <textarea
-            className="fb-raw-input"
-            value={rawText}
-            spellCheck={false}
-            rows={10}
-            onChange={(e) => applyRaw(e.target.value)}
-            placeholder='e.g. {"+":[{"*":[{"var":"area"},12]},100]}'
-          />
-          {rawError && <p className="fb-error">{rawError}</p>}
-          <p className="fb-help">
-            Advanced: a JSONLogic rule using only <code>var</code>,{' '}
-            <code>+ − × ÷</code>, <code>min</code>, <code>max</code>. Anything
-            else renders as &ldquo;Contact us for a price&rdquo;.
-          </p>
-        </div>
-      ) : (
-        <div className="fb-builder">
-          {pricingFields.length === 0 && (
-            <p className="fb-note">
-              No calculator fields yet. Add fields above first — then reference
-              them here. You can still add fixed costs.
-            </p>
-          )}
-
-          {/* Terms ---------------------------------------------------------- */}
-          <div className="fb-section">
-            <h4>Terms (summed)</h4>
-            {model.terms.length === 0 && (
-              <p className="fb-note">No terms yet.</p>
-            )}
-            {model.terms.map((term, i) => (
-              <TermRow
-                key={i}
-                term={term}
-                index={i}
-                total={model.terms.length}
-                fields={pricingFields}
-                onChange={(t) => updateTerm(i, t)}
-                onRemove={() => removeTerm(i)}
-                onMove={(dir) => moveTerm(i, dir)}
-              />
-            ))}
-            <div className="fb-add">
-              <button type="button" onClick={addFieldTerm}>
-                + Field term
-              </button>
-              <button type="button" onClick={addFixedTerm}>
-                + Fixed cost
-              </button>
-              <button type="button" onClick={addGroupTerm}>
-                + Group (…)
-              </button>
-            </div>
-          </div>
-
-          {/* Adjustments ---------------------------------------------------- */}
-          <div className="fb-section">
-            <h4>Percentage adjustments (applied after the subtotal)</h4>
-            {model.adjustments.length === 0 && (
-              <p className="fb-note">None.</p>
-            )}
-            {model.adjustments.map((adj, i) => (
-              <div className="fb-row fb-adj" key={i}>
-                <SignToggle
-                  value={adj.sign}
-                  onChange={(s) => updateAdjustment(i, { ...adj, sign: s })}
-                />
-                <input
-                  className="fb-num"
-                  type="number"
-                  step="any"
-                  value={adj.percent}
-                  onChange={(e) =>
-                    updateAdjustment(i, { ...adj, percent: num(e.target.value) })
-                  }
-                  aria-label="Percentage"
-                />
-                <span className="fb-pct">%</span>
-                <input
-                  className="fb-text"
-                  type="text"
-                  value={adj.label}
-                  placeholder="Label (e.g. VAT)"
-                  onChange={(e) =>
-                    updateAdjustment(i, { ...adj, label: e.target.value })
-                  }
-                  aria-label="Adjustment label"
-                />
-                <RowControls
-                  index={i}
-                  total={model.adjustments.length}
-                  onMove={(dir) => moveAdjustment(i, dir)}
-                  onRemove={() => removeAdjustment(i)}
-                />
-              </div>
-            ))}
-            <div className="fb-add">
-              <button type="button" onClick={addAdjustment}>
-                + Percentage adjustment
-              </button>
-            </div>
-          </div>
-
-          {model.terms.length > 0 && (
-            <button type="button" className="fb-clear" onClick={clearAll}>
-              Clear formula
+      <div className="fb-card">
+        <div className="fb-tabs" role="tablist" aria-label="Price formula">
+          {TABS.map((t) => (
+            <button
+              aria-controls={`fb-panel-${t.id}`}
+              aria-selected={tab === t.id}
+              className={`fb-tab${tab === t.id ? ' is-active' : ''}`}
+              id={`fb-tab-${t.id}`}
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              onKeyDown={onTabKeyDown}
+              role="tab"
+              tabIndex={tab === t.id ? 0 : -1}
+              type="button"
+            >
+              {t.label}
             </button>
+          ))}
+        </div>
+
+        {/* --- Tab 1: composition ------------------------------------------ */}
+        <div
+          aria-labelledby="fb-tab-compose"
+          className="fb-panel"
+          hidden={tab !== 'compose'}
+          id="fb-panel-compose"
+          role="tabpanel"
+          tabIndex={0}
+        >
+          {mode === 'raw' ? (
+            <div className="fb-raw">
+              <textarea
+                className="fb-raw-input"
+                value={rawText}
+                spellCheck={false}
+                rows={10}
+                onChange={(e) => applyRaw(e.target.value)}
+                placeholder='e.g. {"+":[{"*":[{"var":"area"},12]},100]}'
+              />
+              {rawError && <p className="fb-error">{rawError}</p>}
+              <p className="fb-help">
+                Advanced: a JSONLogic rule using only <code>var</code>,{' '}
+                <code>+ &minus; &times; &divide;</code>, <code>min</code>,{' '}
+                <code>max</code>. Anything else renders as &ldquo;Contact us for
+                a price&rdquo;.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="fb-canvas-label">Current formula</div>
+              <FormulaCanvas fields={pricingFields} model={model} />
+
+              {pricingFields.length === 0 && (
+                <p className="fb-note">
+                  No calculator fields yet. Add fields above first &mdash; then
+                  reference them here. You can still add fixed costs.
+                </p>
+              )}
+
+              <div className="fb-section">
+                <h4>Terms (summed)</h4>
+                {model.terms.length === 0 && <p className="fb-note">No terms yet.</p>}
+                {model.terms.map((term, i) => (
+                  <TermRow
+                    key={i}
+                    term={term}
+                    index={i}
+                    total={model.terms.length}
+                    fields={pricingFields}
+                    onChange={(t) => updateTerm(i, t)}
+                    onRemove={() => removeTerm(i)}
+                    onMove={(dir) => moveTerm(i, dir)}
+                  />
+                ))}
+                <div className="fb-add">
+                  <button type="button" onClick={addFieldTerm}>
+                    + Field term
+                  </button>
+                  <button type="button" onClick={addFixedTerm}>
+                    + Fixed cost
+                  </button>
+                  <button type="button" onClick={addGroupTerm}>
+                    + Group (&hellip;)
+                  </button>
+                </div>
+              </div>
+
+              {model.terms.length > 0 && (
+                <button type="button" className="fb-clear" onClick={clearAll}>
+                  Clear formula
+                </button>
+              )}
+            </>
           )}
+        </div>
+
+        {/* --- Tab 2: test / preview --------------------------------------- */}
+        <div
+          aria-labelledby="fb-tab-test"
+          className="fb-panel"
+          hidden={tab !== 'test'}
+          id="fb-panel-test"
+          role="tabpanel"
+          tabIndex={0}
+        >
+          <p className="fb-help">
+            Enter sample values to verify the formula produces the expected
+            result &mdash; this runs the very same calculation a visitor gets.
+          </p>
+          {pricingFields.length === 0 ? (
+            <p className="fb-note">Add calculator fields to preview a price.</p>
+          ) : (
+            <div className="fb-preview">
+              <div className="fb-preview-inputs">
+                {pricingFields.map((f) => (
+                  <PreviewInput
+                    key={f.fieldKey}
+                    field={f}
+                    value={sample[f.fieldKey]}
+                    missing={missingRequired.some((m) => m.fieldKey === f.fieldKey)}
+                    onChange={(v) => setSampleValue(f.fieldKey, v)}
+                  />
+                ))}
+              </div>
+              <div className="fb-preview-result">
+                {!hasAllRequired ? (
+                  <>
+                    <span className="fb-preview-label">Estimated total</span>
+                    <span className="fb-preview-amount fb-contact">
+                      Fill the required fields to see a price
+                    </span>
+                    <span className="fb-preview-hint">
+                      (visitors see this until every required field has a value
+                      &mdash; matches the live site)
+                    </span>
+                  </>
+                ) : preview.kind === 'price' ? (
+                  <>
+                    <span className="fb-preview-label">
+                      Result (incl. adjustments)
+                    </span>
+                    <span className="fb-preview-amount">
+                      {formatCurrency(preview.total, PREVIEW_LOCALE)}
+                    </span>
+                    {preview.usedFormula && (
+                      <span className="fb-preview-tag">via formula</span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="fb-preview-label">Result</span>
+                    <span className="fb-preview-amount fb-contact">
+                      Contact us for a price
+                    </span>
+                    <span className="fb-preview-hint">
+                      (total is zero, negative, or the formula can&rsquo;t be
+                      evaluated)
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* --- Fixed costs & adjustments ------------------------------------- */}
+      {mode === 'builder' && (
+        <div className="fb-fixed">
+          <div className="fb-fixed-title">Fixed Costs &amp; Adjustments</div>
+          <p className="fb-note">
+            Percentages applied to the subtotal, in order &mdash; VAT, a
+            discount, a surcharge. A flat amount that is always added or
+            subtracted is a &ldquo;Fixed cost&rdquo; term in the composition
+            above.
+          </p>
+          {model.adjustments.map((adj, i) => (
+            <div className="fb-row fb-adj" key={i}>
+              <SignToggle
+                value={adj.sign}
+                onChange={(s) => updateAdjustment(i, { ...adj, sign: s })}
+              />
+              <input
+                className="fb-num"
+                type="number"
+                step="any"
+                value={adj.percent}
+                onChange={(e) =>
+                  updateAdjustment(i, { ...adj, percent: num(e.target.value) })
+                }
+                aria-label="Percentage"
+              />
+              <span className="fb-pct">%</span>
+              <input
+                className="fb-text"
+                type="text"
+                value={adj.label}
+                placeholder="Label (e.g. VAT)"
+                onChange={(e) =>
+                  updateAdjustment(i, { ...adj, label: e.target.value })
+                }
+                aria-label="Adjustment label"
+              />
+              <RowControls
+                index={i}
+                total={model.adjustments.length}
+                onMove={(dir) => moveAdjustment(i, dir)}
+                onRemove={() => removeAdjustment(i)}
+              />
+            </div>
+          ))}
+          <div className="fb-add">
+            <button type="button" onClick={addAdjustment}>
+              + Percentage adjustment
+            </button>
+          </div>
         </div>
       )}
-
-      {/* Live preview ------------------------------------------------------- */}
-      <div className="fb-preview">
-        <h4>Live preview</h4>
-        {pricingFields.length === 0 ? (
-          <p className="fb-note">Add calculator fields to preview a price.</p>
-        ) : (
-          <>
-            <div className="fb-preview-inputs">
-              {pricingFields.map((f) => (
-                <PreviewInput
-                  key={f.fieldKey}
-                  field={f}
-                  value={sample[f.fieldKey]}
-                  missing={missingRequired.some((m) => m.fieldKey === f.fieldKey)}
-                  onChange={(v) => setSampleValue(f.fieldKey, v)}
-                />
-              ))}
-            </div>
-            <div className="fb-preview-result">
-              {!hasAllRequired ? (
-                <>
-                  <span className="fb-preview-label">Estimated total</span>
-                  <span className="fb-preview-amount fb-contact">
-                    Fill the required fields to see a price
-                  </span>
-                  <span className="fb-preview-hint">
-                    (visitors see this until every required field has a value —
-                    matches the live site)
-                  </span>
-                </>
-              ) : preview.kind === 'price' ? (
-                <>
-                  <span className="fb-preview-label">Estimated total</span>
-                  <span className="fb-preview-amount">
-                    {formatCurrency(preview.total, PREVIEW_LOCALE)}
-                  </span>
-                  {preview.usedFormula && (
-                    <span className="fb-preview-tag">via formula</span>
-                  )}
-                </>
-              ) : (
-                <>
-                  <span className="fb-preview-label">Result</span>
-                  <span className="fb-preview-amount fb-contact">
-                    Contact us for a price
-                  </span>
-                  <span className="fb-preview-hint">
-                    (total is zero, negative, or the formula can&rsquo;t be
-                    evaluated)
-                  </span>
-                </>
-              )}
-            </div>
-          </>
-        )}
-      </div>
     </div>
   )
 }
@@ -760,14 +950,17 @@ function PreviewInput({
           ))}
         </select>
       ) : (
-        <input
-          type="number"
-          step="any"
-          value={value === undefined || value === null ? '' : String(value)}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="0"
-          aria-invalid={missing || undefined}
-        />
+        <span className="fb-preview-number">
+          <input
+            type="number"
+            step="any"
+            value={value === undefined || value === null ? '' : String(value)}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="0"
+            aria-invalid={missing || undefined}
+          />
+          {field.unit ? <span className="fb-unit">{field.unit}</span> : null}
+        </span>
       )}
     </label>
   )

@@ -1,0 +1,3128 @@
+/* ============================================================================
+   BULBAU.LU — ADMIN DESIGN SYSTEM
+   ----------------------------------------------------------------------------
+   Payload's root admin stylesheet (auto-imported by the admin RootLayout), so it
+   styles EVERY admin surface: login, MFA, the custom dashboard, every collection
+   list, every document editor and every custom view.
+
+   Intent — the admin must read as the same product as the public site and as
+   /prototype/admin/*.html: industrial, sharp-cornered, grid-textured, condensed
+   display type over Inter, one signature orange for actions and accents, layered
+   depth from hairlines, shadows and corner brackets.
+
+   How it works
+   ------------
+   • Cascade. Payload wraps its own CSS in `@layer payload-default`; everything
+     here is un-layered, so it wins without `!important`. `!important` is used
+     only where Payload itself ships one (react-select) or where a rule must beat
+     an inline style.
+   • Palette. Rather than repainting hundreds of Payload selectors, the ramps
+     Payload derives everything from are re-declared: `--color-base-*` becomes a
+     warm neutral (so grey chrome sits harmoniously beside the orange) and
+     `--color-success-*` — Payload's accent ramp — becomes the Bulbau orange.
+     Light AND dark themes inherit both, because Payload's dark theme is a
+     remapping of the same ramps.
+   • Mobile first. Every layout rule starts at the smallest screen and grows
+     through `min-width` queries at the breakpoints Payload itself uses
+     (400 / 768 / 1024 / 1440), so the two systems agree about what "mobile" is.
+   • Structure over paint, sparingly. Payload's DOM and behaviour are untouched;
+     the rules here change paint, spacing and flow direction only, plus a small
+     number of documented hides. That keeps the theme robust across Payload
+     upgrades — the worst case for an unknown future class is that it renders
+     with Payload's own default look.
+
+   Layout map
+   ----------
+     .template-default            CSS grid: [nav] [wrap]
+       .bnav                      our sidebar (AdminNav.tsx)
+       .template-default__wrap
+         .app-header              the prototype's `.admin-topbar`
+         .gutter / view content   the prototype's `.admin-content`
+
+   Contents
+   --------
+     1. Tokens
+     2. Canvas & shell
+     3. Sidebar (.bnav) + mobile drawer
+     4. Top bar (.app-header) + page title
+     5. Primitives — type, buttons, links, badges, cards
+     6. Form controls
+     7. Tables (shared) + responsive card mode
+     8. Collection list views
+     9. Document editors
+    10. Dashboard
+    11. Services manager
+    12. Translations shell
+    13. Auth (login / forgot / reset / MFA)
+    14. Utilities, accessibility, motion, print
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ============================================================================
+   1. TOKENS
+   ========================================================================== */
+
+:root {
+  /* -- Brand ------------------------------------------------------------- */
+  /* The public site's orange is #E05A00. On white it only reaches 3.4:1, so the
+     admin — which is dense, text-heavy UI — uses a slightly deeper tone for
+     anything that must be READ (links, small labels, values), and keeps the
+     brighter tones for large fills and for dark backgrounds where they have
+     plenty of contrast. Same hue family, same identity, legible everywhere. */
+  --bulbau-orange: #bf4c00; /* 5.0:1 on white — text, borders, small fills   */
+  --bulbau-orange-hover: #a84300;
+  --bulbau-orange-bright: #e05a00; /* the public site's tone — large fills    */
+  --bulbau-orange-light: #ff6d1f; /* on dark only                            */
+  --bulbau-orange-bg: #fff3ec; /* the prototype's --orange-bg                */
+  --bulbau-orange-bg-strong: #ffe4d4;
+
+  /* Ink — the darks behind the sidebar and the auth screens. */
+  --bulbau-black: #0a0a0a;
+  --bulbau-ink: #121110;
+  --bulbau-ink-2: #1c1a18;
+
+  /* Semantic (the prototype's badge palette). */
+  --bulbau-green-fg: #166534;
+  --bulbau-green-bg: #dcfce7;
+  --bulbau-green-br: #bbf7d0;
+  --bulbau-amber-fg: #854d0e;
+  --bulbau-amber-bg: #fef9c3;
+  --bulbau-amber-br: #fde68a;
+  --bulbau-red-fg: #b91c1c;
+  --bulbau-red-bg: #fee2e2;
+  --bulbau-red-br: #fecaca;
+
+  /* -- Neutral ramp ------------------------------------------------------
+     Payload's greys are perfectly neutral, which reads cold and slightly muddy
+     next to a saturated orange. This is the same ramp shifted a few points
+     toward warm: identical relative luminance (so every contrast ratio Payload
+     relies on is preserved — the shift is ≤1 in perceived lightness at every
+     step), but the chrome now shares the accent's temperature.
+     Everything downstream — `--theme-elevation-*` in both light and dark, and
+     therefore every Payload surface, border and text colour — derives from it. */
+  --color-base-0: rgb(255, 255, 255);
+  --color-base-50: rgb(246, 245, 244);
+  --color-base-100: rgb(237, 235, 233);
+  --color-base-150: rgb(224, 221, 217);
+  --color-base-200: rgb(212, 208, 202);
+  --color-base-250: rgb(200, 195, 188);
+  --color-base-300: rgb(187, 181, 173);
+  --color-base-350: rgb(175, 168, 159);
+  --color-base-400: rgb(162, 154, 144);
+  --color-base-450: rgb(149, 141, 131);
+  --color-base-500: rgb(136, 128, 118);
+  --color-base-550: rgb(122, 114, 104);
+  --color-base-600: rgb(109, 101, 91);
+  --color-base-650: rgb(94, 87, 78);
+  --color-base-700: rgb(80, 74, 66);
+  --color-base-750: rgb(65, 60, 53);
+  --color-base-800: rgb(51, 47, 41);
+  --color-base-850: rgb(37, 34, 30);
+  --color-base-900: rgb(22, 20, 18);
+  --color-base-950: rgb(8, 7, 6);
+  --color-base-1000: rgb(0, 0, 0);
+
+  /* -- Accent ramp -------------------------------------------------------
+     Payload calls its accent "success" and paints links, focus rings, active
+     states, primary buttons and selection with it. Recoloured to the Bulbau
+     orange here, once, instead of chasing every selector that consumes it. */
+  --color-success-50: rgb(253, 241, 234);
+  --color-success-100: rgb(252, 226, 210);
+  --color-success-150: rgb(250, 206, 176);
+  --color-success-200: rgb(247, 184, 140);
+  --color-success-250: rgb(243, 162, 105);
+  --color-success-300: rgb(238, 140, 70);
+  --color-success-350: rgb(231, 120, 40);
+  --color-success-400: rgb(216, 102, 16);
+  --color-success-450: rgb(200, 90, 8);
+  --color-success-500: rgb(191, 76, 0);
+  --color-success-550: rgb(168, 67, 0);
+  --color-success-600: rgb(150, 60, 0);
+  --color-success-650: rgb(132, 54, 2);
+  --color-success-700: rgb(116, 50, 10);
+  --color-success-750: rgb(96, 44, 12);
+  --color-success-800: rgb(78, 40, 16);
+  --color-success-850: rgb(60, 34, 16);
+  --color-success-900: rgb(44, 26, 16);
+  --color-success-950: rgb(34, 22, 16);
+
+  /* Convenience aliases used across this file. */
+  --bulbau-g300: var(--color-base-300);
+  --bulbau-g400: var(--color-base-400);
+  --bulbau-g500: var(--color-base-500);
+  --bulbau-accent: var(--bulbau-orange);
+  --bulbau-accent-on-dark: var(--bulbau-orange-light);
+
+  /* -- Type -------------------------------------------------------------- */
+  --font-body:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', var(--font-body);
+
+  /* Fluid modular scale (major third), clamped so it never gets silly on a
+     4K panel or unreadable on a 360px phone. */
+  --fs--2: 0.68rem;
+  --fs--1: 0.75rem;
+  --fs-0: 0.875rem;
+  --fs-1: 1rem;
+  --fs-2: clamp(1.05rem, 0.98rem + 0.35vw, 1.25rem);
+  --fs-3: clamp(1.25rem, 1.12rem + 0.6vw, 1.6rem);
+  --fs-4: clamp(1.6rem, 1.35rem + 1.1vw, 2.25rem);
+  --fs-5: clamp(2rem, 1.6rem + 1.8vw, 3rem);
+
+  --tracking-label: 0.12em;
+  --tracking-display: 0.03em;
+
+  /* -- Space (8-point, 4px for control internals) ------------------------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  /* -- Shape ------------------------------------------------------------- */
+  --style-radius-s: 0px;
+  --style-radius-m: 0px;
+  --style-radius-l: 0px;
+  --hairline: 1px solid var(--theme-elevation-100);
+  --hairline-strong: 1px solid var(--theme-elevation-150);
+
+  --bulbau-shadow-xs: 0 1px 2px rgba(28, 22, 16, 0.05);
+  --bulbau-shadow-sm: 0 2px 10px rgba(28, 22, 16, 0.06);
+  --bulbau-shadow: 0 10px 30px rgba(28, 22, 16, 0.1);
+  --bulbau-shadow-lg: 0 22px 60px rgba(10, 8, 6, 0.22);
+  --bulbau-ring: 0 0 0 2px rgba(191, 76, 0, 0.22);
+
+  /* -- Motion ------------------------------------------------------------ */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --t-fast: 0.14s;
+  --t-med: 0.22s;
+
+  /* -- Textures ---------------------------------------------------------- */
+  --bulbau-grid-dark:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  --bulbau-grid-light:
+    linear-gradient(rgba(40, 30, 20, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(40, 30, 20, 0.028) 1px, transparent 1px);
+  --bulbau-canvas-grid: var(--bulbau-grid-light);
+  /* Diagonal hazard hatching — the industrial "no content here" texture. */
+  --bulbau-hatch: repeating-linear-gradient(
+    -45deg,
+    transparent 0 6px,
+    rgba(191, 76, 0, 0.09) 6px 12px
+  );
+
+  /* Upload-zone glyph, drawn as a mask so it inherits the surrounding colour. */
+  --bulbau-upload-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23000' stroke-width='1.5' viewBox='0 0 24 24'%3E%3Cpath d='M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12'/%3E%3C/svg%3E");
+
+  /* -- Shell metrics ------------------------------------------------------
+     Payload reads --nav-width for the grid column and --app-header-height for
+     the top bar; both are overridden per breakpoint further down. */
+  --nav-width: 100vw;
+  --app-header-height: 56px;
+  --admin-max-w: 1520px;
+
+  --accessibility-outline: 2px solid var(--bulbau-accent);
+  --accessibility-outline-offset: 2px;
+}
+
+html[data-theme='dark'] {
+  --bulbau-accent: var(--bulbau-orange-light);
+  --bulbau-canvas-grid: var(--bulbau-grid-dark);
+  --bulbau-orange-bg: rgba(224, 90, 0, 0.14);
+  --bulbau-orange-bg-strong: rgba(224, 90, 0, 0.22);
+  --bulbau-green-bg: rgba(22, 101, 52, 0.22);
+  --bulbau-green-fg: #86efac;
+  --bulbau-green-br: rgba(22, 101, 52, 0.4);
+  --bulbau-amber-bg: rgba(133, 77, 14, 0.24);
+  --bulbau-amber-fg: #fcd34d;
+  --bulbau-amber-br: rgba(133, 77, 14, 0.45);
+  --bulbau-red-bg: rgba(185, 28, 28, 0.22);
+  --bulbau-red-fg: #fca5a5;
+  --bulbau-red-br: rgba(185, 28, 28, 0.42);
+  --bulbau-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.4);
+  --bulbau-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --bulbau-shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.6);
+}
+
+/* Breakpoint ladder for the shell. Mobile is the base case above. */
+@media (min-width: 769px) {
+  :root {
+    --nav-width: 264px;
+    --app-header-height: 64px;
+  }
+}
+@media (min-width: 1441px) {
+  :root {
+    --nav-width: 288px;
+    --app-header-height: 68px;
+  }
+}
+
+/* ============================================================================
+   2. CANVAS & SHELL
+   ========================================================================== */
+
+/* Payload drops the root font to 12px below 1024px. That shrinks every rem in
+   this file — and in Payload's own CSS — by a quarter exactly where legibility
+   matters most: a phone held at arm's length. One root size at every width, so
+   the type scale above means the same thing everywhere. */
+html {
+  font-size: 16px;
+}
+
+/* Payload's own `overflow-x: hidden` on <body> — what lets the nav push the
+   document sideways — is deliberately left alone: a body overflow propagates to
+   the viewport, so <body> itself stays a non-scrolling box and the sticky
+   sidebar and top bar below still resolve against the viewport. */
+body {
+  font-family: var(--font-body);
+}
+
+/* A faint blueprint grid behind everything, like the public site's grid-bg. */
+.template-default,
+.template-default__wrap {
+  background-image: var(--bulbau-canvas-grid);
+  background-size: 32px 32px;
+}
+
+/* Content rhythm. `.gutter` is Payload's content container on every view. */
+.gutter {
+  padding-left: var(--s-4);
+  padding-right: var(--s-4);
+  padding-bottom: var(--s-7);
+}
+@media (min-width: 769px) {
+  .gutter {
+    padding-left: var(--s-6);
+    padding-right: var(--s-6);
+    padding-bottom: var(--s-8);
+  }
+}
+@media (min-width: 1441px) {
+  /* Cap the measure so forms and tables stay readable on 2K/4K panels. */
+  .gutter {
+    max-width: var(--admin-max-w);
+    margin-inline: auto;
+  }
+}
+
+/* Respect the notch / home indicator on phones. */
+@supports (padding: max(0px)) {
+  @media (max-width: 768px) {
+    .gutter {
+      padding-left: max(var(--s-4), env(safe-area-inset-left));
+      padding-right: max(var(--s-4), env(safe-area-inset-right));
+      padding-bottom: calc(var(--s-7) + env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* ============================================================================
+   3. SIDEBAR — the prototype's `.admin-sidebar`
+   ----------------------------------------------------------------------------
+   `.bnav` is our own markup (AdminNav.tsx) filling the slot Payload's
+   DefaultTemplate gives the Nav component. `.nav__*` rules further down cover
+   Payload's own nav in case it ever renders (e.g. a future view that opts out).
+   ========================================================================== */
+
+.bnav {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* Owns the viewport height and scrolls internally, so the menu never scrolls
+     away with the page and never inflates page height. */
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  overflow: hidden;
+  color: var(--bulbau-g300);
+  background-color: var(--bulbau-ink);
+  background-image: var(--bulbau-grid-dark);
+  background-size: 34px 34px;
+  border-inline-end: 1px solid rgba(255, 255, 255, 0.07);
+}
+@media (min-width: 769px) {
+  .bnav {
+    box-shadow: 1px 0 0 rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* Brand block */
+.bnav-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex-shrink: 0;
+  padding: var(--s-4) var(--s-5);
+  min-height: var(--app-header-height);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  text-decoration: none;
+}
+.bnav-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background: var(--bulbau-orange-bright);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.3rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  box-shadow: 0 4px 14px rgba(224, 90, 0, 0.35);
+}
+.bnav-logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  min-width: 0;
+}
+.bnav-logo-text strong {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.2rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.bnav-logo-text span {
+  margin-top: 2px;
+  font-size: var(--fs--2);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bulbau-g500);
+}
+
+/* Scroll region — thin, dark, unobtrusive scrollbar. */
+.bnav-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: var(--s-4);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+.bnav-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.bnav-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+}
+.bnav-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bnav-section + .bnav-section {
+  margin-top: var(--s-2);
+}
+.bnav-section {
+  padding-top: var(--s-5);
+}
+.bnav-label {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 0 var(--s-5) var(--s-2);
+  font-family: var(--font-display);
+  font-size: var(--fs--2);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-base-600);
+}
+/* A short rule after each section name — the technical drawing detail. */
+.bnav-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bnav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  /* 44px minimum touch target on phones. */
+  min-height: 44px;
+  padding: var(--s-3) var(--s-5);
+  border-left: 3px solid transparent;
+  color: var(--bulbau-g400);
+  font-size: var(--fs-0);
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+.bnav-item-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.bnav-item-icon svg {
+  width: 17px;
+  height: 17px;
+}
+.bnav-item:hover,
+.bnav-item:focus-visible {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.045);
+}
+.bnav-item:focus-visible {
+  outline: 2px solid var(--bulbau-orange-light);
+  outline-offset: -2px;
+}
+.bnav-item.active {
+  color: #fff;
+  background: linear-gradient(90deg, rgba(224, 90, 0, 0.22), rgba(224, 90, 0, 0.02));
+  border-left-color: var(--bulbau-orange-bright);
+}
+.bnav-item.active .bnav-item-icon {
+  color: var(--bulbau-orange-light);
+  opacity: 1;
+}
+
+.bnav-user {
+  flex-shrink: 0;
+  padding: var(--s-4) var(--s-5);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.25);
+}
+.bnav-user-label {
+  font-size: var(--fs--2);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-base-600);
+}
+.bnav-user-email {
+  margin-top: 2px;
+  font-size: var(--fs--1);
+  font-weight: 500;
+  color: var(--bulbau-g300);
+  overflow-wrap: anywhere;
+}
+@supports (padding: max(0px)) {
+  @media (max-width: 768px) {
+    .bnav-user {
+      padding-bottom: max(var(--s-4), env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* -- Mobile drawer ---------------------------------------------------------
+   Below 769px Payload sets --nav-width to 100vw, so the sidebar becomes a
+   full-screen drawer. A custom Nav has to supply its own dismiss control
+   (Payload's own `.nav__mobile-close` belongs to the default nav). */
+.bnav-close {
+  display: none;
+}
+@media (max-width: 768px) {
+  .bnav-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: none;
+    cursor: pointer;
+    color: #fff;
+    background: var(--bulbau-orange);
+    transition: background var(--t-fast) var(--ease);
+  }
+  .bnav-close:hover {
+    background: var(--bulbau-orange-hover);
+  }
+  .bnav-close svg {
+    width: 20px;
+    height: 20px;
+  }
+  /* While the drawer is open the page content sits off-screen; clip it so the
+     viewport can't be panned sideways to it. */
+  .template-default--nav-open {
+    overflow-x: clip;
+  }
+}
+
+/* -- Payload's own nav (fallback) ------------------------------------------ */
+.nav {
+  color: var(--bulbau-g300);
+  background-color: var(--bulbau-ink);
+  background-image: var(--bulbau-grid-dark);
+  background-size: 34px 34px;
+  border-inline-end: 1px solid rgba(255, 255, 255, 0.07);
+}
+.nav__header,
+.nav__header-content {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+.nav__label {
+  font-family: var(--font-display);
+  font-size: var(--fs--2);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-base-600);
+}
+.nav__link {
+  position: relative;
+  color: var(--bulbau-g400);
+  transition:
+    color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+.nav__link:hover,
+.nav__link.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.045);
+}
+.nav__link-indicator,
+.nav__link.active .nav__link-indicator {
+  background: var(--bulbau-orange-light);
+}
+.nav-group__toggle,
+.nav-group__indicator,
+.nav__controls,
+.nav__log-out,
+.nav__mobile-close {
+  color: var(--bulbau-g400);
+}
+.nav-group__toggle:hover,
+.nav__log-out:hover {
+  color: #fff;
+}
+
+/* ============================================================================
+   4. TOP BAR — the prototype's `.admin-topbar`
+   ----------------------------------------------------------------------------
+   Payload's AppHeader is reused as the top bar. Its StepNav breadcrumb carries
+   the page identity on every view (custom views set theirs with SetStepNav via
+   AdminPageTitle.tsx), so the trail is rendered as the page TITLE: the current
+   page big and dark on the left behind an orange rule, its ancestors as a small
+   muted trail on wide screens only, and the actions + account control on the
+   right. Because the title lives here, the in-content duplicates on the list and
+   document views are hidden (§8, §9) — exactly the prototype's arrangement.
+   ========================================================================== */
+
+.app-header {
+  position: sticky;
+  top: 0;
+  /* Payload already sets z-index: var(--z-modal) on .app-header. */
+  height: var(--app-header-height);
+}
+.app-header__bg,
+.app-header {
+  background: var(--theme-elevation-0);
+}
+.app-header__content {
+  padding-inline: var(--s-4);
+  border-bottom: var(--hairline);
+  box-shadow: var(--bulbau-shadow-xs);
+}
+@media (min-width: 769px) {
+  .app-header__content {
+    padding-inline: var(--s-6);
+  }
+}
+.app-header__wrapper {
+  gap: var(--s-3);
+}
+.app-header__controls-wrapper {
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+/* -- Page title ------------------------------------------------------------ */
+.app-header__step-nav-wrapper {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.step-nav {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  font-family: var(--font-display);
+}
+/* Payload's scroll-fade pseudo-element belongs to a scrolling breadcrumb; this
+   one is a title, so it would only ever render as a stray gap. */
+.step-nav::after {
+  content: none;
+}
+/* The sidebar already carries the brand, so the breadcrumb's home mark is
+   redundant chrome — and it forced an awkward leading separator.
+   NOTE on specificity: Payload ships `.step-nav * { display: block }` (0,1,0)
+   and `.step-nav span { max-width: 160px; … }` (0,1,1), and the trail rules
+   below are themselves (0,1,1)/(0,2,1) — so the hides have to out-specify BOTH.
+   `.step-nav > .step-nav__home` is (0,2,0) and the `:nth-child(2)` form is
+   (0,3,0); the home mark is always the first child and the separator after it
+   the second, so those select exactly the two nodes to drop. */
+.step-nav > .step-nav__home,
+.step-nav > :nth-child(2):not(.step-nav__last) {
+  display: none;
+}
+/* Ancestors: a small, quiet trail. Hidden on phones, where the space belongs
+   to the page name itself. */
+.step-nav > a:not(.step-nav__home),
+.step-nav > span:not(.step-nav__last) {
+  display: none;
+  flex-shrink: 0;
+  font-size: var(--fs--1);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--theme-elevation-450);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.step-nav > a:not(.step-nav__home):hover {
+  color: var(--bulbau-accent);
+}
+@media (min-width: 1024px) {
+  .step-nav > a:not(.step-nav__home),
+  .step-nav > span:not(.step-nav__last) {
+    display: inline-block;
+  }
+  /* …but never the two hidden above. */
+  .step-nav > .step-nav__home,
+  .step-nav > :nth-child(2):not(.step-nav__last) {
+    display: none;
+  }
+}
+/* The current page — the title itself, behind the signature orange rule. */
+.step-nav > .step-nav__last {
+  position: relative;
+  display: block;
+  min-width: 0;
+  /* Payload caps every breadcrumb span at 160px; a page title needs the room. */
+  max-width: none;
+  padding-inline-start: var(--s-3);
+  border-inline-start: 3px solid var(--bulbau-orange);
+  font-family: var(--font-display);
+  font-size: var(--fs-3);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--theme-elevation-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* -- Right-hand controls --------------------------------------------------- */
+.app-header__actions-wrapper {
+  margin-right: 0;
+  gap: var(--s-2);
+}
+.app-header__actions {
+  gap: var(--s-2);
+}
+.app-header__account {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid var(--theme-elevation-150);
+  color: var(--theme-elevation-600);
+  transition:
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.app-header__account:hover {
+  border-color: var(--bulbau-orange);
+  color: var(--bulbau-orange);
+}
+.app-header__account svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* "View website" — the prototype's dark topbar button (ViewWebsiteAction.tsx). */
+.atopbar-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  height: 38px;
+  padding-inline: var(--s-3);
+  border: 2px solid var(--theme-elevation-800);
+  background: var(--theme-elevation-800);
+  color: var(--theme-elevation-0);
+  font-size: var(--fs--1);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+.atopbar-link:hover {
+  background: var(--theme-elevation-650);
+  border-color: var(--theme-elevation-650);
+}
+.atopbar-link svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+/* On phones the label would crowd the title — keep the icon as a square button. */
+@media (max-width: 768px) {
+  .atopbar-link {
+    width: 38px;
+    padding-inline: 0;
+  }
+  .atopbar-link span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* The locale switcher is hidden everywhere: EN is the authoring locale and
+   FR/DE are managed on the Translations screen (whose "Edit in editor" links
+   still carry ?locale=, so per-locale editing is unaffected). */
+.app-header__localizer,
+.app-header__localizer-spacing,
+.localizer {
+  display: none !important;
+}
+
+/* -- Hamburger -------------------------------------------------------------
+   Payload renders TWO togglers — one in DefaultTemplate (pinned top-left, its
+   canonical control) and one inside AppHeader. Keep exactly one at each size:
+   the header's on mobile so it sits inside the bar beside the title, and
+   neither on desktop, where the sidebar is permanent. */
+.template-default__nav-toggler-wrapper,
+.nav-toggler {
+  display: none;
+}
+@media (max-width: 768px) {
+  .app-header__mobile-nav-toggler.nav-toggler {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    cursor: pointer;
+    background: var(--bulbau-orange);
+    transition: background var(--t-fast) var(--ease);
+  }
+  .app-header__mobile-nav-toggler.nav-toggler:hover {
+    background: var(--bulbau-orange-hover);
+  }
+  /* Payload's glyph is a framed "menu" box; the public site's hamburger is three
+     clean bars. Hide the glyph and draw the bars. */
+  .app-header__mobile-nav-toggler .hamburger {
+    display: none;
+  }
+  .app-header__mobile-nav-toggler::before {
+    content: '';
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: #fff;
+    box-shadow:
+      0 -6px 0 0 #fff,
+      0 6px 0 0 #fff;
+  }
+  /* While the drawer is open, the drawer's own ✕ takes over. */
+  .app-header--nav-open .app-header__mobile-nav-toggler.nav-toggler {
+    display: none;
+  }
+}
+
+/* ============================================================================
+   5. PRIMITIVES
+   ========================================================================== */
+
+/* -- Type ------------------------------------------------------------------ */
+h1,
+h2,
+h3,
+h4,
+.dashboard h1 {
+  font-family: var(--font-display);
+  letter-spacing: var(--tracking-display);
+}
+/* -- Buttons --------------------------------------------------------------- */
+.btn {
+  border-radius: 0;
+}
+.btn__label {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.btn--style-primary {
+  --bg-color: var(--bulbau-orange);
+  --hover-bg: var(--bulbau-orange-hover);
+  --color: #fff;
+  --hover-color: #fff;
+  box-shadow: var(--bulbau-shadow-xs);
+  transition:
+    background var(--t-fast) var(--ease),
+    box-shadow var(--t-med) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+.btn--style-primary:hover {
+  box-shadow: 0 8px 22px rgba(191, 76, 0, 0.28);
+}
+.btn--style-primary:active {
+  transform: translateY(1px);
+}
+.btn--style-secondary,
+.btn--style-pill {
+  border-radius: 0;
+  border: 2px solid var(--theme-elevation-200);
+  --bg-color: transparent;
+  --color: var(--theme-elevation-800);
+  transition:
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.btn--style-secondary:hover,
+.btn--style-pill:hover {
+  border-color: var(--bulbau-orange);
+  --color: var(--bulbau-orange);
+  color: var(--bulbau-orange);
+}
+.btn--icon-only {
+  border-radius: 0;
+}
+/* Dashed "add another row" affordances. */
+.array-field__add-row .btn,
+.blocks-field__drawer-toggler,
+.btn--style-dashed {
+  border-radius: 0;
+  border: 1px dashed var(--theme-elevation-250);
+  background: transparent;
+  color: var(--bulbau-orange);
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+.array-field__add-row .btn:hover,
+.blocks-field__drawer-toggler:hover,
+.btn--style-dashed:hover {
+  border-style: solid;
+  border-color: var(--bulbau-orange);
+  background: var(--bulbau-orange-bg);
+}
+/* The list header's "Create new" renders a pill inside a link — paint both. */
+.list-create-new-doc__create-new-button,
+.list-create-new-doc__create-new-button .pill {
+  background: var(--bulbau-orange) !important;
+  border: 1px solid var(--bulbau-orange) !important;
+  color: #fff !important;
+  border-radius: 0 !important;
+}
+.list-create-new-doc__create-new-button *,
+.list-create-new-doc__create-new-button .pill * {
+  color: #fff !important;
+}
+.list-create-new-doc__create-new-button:hover,
+.list-create-new-doc__create-new-button:hover .pill {
+  background: var(--bulbau-orange-hover) !important;
+  border-color: var(--bulbau-orange-hover) !important;
+}
+
+/* -- Focus ----------------------------------------------------------------- */
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--bulbau-accent);
+  outline-offset: 2px;
+}
+
+/* -- Badges ---------------------------------------------------------------- */
+/* One shared badge look: Payload's `.pill`, list cells (`.abadge`), the
+   dashboard (`.adash-badge`), the Services screen (`.asvc-badge`) and calculator
+   row headers (`.cfrow__badge`) are all the prototype's `.badge`. */
+.pill,
+.abadge,
+.adash-badge,
+.asvc-badge,
+.cfrow__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 3px 9px;
+  border-radius: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs--2);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.abadge::before,
+.adash-badge::before,
+.asvc-badge::before,
+.cfrow__badge::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.abadge--green,
+.adash-badge--project,
+.asvc-badge--published,
+.cfrow__badge--green,
+.pill--style-success {
+  background: var(--bulbau-green-bg);
+  color: var(--bulbau-green-fg);
+}
+.abadge--yellow,
+.adash-badge--career,
+.asvc-badge--draft,
+.cfrow__badge--yellow,
+.pill--style-warning {
+  background: var(--bulbau-amber-bg);
+  color: var(--bulbau-amber-fg);
+}
+.abadge--orange,
+.adash-badge--service,
+.cfrow__badge--orange {
+  background: var(--bulbau-orange-bg);
+  color: var(--bulbau-orange);
+}
+.abadge--gray,
+.adash-badge--about,
+.pill--style-light,
+.pill--style-white {
+  background: var(--theme-elevation-100);
+  color: var(--theme-elevation-600);
+}
+
+/* -- Cards ----------------------------------------------------------------- */
+/* The prototype's `.admin-card`: white, one hairline, sharp corners. */
+.adash-card,
+.asvc-card {
+  background: var(--theme-elevation-0);
+  border: var(--hairline);
+}
+.card,
+.collapsible {
+  border-radius: 0;
+}
+.card {
+  border: var(--hairline);
+  background: var(--theme-elevation-0);
+  transition:
+    border-color var(--t-med) var(--ease),
+    box-shadow var(--t-med) var(--ease),
+    transform var(--t-med) var(--ease);
+}
+.card--has-onclick:hover {
+  border-color: var(--bulbau-orange);
+  box-shadow: var(--bulbau-shadow);
+  transform: translateY(-2px);
+}
+.card__title {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-display);
+}
+
+/* A card header row: title left, meta/actions right. */
+.adash-card__head,
+.asvc-cardhead,
+.alist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+  padding: var(--s-3) var(--s-4);
+  border-bottom: var(--hairline);
+}
+@media (min-width: 769px) {
+  .adash-card__head,
+  .asvc-cardhead,
+  .alist-head {
+    padding: var(--s-4) var(--s-5);
+  }
+}
+.adash-card__head h2,
+.asvc-cardtitle,
+.alist-head__title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--theme-elevation-900);
+}
+
+/* -- Loading --------------------------------------------------------------- */
+.shimmer-effect__shine {
+  background: linear-gradient(90deg, transparent, rgba(191, 76, 0, 0.08), transparent);
+}
+
+/* ============================================================================
+   6. FORM CONTROLS
+   ========================================================================== */
+
+.field-type {
+  margin-bottom: var(--s-5);
+}
+.field-label,
+.field-type__label,
+.render-fields .field-label {
+  display: block;
+  margin-bottom: var(--s-2);
+  font-family: var(--font-display);
+  font-size: var(--fs--1);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--theme-elevation-600);
+}
+.field-label .required {
+  color: var(--bulbau-orange);
+}
+/* EN is the authoring locale and the switcher is hidden, so the "— English"
+   suffix Payload appends to every localized label is pure noise. */
+.field-label .localized {
+  display: none;
+}
+.field-description {
+  font-family: var(--font-body);
+  font-size: var(--fs--1);
+  line-height: 1.6;
+  color: var(--theme-elevation-500);
+}
+
+.field-type input:not([type='checkbox']):not([type='radio']),
+.field-type textarea,
+.field-type .rs__control,
+.collection-list__search-input input,
+.search-filter input,
+.search-filter__input {
+  border-radius: 0;
+  border: 1px solid var(--theme-elevation-150);
+  background: var(--theme-input-bg, var(--theme-elevation-0));
+  transition:
+    border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+.field-type input:not([type='checkbox']):not([type='radio']):focus,
+.field-type textarea:focus,
+.field-type .rs__control--is-focused,
+.collection-list__search-input input:focus,
+.search-filter input:focus,
+.search-filter__input:focus {
+  outline: none;
+  border-color: var(--bulbau-orange);
+  box-shadow: var(--bulbau-ring);
+}
+/* iOS zooms any input under 16px on focus — keep controls at 16px on phones. */
+@media (max-width: 768px) {
+  .field-type input:not([type='checkbox']):not([type='radio']),
+  .field-type textarea,
+  .field-type select,
+  .search-filter input,
+  .search-filter__input {
+    font-size: 16px;
+  }
+}
+.textarea,
+.textarea-outer {
+  border-radius: 0;
+}
+
+/* react-select — Payload ships !important here, so match it. */
+.rs__control {
+  border-radius: 0 !important;
+  border-color: var(--theme-elevation-150) !important;
+}
+.rs__control--is-focused {
+  border-color: var(--bulbau-orange) !important;
+  box-shadow: var(--bulbau-ring) !important;
+}
+.rs__menu {
+  border-radius: 0 !important;
+  box-shadow: var(--bulbau-shadow) !important;
+}
+.rs__option--is-focused {
+  background: var(--bulbau-orange-bg) !important;
+  color: var(--bulbau-orange) !important;
+}
+.rs__option--is-selected {
+  background: var(--bulbau-orange) !important;
+  color: #fff !important;
+}
+.rs__multi-value {
+  border-radius: 0 !important;
+  background: var(--bulbau-orange-bg) !important;
+}
+.rs__multi-value__label {
+  color: var(--bulbau-orange) !important;
+}
+
+.checkbox-input__input:checked ~ .checkbox-input__icon,
+.checkbox-input--checked .checkbox-input__icon {
+  background: var(--bulbau-orange);
+  border-color: var(--bulbau-orange);
+}
+
+/* Rich text (Lexical) — an input-like box with the same focus treatment. */
+.ContentEditable__root {
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 0;
+  padding: var(--s-3) var(--s-4);
+  min-height: 8rem;
+  background: var(--theme-input-bg, var(--theme-elevation-0));
+}
+.ContentEditable__root:focus,
+.ContentEditable__root:focus-visible {
+  outline: none;
+  border-color: var(--bulbau-orange);
+  box-shadow: var(--bulbau-ring);
+}
+
+/* Upload / drop zones — the prototype's `.upload-zone`. */
+.upload__dropzoneAndUpload,
+.dropzone {
+  border-radius: 0;
+  border: 2px dashed var(--theme-elevation-200);
+  background: var(--theme-elevation-50);
+  min-height: 150px;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+.upload__dropzoneAndUpload:hover,
+.dropzone:hover {
+  border-color: var(--bulbau-orange);
+  background: var(--bulbau-orange-bg);
+}
+.upload__dragAndDropText,
+.upload__dropzoneContent__orText {
+  color: var(--theme-elevation-500);
+}
+
+/* ============================================================================
+   7. TABLES
+   ----------------------------------------------------------------------------
+   Two jobs: the prototype's `.data-table` look, and a genuinely usable phone
+   layout. Below 769px every table this admin owns re-flows into stacked record
+   cards, driven by `data-label` on each cell (our own components) or by the
+   `cell-<accessor>` class Payload puts on list cells (§8). Data is re-laid-out,
+   never hidden, and no horizontal scrolling is required to read a row.
+   ========================================================================== */
+
+.table,
+.adash-recent__table,
+.asvc-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--theme-elevation-0);
+}
+.table thead th,
+.adash-recent__table thead th,
+.asvc-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--s-3) var(--s-4);
+  border-bottom: var(--hairline-strong);
+  background: var(--theme-elevation-50);
+  font-family: var(--font-display);
+  font-size: var(--fs--2);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--theme-elevation-600);
+}
+.table tbody td,
+.adash-recent__table tbody td,
+.asvc-table tbody td {
+  padding: var(--s-4);
+  border-bottom: var(--hairline);
+  font-size: var(--fs-0);
+  color: var(--theme-elevation-700);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td,
+.adash-recent__table tbody tr:last-child td,
+.asvc-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.table tbody tr,
+.adash-recent__table tbody tr,
+.asvc-table tbody tr {
+  transition: background var(--t-fast) var(--ease);
+}
+.table tbody tr:hover td,
+.adash-recent__table tbody tr:hover td,
+.asvc-table tbody tr:hover td {
+  background: var(--theme-elevation-50);
+}
+.table tbody td a {
+  font-weight: 600;
+}
+/* An orange rail marks the hovered row — a clear target in a dense list. */
+.table tbody tr td:first-child,
+.asvc-table tbody tr td:first-child {
+  box-shadow: inset 3px 0 0 transparent;
+  transition: box-shadow var(--t-fast) var(--ease);
+}
+.table tbody tr:hover td:first-child,
+.asvc-table tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--bulbau-orange);
+}
+
+/* -- Phone: table → stacked record cards ---------------------------------- */
+@media (max-width: 768px) {
+  .adash-recent__table,
+  .asvc-table {
+    display: block;
+  }
+  .adash-recent__table thead,
+  .asvc-table thead {
+    /* Visually hidden, still announced to assistive tech. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .adash-recent__table tbody,
+  .adash-recent__table tr,
+  .adash-recent__table td,
+  .asvc-table tbody,
+  .asvc-table tr,
+  .asvc-table td {
+    display: block;
+    width: auto;
+  }
+  .adash-recent__table tbody tr,
+  .asvc-table tbody tr {
+    padding: var(--s-4);
+    border-bottom: var(--hairline);
+  }
+  .adash-recent__table tbody tr:last-child,
+  .asvc-table tbody tr:last-child {
+    border-bottom: none;
+  }
+  .adash-recent__table tbody td,
+  .asvc-table tbody td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-4);
+    padding: var(--s-2) 0;
+    border: none;
+    box-shadow: none !important;
+  }
+  /* The label comes from the cell's own data-label, so the markup stays a
+     single semantic table at every size. */
+  .adash-recent__table tbody td[data-label]::before,
+  .asvc-table tbody td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    font-family: var(--font-display);
+    font-size: var(--fs--2);
+    font-weight: 700;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    color: var(--theme-elevation-500);
+  }
+  /* The record's identity heads the card — full width, larger, no label. The
+     cell marks itself with `data-primary` rather than relying on :first-child,
+     because a table can lead with a control column (the Services screen's drag
+     handle) that is not the record's name. */
+  .adash-recent__table tbody td[data-primary],
+  .asvc-table tbody td[data-primary] {
+    display: block;
+    padding-top: 0;
+    padding-bottom: var(--s-3);
+    margin-bottom: var(--s-2);
+    border-bottom: 1px dashed var(--theme-elevation-150);
+  }
+  .adash-recent__table tbody td[data-primary]::before,
+  .asvc-table tbody td[data-primary]::before {
+    display: none;
+  }
+  .adash-recent__table tbody tr:hover td,
+  .asvc-table tbody tr:hover td {
+    background: transparent;
+  }
+  /* Columns that carry a control rather than data have no place in a stacked
+     card — the drag handle is desktop-only pointer affordance. */
+  .asvc-table thead th.asvc-th-handle,
+  .asvc-table tbody td.asvc-handle {
+    display: none;
+  }
+}
+
+/* ============================================================================
+   8. COLLECTION LIST VIEWS
+   ----------------------------------------------------------------------------
+   Payload's native list keeps doing all the work — search, sort, pagination,
+   column controls, bulk selection. These rules give it the prototype's shape:
+   the search row, the "All Projects (8)" card header (ListCardHeader.tsx) and
+   the table read as ONE bordered card, with status pills and an Actions column
+   of text links (StatusBadgeCell.tsx / RowActionsCell.tsx).
+   ========================================================================== */
+
+/* The page title lives in the top bar; keep the h1 for assistive tech only. */
+.list-header__title,
+.doc-header__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.list-header {
+  padding-top: var(--s-5);
+}
+.list-header__content {
+  grid-template-columns: 1fr;
+  gap: var(--s-3);
+}
+@media (min-width: 601px) {
+  .list-header__content {
+    grid-template-columns: 1fr auto;
+  }
+}
+.list-header__title-actions,
+.list-header__actions {
+  margin-bottom: 0;
+}
+/* With the title hidden the create button is the only thing left in the row —
+   let it sit hard right, like the prototype's topbar action. */
+.list-header__title-and-actions {
+  justify-content: flex-start;
+}
+@media (min-width: 601px) {
+  .list-header__title-and-actions {
+    justify-content: flex-end;
+  }
+}
+
+/* Stitch the three sibling blocks into one card. `:has()` scopes this to the
+   lists that opted in via `beforeListTable`. */
+.collection-list:has(.alist-head) .list-controls,
+.alist-head {
+  background: var(--theme-elevation-0);
+  border: var(--hairline);
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+.collection-list:has(.alist-head) .list-controls {
+  padding: var(--s-4);
+}
+@media (min-width: 769px) {
+  .collection-list:has(.alist-head) .list-controls {
+    padding: var(--s-4) var(--s-5);
+  }
+}
+.alist-head {
+  border-top: 0;
+  border-bottom: var(--hairline);
+}
+.collection-list:has(.alist-head) .collection-list__tables {
+  margin-top: 0;
+}
+.collection-list__wrap,
+.table-wrap {
+  background: var(--theme-elevation-0);
+}
+.collection-list:has(.alist-head) .table-wrap {
+  border: var(--hairline);
+  border-top: 0;
+  box-shadow: none;
+  max-width: 100%;
+}
+.collection-list:not(:has(.alist-head)) .table-wrap {
+  border: var(--hairline);
+  box-shadow: var(--bulbau-shadow-sm);
+}
+.collection-list__page-info {
+  padding-top: var(--s-4);
+  font-size: var(--fs--1);
+  color: var(--theme-elevation-500);
+}
+
+/* Search row: full width on a phone, inline from tablet up. */
+.list-controls__wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  align-items: center;
+}
+.search-filter {
+  flex: 1 1 100%;
+}
+@media (min-width: 601px) {
+  .search-filter {
+    flex: 1 1 16rem;
+    min-width: 12rem;
+  }
+}
+.search-filter input,
+.search-filter__input,
+.collection-list__search-input input {
+  padding-block: var(--s-3);
+}
+
+/* Actions column (RowActionsCell.tsx) — the prototype's `.action-link` set. */
+.arow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  flex-wrap: wrap;
+}
+.arow__link {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: var(--fs--1);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  color: var(--bulbau-orange);
+  transition: opacity var(--t-fast) var(--ease);
+}
+.arow__link:hover {
+  opacity: 0.75;
+  text-decoration: underline;
+}
+.arow__link:disabled {
+  opacity: 0.45;
+  cursor: default;
+  text-decoration: none;
+}
+.arow__link--gray {
+  color: var(--theme-elevation-500);
+}
+.arow__link--red {
+  color: var(--bulbau-red-fg);
+}
+.arow__sep {
+  color: var(--theme-elevation-300);
+  font-size: var(--fs--1);
+}
+.arow__confirm {
+  font-size: var(--fs--1);
+  color: var(--theme-elevation-600);
+  margin-inline-end: 2px;
+}
+/* Never force the actions cell onto one line: that gives the table a min-width
+   which pushes the whole page sideways at middling widths. */
+.table td:has(.arow) {
+  white-space: normal;
+}
+
+/* -- Phone: Payload's list table → stacked record cards --------------------
+   Payload names every cell `cell-<accessor>`, so the row labels come from the
+   collections' own `defaultColumns` (src/collections/*.ts). A column with no
+   rule here still stacks — it just shows its value without a label, which is
+   the safe direction for an unknown future column. */
+@media (max-width: 768px) {
+  .collection-list .table,
+  .collection-list .table > table,
+  .collection-list .table tbody,
+  .collection-list .table tbody tr,
+  .collection-list .table tbody td {
+    display: block;
+    width: auto;
+  }
+  .collection-list .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .collection-list .table tbody tr {
+    padding: var(--s-4);
+    border-bottom: var(--hairline);
+  }
+  .collection-list .table tbody tr:last-child {
+    border-bottom: none;
+  }
+  .collection-list .table tbody td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-4);
+    padding: var(--s-2) 0;
+    border: none;
+    box-shadow: none !important;
+  }
+  .collection-list .table tbody td::before {
+    flex: 0 0 38%;
+    font-family: var(--font-display);
+    font-size: var(--fs--2);
+    font-weight: 700;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    color: var(--theme-elevation-500);
+  }
+  .collection-list .table tbody td.cell-serviceName::before {
+    content: 'Category';
+  }
+  .collection-list .table tbody td.cell-completionDate::before {
+    content: 'Completed';
+  }
+  .collection-list .table tbody td.cell-statusBadge::before,
+  .collection-list .table tbody td.cell-status::before,
+  .collection-list .table tbody td.cell-_status::before {
+    content: 'Status';
+  }
+  .collection-list .table tbody td.cell-rowActions::before {
+    content: 'Actions';
+  }
+  .collection-list .table tbody td.cell-updatedAt::before {
+    content: 'Updated';
+  }
+  .collection-list .table tbody td.cell-createdAt::before {
+    content: 'Created';
+  }
+  .collection-list .table tbody td.cell-mimeType::before {
+    content: 'Type';
+  }
+  .collection-list .table tbody td.cell-filesize::before {
+    content: 'Size';
+  }
+  /* The title cell is the record's identity: full width, larger, no label. The
+     `:first-child` fallback covers a collection whose first column is something
+     else — but never the bulk-select checkbox, which is a control, not a name. */
+  .collection-list .table tbody td.cell-title,
+  .collection-list .table tbody td.cell-filename,
+  .collection-list .table tbody td:first-child:not(.cell-_select) {
+    display: block;
+    padding-top: 0;
+    padding-bottom: var(--s-3);
+    margin-bottom: var(--s-2);
+    border-bottom: 1px dashed var(--theme-elevation-150);
+    font-size: var(--fs-1);
+    font-weight: 700;
+  }
+  .collection-list .table tbody td.cell-title::before,
+  .collection-list .table tbody td.cell-filename::before,
+  .collection-list .table tbody td:first-child:not(.cell-_select)::before {
+    display: none;
+  }
+  .collection-list .table tbody td.cell-_select {
+    display: block;
+    padding: 0 0 var(--s-2);
+    margin: 0;
+    border: none;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  .collection-list .table tbody td.cell-_select::before {
+    display: none;
+  }
+  .collection-list .table tbody tr:hover td {
+    background: transparent;
+  }
+}
+
+/* ============================================================================
+   9. DOCUMENT EDITORS — prototype parity (/prototype/admin/service-editor.html)
+   ----------------------------------------------------------------------------
+   Every editor stays Payload's native document view (drafts, versions,
+   localisation, validation and access control all intact); these rules give it
+   the prototype's shape: titled section cards with line icons, two-column field
+   rows, calculator fields as blocks with a type badge, dashed upload zones.
+
+   Structural rules hang off the `asec` / `fx-*` classNames declared in the
+   collection and global configs (src/collections, src/globals), so a screen only
+   takes this shape when its config asks for it — the Media library and any
+   future collection keep Payload's defaults until they opt in.
+   ========================================================================== */
+
+/* -- Chrome ---------------------------------------------------------------- */
+/* The prototype shows neither a tab strip nor the collection blurb above the
+   form; the top bar carries the page identity. Versions/API stay reachable by
+   URL. */
+.doc-tabs,
+.custom-view-description {
+  display: none;
+}
+
+/* Save / publish bar — sticks under the top bar so it is always reachable,
+   which matters most on a phone, where the form is long. */
+.doc-controls {
+  position: sticky;
+  top: var(--app-header-height);
+  z-index: 2;
+  background: var(--theme-elevation-0);
+  border-bottom: var(--hairline);
+  box-shadow: var(--bulbau-shadow-xs);
+}
+.doc-controls__label {
+  font-family: var(--font-display);
+  font-size: var(--fs--2);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--theme-elevation-500);
+}
+.doc-controls__divider {
+  background: var(--theme-elevation-100);
+}
+/* Payload lays the save bar out as one clipped row: at any width where the
+   buttons and the timestamps don't both fit, the buttons are the half that gets
+   cut off. Below 1024px they wrap onto their own line instead, and go first. */
+@media (max-width: 1023px) {
+  .doc-controls__content {
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    overflow: visible;
+  }
+  /* Timestamps are reference information; the buttons are the job, so they
+     come first and the meta row shrinks to a quiet caption underneath. */
+  .doc-controls__meta {
+    order: 2;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-4);
+    font-size: var(--fs--1);
+  }
+  .doc-controls__value,
+  .doc-controls__label {
+    font-size: var(--fs--1);
+    line-height: 1.5;
+  }
+  .doc-controls__controls-wrapper {
+    order: 1;
+    width: 100%;
+  }
+  .doc-controls__controls {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+/* -- Section cards --------------------------------------------------------- */
+.document-fields__fields {
+  padding: 0;
+}
+.document-fields__fields > .collapsible-field {
+  margin-bottom: var(--s-5);
+  border: var(--hairline);
+  background: var(--theme-elevation-0);
+  box-shadow: var(--bulbau-shadow-sm);
+}
+.collapsible-field > .collapsible > .collapsible__toggle-wrap {
+  padding: var(--s-3) var(--s-4);
+  background: var(--theme-elevation-50);
+  border-bottom: var(--hairline);
+}
+@media (min-width: 769px) {
+  .collapsible-field > .collapsible > .collapsible__toggle-wrap {
+    padding: var(--s-3) var(--s-5);
+  }
+}
+/* The toggle is an absolutely-positioned, full-header click target: it must
+   stay transparent or it paints over the label beneath it. */
+.collapsible__toggle {
+  background: transparent;
+}
+.collapsible-field__row-label-wrap {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--theme-elevation-800);
+}
+/* Sections that supply their own header component (AdminSectionLabel.tsx) draw
+   a real line icon; every other section gets the plain orange marker. */
+.collapsible-field__row-label-wrap:not(:has(.asec__label))::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  margin-inline-end: var(--s-2);
+  background: var(--bulbau-orange);
+}
+.collapsible-field > .collapsible .collapsible__content {
+  padding: var(--s-4);
+}
+@media (min-width: 769px) {
+  .collapsible-field > .collapsible .collapsible__content {
+    padding: var(--s-5);
+  }
+}
+.asec__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--theme-elevation-800);
+}
+.asec__icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--bulbau-orange);
+}
+/* Header bars use the condensed uppercase face, but help text inside them is
+   prose — keep it readable. */
+.array-field__header .field-description,
+.collapsible__toggle-wrap .field-description {
+  font-family: var(--font-body);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.array-field__row-header,
+.collapsible__row-label {
+  font-family: var(--font-display);
+  letter-spacing: var(--tracking-display);
+}
+
+/* Nested groups / arrays inside a section stay flat — the section card is the
+   only frame, so the form doesn't read as boxes inside boxes. */
+.group-field--top-level,
+.array-field,
+.blocks-field .array-field,
+.asec .collapsible-field {
+  border: var(--hairline);
+  background: var(--theme-elevation-0);
+}
+
+/* -- Responsive strategy ---------------------------------------------------
+   An editor's field grids live in a content column whose width is the viewport
+   MINUS the fixed sidebar, and a calculator field block is nested a level in
+   again. A viewport media query would be guessing at the space these grids
+   actually have, so each section declares itself a query container and the grids
+   below respond to their OWN width.
+
+   `container-type: inline-size` is layout + style + inline-size containment: it
+   does NOT contain paint, so nothing here clips a react-select menu or a row
+   popup, and block height still flows through the collapse animation.
+
+   One container name is used for every section and every array row: `@container`
+   binds to the NEAREST named ancestor, so a section grid queries the section and
+   a field block queries its row, from the same rules. */
+.asec .collapsible__content {
+  container-type: inline-size;
+  container-name: svc-section;
+}
+
+/* Payload stacks a `row`'s fields on a VIEWPORT query, which misses the case
+   that actually matters here: a narrow content column inside a wide window. */
+.asec .row__fields {
+  gap: var(--s-4);
+}
+@container svc-section (max-width: 32rem) {
+  .asec .row__fields > * {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+}
+
+/* -- Basic information ------------------------------------------------------ */
+/* The publish-status UI field renders its own wrapper; give it the same column
+   treatment and control skin as a real field. */
+.svc-status {
+  display: flex;
+  flex-direction: column;
+}
+.svc-status__select {
+  width: 100%;
+  padding: var(--s-3);
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 0;
+  background: var(--theme-input-bg, var(--theme-elevation-0));
+  font-family: var(--font-body);
+  font-size: var(--fs-0);
+  color: var(--theme-elevation-800);
+  transition:
+    border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+.svc-status__select:focus {
+  outline: none;
+  border-color: var(--bulbau-orange);
+  box-shadow: var(--bulbau-ring);
+}
+.svc-status__select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.svc-status__hint {
+  margin-top: var(--s-1);
+}
+
+/* -- Home page card: two columns like the prototype ------------------------ */
+/* The card's own fields (title / blurb / photo) nest under `card.*` in the data
+   model while the hero image is top-level, so they lay out as the two columns of
+   the prototype's section: card content left, hero image right.
+   NOTE: Payload renders each `.render-fields` block only once it enters the
+   viewport (RenderIfInViewport observes that exact element), so these blocks
+   must keep a real box — `display: contents` renders the section empty. */
+.asec--card .collapsible__content > .render-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: var(--s-5);
+  row-gap: var(--s-4);
+  align-items: start;
+}
+.asec--card .fx-cardgroup {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.asec--card .collapsible__content > .render-fields > .field-type {
+  margin-bottom: 0;
+}
+.asec--card .fx-carddesc textarea {
+  min-height: 5rem;
+}
+@container svc-section (min-width: 40rem) {
+  .asec--card .collapsible__content > .render-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .asec--card .fx-cardgroup {
+    grid-column: 1;
+  }
+  .asec--card .fx-heroimage {
+    grid-column: 2;
+  }
+}
+
+/* -- Upload zones ----------------------------------------------------------- */
+/* Scoped to `.asec` so the Media library's own surfaces keep Payload's default. */
+.asec .dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-5);
+}
+.asec .upload__dropzoneContent {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  text-align: center;
+}
+.asec .upload__dropzoneContent::before {
+  content: '';
+  width: 30px;
+  height: 30px;
+  color: var(--theme-elevation-400);
+  background: currentColor;
+  -webkit-mask: var(--bulbau-upload-icon) no-repeat center / contain;
+  mask: var(--bulbau-upload-icon) no-repeat center / contain;
+}
+.asec .upload__dragAndDropText {
+  align-self: center;
+}
+
+/* -- Calculator fields as the prototype's `.field-block`s ------------------- */
+.asec--calc .fx-calcfields > .array-field__header .field-label {
+  display: none;
+}
+.asec--calc .array-field__draggable-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+/* The row header is the prototype's grab bar: name + type badge. */
+.asec--calc .collapsible__toggle-wrap {
+  padding-block: var(--s-2);
+  background: var(--theme-elevation-50);
+  border-bottom: var(--hairline);
+}
+/* `.field-block-body`: one column by default, widening as the block gets room. */
+.asec--calc .array-field__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-4);
+}
+.asec--calc .array-field__fields > .field-type {
+  margin-bottom: 0;
+}
+/* Dropdown options are a list, not a control — full width, and their own rows
+   must stay in normal flow (the grid above must not cascade into them). */
+.asec--calc .fx-options {
+  grid-column: 1 / -1;
+}
+.asec--calc .fx-options .array-field__fields {
+  display: block;
+}
+@container svc-section (min-width: 30rem) {
+  .asec--calc .array-field__fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container svc-section (min-width: 48rem) {
+  .asec--calc .array-field__fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Row header (CalculatorFieldRowLabel.tsx). */
+.cfrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+.cfrow__name {
+  font-family: var(--font-body);
+  font-size: var(--fs-0);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--theme-elevation-800);
+}
+
+/* -- Sidebar column --------------------------------------------------------- */
+.document-fields--has-sidebar .document-fields__sidebar {
+  padding: var(--s-5);
+  border: var(--hairline);
+  background: var(--theme-elevation-0);
+  box-shadow: var(--bulbau-shadow-sm);
+}
+
+/* -- In-form callout (ContactDetailsNote.tsx) ------------------------------- */
+.anote {
+  padding: var(--s-3) var(--s-4);
+  background: var(--bulbau-orange-bg);
+  border-inline-start: 3px solid var(--bulbau-orange);
+  font-size: var(--fs-0);
+  line-height: 1.6;
+  color: var(--theme-elevation-700);
+}
+
+/* ============================================================================
+   10. DASHBOARD (AdminDashboard.tsx) — /prototype/admin/dashboard.html
+   ========================================================================== */
+
+.adash {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  padding-top: var(--s-5);
+}
+@media (min-width: 769px) {
+  .adash {
+    gap: var(--s-6);
+    padding-top: var(--s-6);
+  }
+}
+
+/* Greeting */
+.adash-greet {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-3);
+}
+@media (min-width: 601px) {
+  .adash-greet {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+.adash .adash-greet__title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-2);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--theme-elevation-900);
+}
+.adash-greet__sub {
+  margin: var(--s-1) 0 0;
+  font-size: var(--fs-0);
+  color: var(--theme-elevation-500);
+}
+/* KPI strip — 1 up on a phone, 2 up on a large phone / tablet, 4 up on desktop */
+.adash-kpis {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s-3);
+}
+@media (min-width: 480px) {
+  .adash-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-4);
+  }
+}
+@media (min-width: 1024px) {
+  .adash-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.adash-kpi {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-5);
+  background: var(--theme-elevation-0);
+  border: var(--hairline);
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  transition:
+    border-color var(--t-med) var(--ease),
+    box-shadow var(--t-med) var(--ease),
+    transform var(--t-med) var(--ease);
+}
+/* The top rail wipes in on hover — the card's only motion, and it reads as a
+   machine indicator rather than a bounce. */
+.adash-kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--bulbau-orange);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--t-med) var(--ease);
+}
+.adash-kpi:hover,
+.adash-kpi:focus-visible {
+  border-color: var(--theme-elevation-200);
+  box-shadow: var(--bulbau-shadow);
+  transform: translateY(-2px);
+}
+.adash-kpi:hover::before,
+.adash-kpi:focus-visible::before {
+  transform: scaleX(1);
+}
+.adash-kpi__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: var(--s-1);
+  background: var(--bulbau-orange-bg);
+  color: var(--bulbau-orange);
+}
+.adash-kpi__icon svg {
+  width: 19px;
+  height: 19px;
+}
+.adash-kpi__label {
+  font-size: var(--fs--2);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--theme-elevation-500);
+}
+.adash-kpi__value {
+  font-family: var(--font-display);
+  font-size: var(--fs-5);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--theme-elevation-900);
+}
+.adash-kpi__value--accent {
+  color: var(--bulbau-orange);
+}
+.adash-kpi__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  margin-top: var(--s-1);
+  font-size: var(--fs--1);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--bulbau-orange);
+}
+
+/* Body: recent changes beside quick actions */
+.adash-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-4);
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .adash-cols {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: var(--s-5);
+  }
+}
+
+.adash-recent__item {
+  display: block;
+  font-size: var(--fs-1);
+  font-weight: 700;
+  color: var(--theme-elevation-900);
+}
+.adash-recent__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs--1);
+  font-weight: 400;
+  color: var(--theme-elevation-450);
+}
+.adash-recent__when {
+  color: var(--theme-elevation-500);
+  white-space: nowrap;
+}
+/* Empty states wear the hazard hatch — unmistakably "nothing here yet". */
+.adash-recent__empty,
+.asvc-empty {
+  padding: var(--s-6) var(--s-5);
+  background-image: var(--bulbau-hatch);
+  text-align: center;
+  font-size: var(--fs-0);
+  color: var(--theme-elevation-500);
+}
+
+/* Quick actions */
+.adash-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.adash-actions {
+  padding: var(--s-5);
+}
+.adash-actions__label {
+  margin-bottom: var(--s-4);
+  font-size: var(--fs--2);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--theme-elevation-500);
+}
+.adash-actions__body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s-2);
+}
+@media (min-width: 601px) and (max-width: 1023px) {
+  .adash-actions__body {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+/* The translation-review callout (the prototype's tinted panel + link). */
+.adash-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  margin: 0;
+  padding: var(--s-3);
+  background: var(--bulbau-orange-bg);
+  border: 1px solid var(--bulbau-orange-bg-strong);
+  font-size: var(--fs-0);
+  line-height: 1.55;
+  color: var(--theme-elevation-700);
+}
+.adash-callout svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--bulbau-orange);
+}
+.adash-callout strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--theme-elevation-900);
+}
+.adash-callout--ok {
+  background: var(--bulbau-green-bg);
+  border-color: var(--bulbau-green-br);
+  color: var(--bulbau-green-fg);
+}
+.adash-callout--ok svg {
+  color: var(--bulbau-green-fg);
+}
+.adash-actions__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  margin-top: var(--s-3);
+  font-size: var(--fs--1);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  color: var(--bulbau-orange);
+}
+.adash-actions__link:hover {
+  text-decoration: underline;
+}
+
+.adash-qa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: var(--s-2) var(--s-4);
+  border: 2px solid transparent;
+  font-size: var(--fs--1);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  text-decoration: none;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.adash-qa--primary {
+  background: var(--bulbau-orange);
+  border-color: var(--bulbau-orange);
+  color: #fff;
+}
+.adash-qa--primary:hover {
+  background: var(--bulbau-orange-hover);
+  border-color: var(--bulbau-orange-hover);
+}
+.adash-qa--outline {
+  background: transparent;
+  border-color: var(--bulbau-orange);
+  color: var(--bulbau-orange);
+}
+.adash-qa--outline:hover {
+  background: var(--bulbau-orange);
+  color: #fff;
+}
+.adash-qa--dark {
+  background: var(--theme-elevation-800);
+  border-color: var(--theme-elevation-800);
+  color: var(--theme-elevation-0);
+}
+.adash-qa--dark:hover {
+  background: var(--theme-elevation-650);
+  border-color: var(--theme-elevation-650);
+}
+
+/* ============================================================================
+   11. SERVICES MANAGER (ServicesManager.tsx) — /prototype/admin/services.html
+   ========================================================================== */
+
+.asvc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding-top: var(--s-5);
+}
+@media (min-width: 769px) {
+  .asvc {
+    gap: var(--s-5);
+    padding-top: var(--s-6);
+  }
+}
+
+/* Action row — the title itself lives in the top bar. */
+.asvc-top {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-3);
+}
+.asvc-pagetitle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.asvc-new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  min-height: 42px;
+  padding: var(--s-2) var(--s-4);
+  background: var(--bulbau-orange);
+  border: 2px solid var(--bulbau-orange);
+  color: #fff;
+  font-size: var(--fs--1);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+.asvc-new:hover {
+  background: var(--bulbau-orange-hover);
+  border-color: var(--bulbau-orange-hover);
+}
+.asvc-new svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+@media (max-width: 480px) {
+  .asvc-new {
+    flex: 1;
+  }
+}
+
+/* Reorder hint banner */
+.asvc-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  background: var(--theme-elevation-50);
+  border: var(--hairline);
+  border-inline-start: 3px solid var(--theme-elevation-300);
+  font-size: var(--fs-0);
+  line-height: 1.6;
+  color: var(--theme-elevation-600);
+}
+.asvc-banner svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--theme-elevation-500);
+}
+
+.asvc-hint {
+  font-size: var(--fs--1);
+  color: var(--theme-elevation-500);
+}
+
+.asvc-th-handle {
+  width: 34px;
+  padding-inline: var(--s-2);
+}
+.asvc-handle {
+  width: 34px;
+  padding-inline: var(--s-2) !important;
+  color: var(--theme-elevation-400);
+  cursor: grab;
+}
+.asvc-handle:active {
+  cursor: grabbing;
+}
+.asvc-handle svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+.asvc-row--over td {
+  background: var(--bulbau-orange-bg) !important;
+  box-shadow: inset 0 2px 0 0 var(--bulbau-orange);
+}
+.asvc-name {
+  display: block;
+  font-size: var(--fs-1);
+  font-weight: 700;
+  color: var(--theme-elevation-900);
+}
+.asvc-sub {
+  margin-top: 2px;
+  font-size: var(--fs--1);
+  color: var(--theme-elevation-450);
+}
+.asvc-meta {
+  font-size: var(--fs-0);
+  color: var(--theme-elevation-600);
+}
+.asvc-draftflag {
+  color: var(--bulbau-orange);
+  font-weight: 600;
+}
+.asvc-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  flex-wrap: wrap;
+}
+.asvc-confirm {
+  font-size: var(--fs--1);
+  color: var(--theme-elevation-600);
+}
+.asvc-sep {
+  color: var(--theme-elevation-300);
+}
+.asvc-link {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: var(--fs--1);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  color: var(--bulbau-orange);
+  transition: opacity var(--t-fast) var(--ease);
+}
+.asvc-link:hover {
+  opacity: 0.75;
+  text-decoration: underline;
+}
+.asvc-link:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.asvc-link--gray {
+  color: var(--theme-elevation-500);
+}
+.asvc-link--red {
+  color: var(--bulbau-red-fg);
+}
+
+/* (The reorder handle is hidden on a phone by the stacked-table rules in §7 —
+   there is no drag-and-drop on touch here and a stacked card has no column for
+   it.) */
+
+/* Home-page display settings */
+.asvc-settings {
+  padding: var(--s-5);
+}
+.asvc-settings__label {
+  margin-bottom: var(--s-4);
+  font-size: var(--fs--2);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--theme-elevation-500);
+}
+.asvc-settings__row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--s-3);
+}
+@media (min-width: 601px) {
+  .asvc-settings__row {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+}
+.asvc-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.asvc-field__label {
+  font-family: var(--font-display);
+  font-size: var(--fs--1);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--theme-elevation-600);
+}
+.asvc-select {
+  width: 100%;
+  padding: var(--s-3);
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 0;
+  background: var(--theme-input-bg, var(--theme-elevation-0));
+  font-size: var(--fs-0);
+  color: var(--theme-elevation-800);
+}
+@media (min-width: 601px) {
+  .asvc-select {
+    width: auto;
+    min-width: 240px;
+  }
+}
+.asvc-select:focus {
+  outline: none;
+  border-color: var(--bulbau-orange);
+  box-shadow: var(--bulbau-ring);
+}
+.asvc-save {
+  min-height: 42px;
+  padding: var(--s-2) var(--s-5);
+  background: var(--bulbau-orange);
+  border: 2px solid var(--bulbau-orange);
+  color: #fff;
+  cursor: pointer;
+  font-size: var(--fs--1);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+.asvc-save:hover:not(:disabled) {
+  background: var(--bulbau-orange-hover);
+  border-color: var(--bulbau-orange-hover);
+}
+.asvc-save:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Toast — fixed on a phone so it is seen without scrolling back. */
+.asvc-toast {
+  align-self: flex-start;
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid;
+  font-size: var(--fs-0);
+}
+.asvc-toast--ok {
+  background: var(--bulbau-green-bg);
+  color: var(--bulbau-green-fg);
+  border-color: var(--bulbau-green-br);
+}
+.asvc-toast--err {
+  background: var(--bulbau-red-bg);
+  color: var(--bulbau-red-fg);
+  border-color: var(--bulbau-red-br);
+}
+@media (max-width: 768px) {
+  .asvc-toast {
+    position: fixed;
+    left: var(--s-4);
+    right: var(--s-4);
+    bottom: var(--s-4);
+    z-index: 50;
+    align-self: auto;
+    box-shadow: var(--bulbau-shadow);
+  }
+}
+
+/* ============================================================================
+   12. TRANSLATIONS — shell-level rules
+   (the screen's own stylesheet is src/components/admin/TranslationManager.scss)
+   ========================================================================== */
+
+.translation-manager__header h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ============================================================================
+   13. AUTH — login, forgot / reset password, MFA
+   ----------------------------------------------------------------------------
+   The prototype's login is a sharp white card floating on the black, grid-ruled
+   backdrop, with the wordmark above it and a "back to website" link below.
+   `.template-minimal` is Payload's auth wrapper.
+   ========================================================================== */
+
+.template-minimal {
+  /* Payload sizes this with `min-height: 100%`, which needs an unbroken
+     height chain; state the viewport directly so the dark backdrop always
+     fills the screen. */
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-inline: var(--s-4);
+  background-color: var(--bulbau-black);
+  background-image: var(--bulbau-grid-dark);
+  background-size: 34px 34px;
+}
+.template-minimal__wrap {
+  width: 100%;
+  max-width: 26rem;
+}
+.template-minimal .step-nav {
+  color: var(--bulbau-g400);
+}
+/* The prototype's auth labels carry no red required asterisks. */
+.template-minimal .required {
+  display: none;
+}
+
+.login__brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--s-6);
+  color: #fff;
+}
+
+/* Card top: the "Admin Login" heading block (LoginIntro.tsx). */
+.admin-login-intro {
+  position: relative;
+  margin: 0;
+  padding: var(--s-6) var(--s-5) var(--s-3);
+  background: var(--theme-elevation-0);
+  border: var(--hairline);
+  border-top: 3px solid var(--bulbau-orange);
+  border-bottom: none;
+  text-align: left;
+}
+/* Corner brackets — the public site's industrial detail. */
+.admin-login-intro::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 12px;
+  height: 12px;
+  border-left: 2px solid var(--bulbau-orange);
+  border-top: 2px solid var(--bulbau-orange);
+  pointer-events: none;
+}
+.admin-login-intro__title {
+  margin: 0 0 var(--s-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-4);
+  font-weight: 800;
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--theme-elevation-900);
+}
+.admin-login-intro__text {
+  margin: 0;
+  font-size: var(--fs-0);
+  color: var(--theme-elevation-500);
+}
+
+/* Card bottom: the form itself. */
+.login__form {
+  position: relative;
+  padding: var(--s-3) var(--s-5) var(--s-6);
+  background: var(--theme-elevation-0);
+  border: var(--hairline);
+  border-top: none;
+  box-shadow: var(--bulbau-shadow-lg);
+}
+.login__form::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid var(--bulbau-orange);
+  border-bottom: 2px solid var(--bulbau-orange);
+  pointer-events: none;
+}
+/* Forgot-password link — a bare <a> between the fields and the submit. */
+.login__form > a {
+  display: block;
+  margin: var(--s-1) 0 var(--s-4);
+  font-size: var(--fs-0);
+  font-weight: 600;
+  text-align: right;
+  text-decoration: none;
+  color: var(--bulbau-orange);
+}
+.login__form > a:hover {
+  text-decoration: underline;
+}
+.login .form-submit {
+  margin-top: var(--s-1);
+}
+.login .form-submit .btn {
+  width: 100%;
+}
+.login .form-submit .btn__label::after {
+  content: ' →';
+}
+
+.admin-login-back {
+  margin-top: var(--s-5);
+  text-align: center;
+}
+.admin-login-back a {
+  font-size: var(--fs-0);
+  text-decoration: none;
+  color: var(--bulbau-g400);
+}
+.admin-login-back a:hover {
+  color: var(--bulbau-orange-light);
+}
+
+/* Forgot / reset password — no prototype screen, so it adopts the login's card. */
+.forgot-password .form,
+.reset-password .form {
+  padding: var(--s-6) var(--s-5);
+  background: var(--theme-elevation-0);
+  border: var(--hairline);
+  border-top: 3px solid var(--bulbau-orange);
+  box-shadow: var(--bulbau-shadow-lg);
+}
+.forgot-password .form-header h1,
+.reset-password .form-header h1 {
+  margin: 0 0 var(--s-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-4);
+  font-weight: 800;
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--theme-elevation-900);
+}
+.forgot-password .form-header p,
+.reset-password .form-header p {
+  margin: 0 0 var(--s-5);
+  font-size: var(--fs-0);
+  color: var(--theme-elevation-500);
+}
+.forgot-password .form-submit,
+.reset-password .form-submit {
+  margin-top: var(--s-4);
+}
+.forgot-password .form-submit .btn,
+.reset-password .form-submit .btn {
+  width: 100%;
+}
+/* Payload shares one submit label key across the auth views; the forgot screen
+   wants its own wording, so it is set here rather than globally in i18n. */
+.forgot-password .form-submit .btn__label {
+  font-size: 0;
+}
+.forgot-password .form-submit .btn__label::after {
+  content: 'Send reset link';
+  font-size: var(--fs-0);
+  letter-spacing: 0.04em;
+}
+.forgot-password .template-minimal__wrap > a,
+.reset-password .template-minimal__wrap > a {
+  display: block;
+  margin-top: var(--s-5);
+  font-size: var(--fs-0);
+  text-align: center;
+  text-decoration: none;
+  color: var(--bulbau-g400);
+}
+.forgot-password .template-minimal__wrap > a:hover,
+.reset-password .template-minimal__wrap > a:hover {
+  color: var(--bulbau-orange-light);
+}
+
+/* -- MFA (TotpVerifyView / TotpSetupView) ----------------------------------- */
+.amfa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--s-6) var(--s-4);
+  background-color: var(--bulbau-black);
+  background-image: var(--bulbau-grid-dark);
+  background-size: 34px 34px;
+}
+.amfa-card {
+  position: relative;
+  width: 100%;
+  max-width: 26rem;
+  padding: var(--s-6) var(--s-5);
+  background: var(--theme-elevation-0);
+  border: var(--hairline);
+  border-top: 3px solid var(--bulbau-orange);
+  box-shadow: var(--bulbau-shadow-lg);
+  text-align: left;
+}
+.amfa-card::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid var(--bulbau-orange);
+  border-bottom: 2px solid var(--bulbau-orange);
+  pointer-events: none;
+}
+.amfa-card--wide {
+  max-width: 30rem;
+}
+.amfa-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: var(--s-4);
+  background: var(--bulbau-orange);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.6rem;
+  line-height: 1;
+  box-shadow: 0 6px 18px rgba(191, 76, 0, 0.32);
+}
+.amfa-mark--tint {
+  background: var(--bulbau-orange-bg);
+  color: var(--bulbau-orange);
+  box-shadow: none;
+}
+.amfa-mark--tint svg {
+  width: 24px;
+  height: 24px;
+}
+.amfa-title {
+  margin: 0 0 var(--s-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-3);
+  font-weight: 800;
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--theme-elevation-900);
+}
+.amfa-sub {
+  margin: 0 0 var(--s-5);
+  font-size: var(--fs-0);
+  line-height: 1.6;
+  color: var(--theme-elevation-500);
+}
+.amfa-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--s-3);
+}
+.amfa-label {
+  font-family: var(--font-display);
+  font-size: var(--fs--1);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--theme-elevation-600);
+}
+.amfa-code {
+  width: 100%;
+  padding: var(--s-4);
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 0;
+  background: var(--theme-input-bg, var(--theme-elevation-0));
+  font-family: var(--font-mono, monospace);
+  font-size: 1.5rem;
+  letter-spacing: 0.45em;
+  text-align: center;
+  color: var(--theme-elevation-900);
+}
+.amfa-code:focus {
+  outline: none;
+  border-color: var(--bulbau-orange);
+  box-shadow: var(--bulbau-ring);
+}
+.amfa-code::placeholder {
+  color: var(--theme-elevation-300);
+  letter-spacing: 0.45em;
+}
+/* Six single-character boxes (the prototype's OTP row). */
+.amfa-otp {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--s-2);
+}
+.amfa-otp__box {
+  width: 100%;
+  min-width: 0;
+  height: 56px;
+  padding: 0;
+  border: 1px solid var(--theme-elevation-200);
+  border-radius: 0;
+  background: var(--theme-input-bg, var(--theme-elevation-0));
+  font-family: var(--font-mono, monospace);
+  font-size: 1.4rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--theme-elevation-900);
+}
+.amfa-otp__box:focus {
+  outline: none;
+  border-color: var(--bulbau-orange);
+  box-shadow: var(--bulbau-ring);
+}
+.amfa-btn {
+  width: 100%;
+  min-height: 46px;
+  padding: var(--s-3) var(--s-5);
+  background: var(--bulbau-orange);
+  border: 2px solid var(--bulbau-orange);
+  color: #fff;
+  cursor: pointer;
+  font-size: var(--fs-0);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: var(--bulbau-shadow-xs);
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-med) var(--ease);
+}
+.amfa-btn:hover:not(:disabled) {
+  background: var(--bulbau-orange-hover);
+  border-color: var(--bulbau-orange-hover);
+  box-shadow: 0 8px 22px rgba(191, 76, 0, 0.28);
+}
+/* Solid even while it waits for all six digits (the prototype shows it solid);
+   the disabled attribute still blocks an empty submit. */
+.amfa-btn:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
+.amfa-error {
+  margin: 0;
+  font-size: var(--fs-0);
+  text-align: left;
+  color: var(--theme-error-500, #c0392b);
+}
+.amfa-alt {
+  display: block;
+  margin-top: var(--s-5);
+  font-size: var(--fs-0);
+  text-align: center;
+  text-decoration: none;
+  color: var(--theme-elevation-450);
+}
+.amfa-alt:hover {
+  color: var(--bulbau-orange);
+}
+.amfa-setup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-4);
+}
+.amfa-setup .amfa-form {
+  width: 100%;
+}
+.amfa-qr {
+  display: inline-flex;
+  padding: var(--s-3);
+  background: #fff;
+  border: 1px solid var(--theme-elevation-150);
+  box-shadow: var(--bulbau-shadow-sm);
+}
+.amfa-secret {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0;
+  font-size: var(--fs--1);
+  color: var(--theme-elevation-500);
+}
+.amfa-secret code {
+  padding: var(--s-2) var(--s-3);
+  background: var(--theme-elevation-50);
+  border: 1px solid var(--theme-elevation-150);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--fs-0);
+  letter-spacing: 0.08em;
+  color: var(--theme-elevation-800);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 400px) {
+  .amfa-otp {
+    gap: var(--s-1);
+  }
+  .amfa-otp__box {
+    height: 48px;
+    font-size: 1.15rem;
+  }
+  .amfa-card,
+  .login__form,
+  .admin-login-intro {
+    padding-inline: var(--s-4);
+  }
+}
+
+/* ============================================================================
+   14. UTILITIES, ACCESSIBILITY, MOTION, PRINT
+   ========================================================================== */
+
+/* The public site's screen-reader helper name, so shared markup works here. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .adash-kpi::before {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+  .adash-kpi:hover::before {
+    opacity: 1;
+  }
+}
+
+@media print {
+  .bnav,
+  .app-header,
+  .doc-controls,
+  .template-default__nav-toggler-wrapper {
+    display: none !important;
+  }
+  .template-default {
+    display: block;
+    background: #fff;
+  }
+  .gutter {
+    padding: 0;
+    max-width: none;
+  }
+}

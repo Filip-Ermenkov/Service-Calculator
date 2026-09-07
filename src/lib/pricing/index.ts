@@ -52,6 +52,13 @@ export interface PricingField {
   unitPrice: number | null
   sign: 'add' | 'subtract'
   required: boolean
+  /**
+   * Unit shown beside a number input ("m²", "kW"). Presentation only — it never
+   * takes part in the arithmetic. Localized, so it arrives already resolved.
+   */
+  unit: string | null
+  /** A toggle field that starts switched on. Ignored by the other field types. */
+  defaultOn: boolean
 }
 
 /** One row in the estimate breakdown (FUNCTIONALITY §4 line items). */
@@ -83,6 +90,8 @@ interface RawCalculatorField {
   unitPrice?: number | null
   sign?: ('add' | 'subtract') | null
   required?: boolean | null
+  unit?: string | null
+  defaultOn?: boolean | null
 }
 
 /** Project Payload's calculatorFields into the client-safe PricingField[]. */
@@ -106,6 +115,8 @@ export function toPricingFields(
         f.unitPrice === null || f.unitPrice === undefined ? null : Number(f.unitPrice),
       sign: f.sign === 'subtract' ? 'subtract' : 'add',
       required: !!f.required,
+      unit: typeof f.unit === 'string' && f.unit.trim() !== '' ? f.unit.trim() : null,
+      defaultOn: !!f.defaultOn,
     }))
 }
 

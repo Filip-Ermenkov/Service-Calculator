@@ -41,7 +41,8 @@ import {
 function initialValues(fields: PricingField[]): Record<string, RawInput> {
   const out: Record<string, RawInput> = {}
   for (const f of fields) {
-    if (f.type === 'toggle') out[f.fieldKey] = false
+    // A toggle opens in the state the admin chose ("Default State: on").
+    if (f.type === 'toggle') out[f.fieldKey] = f.defaultOn
     else if (f.type === 'dropdown') out[f.fieldKey] = String(f.options[0]?.value ?? 0)
     else out[f.fieldKey] = '' // number: start blank
   }
@@ -250,16 +251,24 @@ export function ServiceCalculator({
               </label>
               <div className="calc-control">
                 {field.type === 'number' && (
-                  <input
-                    id={id}
-                    className="calc-input"
-                    type="number"
-                    inputMode="decimal"
-                    value={(values[field.fieldKey] as string) ?? ''}
-                    placeholder="0"
-                    aria-invalid={isMissing || undefined}
-                    onChange={(e) => setField(field.fieldKey, e.target.value)}
-                  />
+                  <>
+                    <input
+                      id={id}
+                      className="calc-input"
+                      type="number"
+                      inputMode="decimal"
+                      value={(values[field.fieldKey] as string) ?? ''}
+                      placeholder="0"
+                      aria-invalid={isMissing || undefined}
+                      aria-describedby={field.unit ? `${id}_unit` : undefined}
+                      onChange={(e) => setField(field.fieldKey, e.target.value)}
+                    />
+                    {field.unit ? (
+                      <span className="calc-unit" id={`${id}_unit`}>
+                        {field.unit}
+                      </span>
+                    ) : null}
+                  </>
                 )}
                 {field.type === 'dropdown' && (
                   <select

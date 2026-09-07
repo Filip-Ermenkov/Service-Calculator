@@ -66,12 +66,12 @@ export default async function ProjectsPage({
   return (
     <>
       <section className="grid-bg" style={{ padding: '4rem 0 3rem' }}>
-        <div className="container">
+        <div className="container page-hero">
           <span className="eyebrow">{t('eyebrow')}</span>
           <h1 className="display-lg" style={{ color: '#fff' }}>
             {t('title')}
           </h1>
-          <p style={{ color: 'var(--g400)', maxWidth: 520, marginTop: '0.75rem', fontSize: '0.9375rem' }}>
+          <p style={{ color: 'var(--g400)', fontSize: '0.9375rem' }}>
             {t('subtitle')}
           </p>
         </div>

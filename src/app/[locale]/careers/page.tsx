@@ -42,12 +42,12 @@ export default async function CareersPage({
   return (
     <>
       <section className="grid-bg" style={{ padding: '4rem 0 3rem' }}>
-        <div className="container">
+        <div className="container page-hero">
           <span className="eyebrow">{t('eyebrow')}</span>
           <h1 className="display-lg" style={{ color: '#fff' }}>
             {t('title')}
           </h1>
-          <p style={{ color: 'var(--g400)', maxWidth: 540, marginTop: '0.75rem', fontSize: '0.9375rem' }}>
+          <p style={{ color: 'var(--g400)', fontSize: '0.9375rem' }}>
             {t('subtitle')}
           </p>
         </div>
@@ -56,7 +56,7 @@ export default async function CareersPage({
       {/* How to apply */}
       <div style={{ background: 'var(--orange)', padding: '1rem 0' }}>
         <div className="container">
-          <div className="flex items-center gap-2 flex-wrap" style={{ color: '#fff' }}>
+          <div className="flex items-center justify-center gap-2 flex-wrap" style={{ color: '#fff', textAlign: 'center' }}>
             <Info width={18} height={18} />
             <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
               {t('applyNotice', {
@@ -70,9 +70,9 @@ export default async function CareersPage({
 
       <section className="section bg-white">
         <div className="container">
-          <div style={{ marginBottom: '2.5rem' }}>
+          <div className="section-head" style={{ marginBottom: '2.5rem' }}>
             <span className="eyebrow">{t('openPositions')}</span>
-            <h2 className="display-md heading-accent">{t('roleCount', { count: listings.length })}</h2>
+            <h2 className="display-md">{t('roleCount', { count: listings.length })}</h2>
           </div>
 
           {listings.length === 0 ? (
@@ -120,7 +120,7 @@ export default async function CareersPage({
           <p style={{ color: 'var(--g400)', maxWidth: 480, margin: '0 auto 2rem', fontSize: '0.9375rem' }}>
             {t('spontaneousBody')}
           </p>
-          <Link href="/about" className="btn btn-primary btn-lg">
+          <Link href="/about" className="btn btn-primary">
             {t('spontaneousCta')}
           </Link>
         </div>
