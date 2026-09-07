@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 import { generateTotpToken } from '../../src/lib/totp/otp'
+import { fillTotpCode } from '../helpers/login'
 import {
   cleanupUserByEmail,
   seedEnrolledTestUser,
@@ -85,7 +86,7 @@ test.describe('Two-factor authentication', () => {
 
     await page.waitForURL(`${BASE_URL}/admin/totp-verify`)
 
-    await page.fill('#totp-verify-code', '000000')
+    await fillTotpCode(page, '000000')
     await page.click('button[type="submit"]')
     await expect(page.getByText(/invalid code/i)).toBeVisible()
     await expect(page).toHaveURL(`${BASE_URL}/admin/totp-verify`)
@@ -95,7 +96,7 @@ test.describe('Two-factor authentication', () => {
     await expect(page).toHaveURL(`${BASE_URL}/admin/totp-verify`)
 
     const code = await generateTotpToken(sessionSecret)
-    await page.fill('#totp-verify-code', code)
+    await fillTotpCode(page, code)
     await page.click('button[type="submit"]')
 
     await page.waitForURL(`${BASE_URL}/admin`)

@@ -21,6 +21,21 @@ export interface LoginOptions {
 }
 
 /**
+ * Enters a 6-digit code on the TOTP verification screen.
+ *
+ * That screen is six single-character boxes (`.amfa-otp__box`), not one field —
+ * see src/components/admin/TotpVerifyForm.tsx — so `fill()` cannot be pointed at
+ * a single input: each box is `maxLength={1}` and keeps only the last character
+ * it is given. Typing is also the honest thing to exercise here, because it puts
+ * the component's own auto-advance on the hook: if focus stops moving between
+ * boxes, every test that logs in fails, which is exactly the signal you want.
+ */
+export async function fillTotpCode(page: Page, code: string): Promise<void> {
+  await page.locator('.amfa-otp__box').first().click()
+  await page.keyboard.type(code)
+}
+
+/**
  * Logs the user into the admin panel via the login page, then — since 2FA
  * is mandatory for every admin account (FUNCTIONALITY.md §5.1) — completes
  * the TOTP verification step too when `totpSecret` is provided.
@@ -46,7 +61,7 @@ export async function login({
   await page.waitForURL(`${serverURL}/admin/totp-verify`)
 
   const code = await generateTotpToken(totpSecret)
-  await page.fill('#totp-verify-code', code)
+  await fillTotpCode(page, code)
   await page.click('button[type="submit"]')
 
   await page.waitForURL(`${serverURL}/admin`)
