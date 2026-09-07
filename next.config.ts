@@ -17,6 +17,20 @@ const dirname = path.dirname(__filename)
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 
 const nextConfig: NextConfig = {
+  // Dart Sass prepends `@charset "UTF-8";` to any stylesheet whose output
+  // contains a non-ASCII byte — which src/app/(payload)/custom.scss does, in its
+  // comments alone (em dashes, arrows, "×"). Next's CSS pipeline then rewrites
+  // that @charset into a byte-order mark, and Turbopack's parser refuses the
+  // file because the BOM leaves the sheet's leading `@import` (the admin's
+  // webfont) no longer first — `@import` is only valid before any other rule.
+  //
+  // The declaration is redundant anyway: every stylesheet here is served as
+  // UTF-8 over HTTP, which already wins over an in-file @charset. Turning it off
+  // fixes the build at the source instead of banning non-ASCII from comments,
+  // which nothing would enforce and the next em dash would silently break.
+  sassOptions: {
+    charset: false,
+  },
   // Client-side Router Cache tuning. The `static` default is 5 MINUTES:
   // prefetched, statically-generated pages are reused from the browser's Client
   // Cache for that long, which made a soft navigation back to an edited page (or
