@@ -73,7 +73,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "axe-core": "4.12.1",
     "eslint": "^9.39.5",
-    "eslint-config-next": "16.2.11",
+    "eslint-config-next": "16.3.0",
     "jsdom": "^29.1.1",
     "prettier": "^3.9.6",
     "sst": "4.17.1",
