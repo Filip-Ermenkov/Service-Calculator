@@ -77,7 +77,7 @@
     "jsdom": "^29.1.1",
     "prettier": "^3.9.6",
     "sst": "4.17.1",
-    "tsx": "^4.23.1",
+    "tsx": "^4.23.7",
     "typescript": "6.0.3",
     "vite-tsconfig-paths": "^6.0.5",
     "vitest": "^4.1.10"
