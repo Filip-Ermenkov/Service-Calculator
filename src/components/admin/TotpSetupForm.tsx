@@ -1,7 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type SetupResponse = {
   secret: string
@@ -19,37 +18,66 @@ type SetupResponse = {
  *    correctly provisioned before it's trusted for real logins.
  */
 export function TotpSetupForm() {
-  const router = useRouter()
   const [setupData, setSetupData] = useState<SetupResponse | null>(null)
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
+  // ONE setup request per mounted view, shared across React StrictMode's
+  // deliberate double-invoke of effects in development.
+  //
+  // Why this matters beyond tidiness: POST /api/users/totp/setup GENERATES A
+  // FRESH TOTP SECRET on every call and is rate-limited to 5 per 5 minutes per
+  // user (src/collections/Users.endpoints.ts). Firing it twice per mount burned
+  // half that budget for nothing, and enrolment legitimately renders this view
+  // more than once (land here, navigate to a gated route, get redirected back),
+  // so a real admin could hit "Too many attempts" while simply trying to set up
+  // 2FA — which is also how this surfaced, as a test failure after a Next minor
+  // upgrade shifted how many times the view mounts.
+  //
+  // The promise is held in a ref rather than guarding with a boolean: a plain
+  // "already requested, bail out" flag is subtly wrong here, because StrictMode
+  // runs effect → cleanup → effect on the SAME instance. The cleanup marks the
+  // first invocation stale, so if the second one bails out, the in-flight
+  // response is discarded by the first and nothing ever sets state — the view
+  // hangs on "Preparing your 2FA setup…" forever. Both invocations must attach
+  // to the same promise so whichever one is still live commits the result.
+  const setupPromise = useRef<Promise<SetupResponse> | null>(null)
 
-    async function loadSetup() {
-      setLoading(true)
-      setError(null)
-      try {
+  useEffect(() => {
+    let live = true
+
+    if (!setupPromise.current) {
+      setupPromise.current = (async () => {
         const res = await fetch('/api/users/totp/setup', {
           method: 'POST',
           credentials: 'include',
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error ?? 'Failed to start 2FA setup')
-        if (!cancelled) setSetupData(data)
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to start 2FA setup')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+        return data as SetupResponse
+      })()
     }
 
-    void loadSetup()
+    setupPromise.current
+      .then((data) => {
+        if (!live) return
+        setSetupData(data)
+        setError(null)
+        setLoading(false)
+      })
+      .catch((err: unknown) => {
+        if (!live) return
+        // A failed attempt must not be cached as the permanent answer — clear it
+        // so a remount (or the admin reloading the page) can try again.
+        setupPromise.current = null
+        setError(err instanceof Error ? err.message : 'Failed to start 2FA setup')
+        setLoading(false)
+      })
+
     return () => {
-      cancelled = true
+      live = false
     }
   }, [])
 
@@ -66,8 +94,16 @@ export function TotpSetupForm() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Invalid code')
-      router.push('/admin')
-      router.refresh()
+      // HARD navigation — see the long note (and the captured request trace) in
+      // TotpVerifyForm.tsx. Enrolling issues the same step-up cookie proxy.ts
+      // gates on, so a soft push can replay a cached pre-cookie redirect and
+      // bounce the admin straight back here.
+      //
+      // Discarding the framework's prefetched state is the intent, not a side
+      // effect: it was captured under the old authorisation. Full reasoning and
+      // the captured request trace are in TotpVerifyForm.tsx.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign('/admin')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid code')
     } finally {

@@ -47,6 +47,34 @@ export const Users: CollectionConfig = {
     create: requireTotpVerified(() => true),
     update: requireTotpVerified(() => true),
     delete: requireTotpVerified(() => true),
+    // `unlock` is the FIFTH access operation an auth-enabled collection has, and
+    // it was the one this list previously missed — so it silently fell back to
+    // Payload's `defaultAccess` (`Boolean(user)`), i.e. NO TOTP step-up.
+    //
+    // Why that mattered: `POST /api/users/unlock` clears the login lockout that
+    // `auth.maxLoginAttempts`/`lockTime` above impose after 5 failed password
+    // attempts. Under the default access rule, a session that had passed the
+    // PASSWORD step but not the mandatory second factor could reset that
+    // counter — letting the first-factor brute-force defence be cleared by
+    // something less than a fully authenticated admin. Wrapping it here makes
+    // the whole collection uniform: every operation requires a completed TOTP
+    // step-up, no exceptions.
+    //
+    // Found while triaging GHSA-jg8r-5jh2-v2xj (Payload <= 3.88.0, "default
+    // account-unlock access allows authenticated users to reset other accounts'
+    // lockouts").
+    //
+    // READ THIS BEFORE REMOVING THE LINE: bumping Payload does NOT fix it. The
+    // advisory's own page lists "Patched versions: None"; npm reports a fix
+    // simply because 3.89.0 falls outside the `<=3.88.0` affected range, and
+    // 3.89.0's release notes contain no such fix. Verified against the installed
+    // 3.89.0 source: `collections/config/defaults.js` still sets
+    // `unlock: defaultAccess`, and `auth/operations/unlock.js` still gates only
+    // on `collectionConfig.access.unlock`. So the upgrade silences the audit
+    // line while leaving the behaviour unchanged — THIS rule is the actual fix.
+    // tests/int/rest.int.spec.ts proves it: delete this line and the
+    // password-only session gets 200 back.
+    unlock: requireTotpVerified(() => true),
   },
   fields: [
     // Email added by default

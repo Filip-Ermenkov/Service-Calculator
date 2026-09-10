@@ -10,7 +10,7 @@
  * See https://github.com/panva/jose/issues/671 and vitest-dev/vitest#5183.
  */
 import { getPayload, Payload } from 'payload'
-import { REST_GET } from '@payloadcms/next/routes'
+import { REST_GET, REST_POST } from '@payloadcms/next/routes'
 import config from '@/payload.config'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -59,11 +59,33 @@ async function restGet(
 
 const idsOf = (docs: Array<{ id: number | string }>) => docs.map((d) => d.id)
 
+/** Invoke the real REST POST handler (used for the auth `unlock` operation below). */
+async function restPost(
+  handler: ReturnType<typeof REST_POST>,
+  slug: string[],
+  body: unknown,
+  cookie?: string,
+): Promise<{ status: number }> {
+  const headers = new Headers({ 'content-type': 'application/json' })
+  if (cookie) headers.set('cookie', cookie)
+  const res = await handler(
+    new Request(`http://localhost:3000/api/${slug.join('/')}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ slug }) },
+  )
+  return { status: res.status }
+}
+
 describe('Public REST boundary — real route handler (src/app/(payload)/api)', () => {
   let payload: Payload
   let handler: ReturnType<typeof REST_GET>
+  let postHandler: ReturnType<typeof REST_POST>
 
   let adminId: number | string
+  let adminEmail: string
   let verifiedCookie: string // password session + completed TOTP step-up
   let passwordOnlyCookie: string // password session, NO step-up (stolen password)
 
@@ -76,6 +98,7 @@ describe('Public REST boundary — real route handler (src/app/(payload)/api)', 
     const payloadConfig = await config
     payload = await getPayload({ config: payloadConfig })
     handler = REST_GET(payloadConfig)
+    postHandler = REST_POST(payloadConfig)
 
     const admin = await payload.create({
       collection: 'users',
@@ -86,6 +109,7 @@ describe('Public REST boundary — real route handler (src/app/(payload)/api)', 
       },
     })
     adminId = admin.id
+    adminEmail = admin.email as string
 
     // A real payload-token JWT, obtained the same way a browser login does.
     const { token } = await payload.login({
@@ -175,5 +199,52 @@ describe('Public REST boundary — real route handler (src/app/(payload)/api)', 
     const rawDoc = raw.docs.find((d) => d.id === publishedServiceId)
     expect(rawDoc).toBeDefined()
     expect(rawDoc?.title).toBeFalsy()
+  })
+
+  // ── POST /api/users/unlock — the FIFTH access operation ───────────────────
+  //
+  // `unlock` clears the login lockout that Users.auth.maxLoginAttempts (5) and
+  // lockTime (10 min) impose — i.e. it resets the first-factor brute-force
+  // defence. Until 2026-09 it was the one operation on the Users collection NOT
+  // wrapped in requireTotpVerified, so it silently used Payload's
+  // `defaultAccess` (`Boolean(user)`): a session holding only a stolen PASSWORD,
+  // with no TOTP step-up, could clear the lockout.
+  //
+  // This is NOT covered by the payload 3.89.0 bump. GHSA-jg8r-5jh2-v2xj lists no
+  // patched version, and 3.89.0's defaults still use `unlock: defaultAccess` —
+  // upgrading only moves the app outside the advisory's `<=3.88.0` range, which
+  // is why `npm audit` stops reporting it. The rule in src/collections/Users.ts
+  // is the real fix, and these cases are what hold it in place.
+  //
+  // EVERY case below targets a REAL, EXISTING account on purpose. The operation
+  // throws `Forbidden` (403) when it cannot find the named user, so a made-up
+  // address produces a 403 that looks exactly like an access denial while
+  // proving nothing — the first draft of these tests passed even with the
+  // access rule removed for precisely that reason.
+  describe('POST /api/users/unlock is TOTP-gated like every other Users operation', () => {
+    it('rejects an anonymous caller', async () => {
+      const { status } = await restPost(postHandler, ['users', 'unlock'], { email: adminEmail })
+      expect(status).toBe(403)
+    })
+
+    it('rejects a password-only session (no TOTP step-up) — the regression case', async () => {
+      const { status } = await restPost(
+        postHandler,
+        ['users', 'unlock'],
+        { email: adminEmail },
+        passwordOnlyCookie,
+      )
+      expect(status).toBe(403)
+    })
+
+    it('allows a fully verified admin (password + completed TOTP step-up)', async () => {
+      const { status } = await restPost(
+        postHandler,
+        ['users', 'unlock'],
+        { email: adminEmail },
+        verifiedCookie,
+      )
+      expect(status).toBe(200)
+    })
   })
 })
