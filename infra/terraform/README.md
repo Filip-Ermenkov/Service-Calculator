@@ -10,9 +10,11 @@ resources "lives in `infra/`".
 > SNS are created; DNS is delegated at EuroDNS (`dig NS bulbau.lu` resolves); the
 > Neon project and deploy role are imported (`manage_neon` + `manage_deploy_role` are
 > both `true` in the live, gitignored `terraform.tfvars`); and — since the `production`
-> stage went live — the **CloudWatch Lambda alarms are now ON** too (`web_function_name`
-> + `pdf_function_name` are filled with the production function names and applied). So
-> everything this layer manages is now active. The deploy role's inline policy also
+> stage went live — the CloudWatch Lambda alarms were switched on here too. **⚠️ Those
+> alarms MOVED OUT of this layer on 2026-09-10** (see "Where alarms live" below); the
+> `web_function_name` / `pdf_function_name` variables are gone, and applying this layer
+> after an SST deploy will **destroy the three superseded hand-named alarms**. Everything
+> else this layer manages is active. The deploy role's inline policy also
 > gained ACM (us-east-1) + Route 53 statements during the production stand-up (pushed
 > via `terraform apply`, since `iam.tf` sources `infra/aws/*.json` via `file()`). The
 > runbook below remains the reference for a fresh clone / disaster recovery.
@@ -25,7 +27,9 @@ resources "lives in `infra/`".
 | Route 53 **public hosted zone** for `bulbau.lu` | `dns.tf` | new (safe create) | first pass |
 | **AWS Budgets** (daily + monthly cost alarms → email) | `budget.tf` | new (safe create) | first pass |
 | **SNS** ops topic + email subscription | `observability.tf` | new (safe create) | first pass |
-| **CloudWatch alarms** (Web/Pdf Lambda errors + throttles) | `observability.tf` | new, opt-in | ✅ ON (production names filled 2026-07-31) |
+| **SNS ops-alert topic** (`bulbau-lu-ops-alerts`) | `observability.tf` | new (safe create) | ✅ live |
+| **Route 53 uptime check + CloudFront 5xx alarm** (us-east-1) | `uptime.tf` | new, opt-in | ⏳ not yet enabled (`manage_uptime_monitoring = false`) |
+| ~~CloudWatch Lambda alarms~~ | ~~`observability.tf`~~ | — | ➡️ **moved to `sst.config.ts` 2026-09-10** |
 | **Neon project** (existing DB) | `neon.tf` | import-only, `prevent_destroy` | after import |
 | **GitHub-Actions deploy role + policy** (existing) | `iam.tf` | import-only, `prevent_destroy` | after import |
 
@@ -114,23 +118,91 @@ terraform plan   # a clean plan proves file == live; a 1st-plan inline-policy
 shows no destroy/replace of the imported resource. `prevent_destroy` is a
 backstop, not a substitute for reading the plan.
 
-## Turning CloudWatch alarms on
+## Where alarms live (changed 2026-09-10 — read before applying)
 
-After a stage is deployed, set `web_function_name` / `pdf_function_name` to the
-real Lambda names and `terraform apply`. Empty names keep the alarms disabled.
-**Done 2026-07-31** — the production names are `bulbau-lu-production-WebServerEucentral1Function-<suffix>`
-and `bulbau-lu-production-PdfFunction-<suffix>`, discovered with:
+**The per-stage Lambda alarms are no longer here.** They are defined in `sst.config.ts` and
+wired to the real functions **by reference**, so they cannot go stale.
+
+Why they moved: they used to target Lambda names copied by hand into `terraform.tfvars`
+after a deploy. Any change that forces Lambda replacement gives the function a new random
+name suffix, after which the alarms watch a function that no longer exists — and because
+they are `treat_missing_data = "notBreaching"`, they sit **permanently green** while
+monitoring nothing. An alarm that cannot tell you it stopped working is worse than no alarm.
+This also matches the layer split TECHSPEC §10.3 actually implies: an alarm on a per-stage
+Lambda is a per-stage, disposable resource.
+
+**Consequence for your `terraform.tfvars`:** delete the `web_function_name` and
+`pdf_function_name` lines — the variables no longer exist. (Terraform only *warns* about
+undeclared variables in a tfvars file, so a stale copy will not fail the apply.)
+
+**⚠️ APPLY ORDER.** Deploy the SST stage **first**, then `terraform apply`. The plan will
+show **3 destroys** — `bulbau-lu-web-lambda-errors`, `bulbau-lu-pdf-lambda-errors`,
+`bulbau-lu-pdf-lambda-throttles` — which are the superseded hand-named alarms. Applying in
+the other order leaves a window with no Lambda alarms at all. If the plan wants to destroy
+anything else — especially the hosted zone, the Neon project or the deploy role — **stop**.
+
+Verify the replacements exist after the deploy:
 
 ```bash
-aws resourcegroupstaggingapi get-resources --region eu-central-1 \
-  --resource-type-filters lambda:function \
-  --tag-filters "Key=sst:app,Values=bulbau-lu" "Key=sst:stage,Values=production" \
-  --query "ResourceTagMappingList[].ResourceARN" --output table
+aws cloudwatch describe-alarms --alarm-name-prefix bulbau-lu-production \
+  --region eu-central-1 \
+  --query "MetricAlarms[].{Name:AlarmName,State:StateValue,Fn:Dimensions[0].Value}" \
+  --output table
 ```
 
-Alarm on the main **WebServer** function and the **Pdf** function (not the
-ImageOptimizer/Warmer/Revalidation siblings). If the functions are ever
-recreated, their random name suffix changes — re-query and re-`apply`.
+Expect five: `-web-lambda-errors`, `-web-lambda-throttles` (new — the public-facing function
+had none before), `-pdf-lambda-errors`, `-pdf-lambda-throttles`, and `-app-ops-alerts` (fed by
+the `OPS_ALERT` log metric filter — see TECHSPEC §8.1). Check the `Fn` column matches the
+live function names; that is the whole point of the move.
+
+---
+
+## Turning uptime + edge monitoring on (`uptime.tf`, opt-in)
+
+This is the only monitoring that **must** stay in this layer: CloudFront and Route 53 publish
+metrics **only to us-east-1**, a CloudWatch alarm can only notify an SNS topic in its own
+region, and the GitHub-Actions deploy role is scoped to eu-central-1 (with a narrow ACM-only
+us-east-1 carve-out). An `sst deploy` therefore *cannot* create these.
+
+**Cost: ~$1.00–1.50/month** (Route 53 health check base + the HTTPS optional feature).
+Alarms are free below 10. Do this before the public launch.
+
+1. In `terraform.tfvars`:
+
+   ```hcl
+   manage_uptime_monitoring   = true
+   cloudfront_distribution_id = "E..."   # the `cdnDistributionId` output of `sst deploy --stage production`
+   ```
+
+   Leaving `cloudfront_distribution_id` empty simply skips the CloudFront 5xx alarm; the
+   uptime check still works.
+
+2. `terraform plan` — expect ~5 creates (us-east-1 SNS topic + subscription, the health
+   check, and two alarms). Then `terraform apply`.
+
+3. **Confirm the SNS subscription email.** This is a *second* confirmation, separate from the
+   eu-central-1 topic's — subject line `bulbau-lu-ops-alerts-us-east-1`. Until you click it,
+   the uptime and CloudFront alarms deliver nowhere.
+
+4. Verify the probe went green (allow ~2 minutes):
+
+   ```bash
+   aws route53 get-health-check-status \
+     --health-check-id "$(terraform output -raw site_health_check_id)"
+   ```
+
+   Expect `Success: HTTP Status Code 200` from all three checkers. The check targets
+   `https://<domain>/api/health`, which sets `Cache-Control: no-store` — so a green check
+   means the **origin** answered, not CloudFront replaying a cached copy.
+
+**Why 3 checker regions and not the default set:** Route 53 probes independently from every
+selected region. The default (~15 checkers) at a 30s interval is ~1.3M Lambda invocations per
+month, which would exceed Lambda's 1M free tier on its own. Three is the documented minimum
+and lands at ~260k/month.
+
+**Prove delivery rather than assuming it.** Use `aws cloudwatch set-alarm-state` to force an
+alarm and confirm the email arrives — remembering that `bulbau-lu-site-unreachable` lives in
+**us-east-1**, not eu-central-1. It self-corrects on the next evaluation.
 
 ## Not managed here (pointers, so you don't go looking)
 

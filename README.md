@@ -6,46 +6,22 @@ the same app. See `docs/FUNCTIONALITY.md` (the "what") and
 `docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
 day-to-day commands.
 
-**Status (2026-07-31):** **The site is LIVE in production at `https://bulbau.lu`** (custom domain, apex + `www`→apex redirect, valid ACM cert; deployed via the manual-approval `deploy-production` CI job; production Neon branch baselined; account CloudWatch Lambda alarms on). It is **not yet publicly launched** — search indexing stays off until the Phase 7 launch flip. See `docs/PROGRESS.md` → "Production stage stand-up".
+**Status (2026-09-10):** **The site is LIVE in production at `https://bulbau.lu`** (custom domain, apex + `www`→apex redirect, valid ACM cert; deployed via the manual-approval `deploy-production` CI job) but is **not yet publicly launched** — search indexing stays off until the Phase 7 launch flip.
 
-Phases 0–3 are complete and live (staging **and** production) — admin
-panel, mandatory 2FA, the full content model, per-deploy migrations, the public
-site (next-intl `/en|/fr|/de` i18n, CMS-driven shell, all content pages via ISR,
-clean service slugs, Projects search/filter, the §7 service-label snapshot, SEO,
-and a CI axe (WCAG 2.2 AA) + Lighthouse accessibility/perf baseline), the
-**real-time price calculator** + shared `src/lib/pricing/` evaluator (Phase 3
-part 1), and the **visual admin Formula Builder** (Phase 3 part 2). **Phase 4
-part 1 (PDF quote generation + Download) is built** — a "Download PDF quote"
-action posts inputs to `/api/quote`, which re-prices server-side and renders a
-branded, trilingual PDF via a **separate isolated Chromium Lambda** (never
-persisted); verified through the automated suite + a local HTML-preview pass,
-and the real Chromium-on-Lambda render is **now live on staging** (the deploy-role
-IAM permission it needed — `ManageAppIamRoles` — has been applied). The CI axe +
-Lighthouse gates now also cover the **service-detail calculator page**, via a
-seeded sample service (see "Testing" and `docs/PROGRESS.md`). Recent in-repo
-hardening (2026-07-21): CI **schema-drift** + **generated-artifact drift** guards
-(§10.5), and an OWASP-aligned set of **HTTP security response headers** on every
-route (HSTS/CSP/`nosniff`/`Referrer-Policy`/`frame-ancestors`/`Permissions-Policy`,
-served from `src/lib/security/headers.ts` via `next.config.ts`; see
-`docs/TECHSPEC.md` §7). **Since then: Phase 5 part 1** (EN→FR/DE auto-translation
-on save via AWS Translate), **on-demand CloudFront invalidation**, **Phase 4 part 2**
-(email-the-quote via SES — code deployed; live delivery gated on SES production
-access + a verified mailbox), and **Phase 6** (a dedicated `/contact` page +
-`POST /api/contact` SES relay with **Cloudflare Turnstile** + honeypot + IP rate
-limiting, Turnstile also on the email-quote action; env-gated, migration-free —
-2026-08-06), and **Phase 5 part 2** (the **Translation Management admin screen** at
-`/admin/translations` — a custom Payload Root View reviewing every EN/FR/DE string
-with inline plain-text override + Re-translate and rich-text deep-links, built
-migration-free over the native per-locale values via `POST /api/admin/translations`;
-2026-08-06, commit `e3121af`). **⭐ Every planned feature (§12 roadmap Phases 0–6)
-is now built and in production.** **Next: Phase 7** (Well-Architected hardening +
-public launch), plus the externally-gated config chain to switch the contact form +
-email delivery fully on (prod Turnstile/`EmailSender` secrets, an SES-verified
-mailbox, SES production access, published legal details). See `docs/PROGRESS.md`.
-Web analytics was evaluated and **deliberately left out of scope**
-(see below) — the site stays cookieless with no consent banner. Visit
-`http://localhost:3000` (redirects to `/en`); the admin panel stays at `/admin`
-(unlocalized). `docs/PROGRESS.md` is the source of truth for progress and next steps.
+**Every planned feature (§12 roadmap Phases 0–6) is built**: the admin panel with mandatory 2FA, the full content model, per-deploy migrations, the public trilingual site (`/en|/fr|/de`), the real-time price calculator + shared `src/lib/pricing/` evaluator, the visual admin Formula Builder, PDF quote generation (Download **and** email-the-quote via SES), EN→FR/DE auto-translation via AWS Translate, the Translation Management admin screen, the `/contact` page with Cloudflare Turnstile, on-demand CloudFront invalidation, OWASP security headers, and CI axe (WCAG 2.2 AA) + Lighthouse gates.
+
+**Phase 7 (hardening + launch) has started.** Landed since 2026-09-07:
+
+- **A bespoke admin panel** (`984be35`) — branded login/sidebar, a custom dashboard, and a dedicated Services screen with drag ordering. It also shipped the **Home-page service-card limit** (a `HomeSettings` global), which `FUNCTIONALITY.md` §3.1 had specified but nothing had implemented, plus `unit`/`defaultOn` on calculator fields. **Adds the third migration** (`20260825_173608`).
+- **Failure visibility** (`7e02c94`) — the app previously had **no way to tell you it was broken**: `src/lib/content.ts` never throws, so a database outage rendered the whole site as blank pages with HTTP 200, and the `AWS/Lambda Errors` metric only counts handlers that actually *threw*. Now every silent-degradation path emits an `OPS_ALERT` line that a CloudWatch metric filter turns into an alarm, there is a `GET /api/health` liveness endpoint, and the Web/Pdf alarms are auto-wired in `sst.config.ts` instead of targeting hand-copied function names. Opt-in Route 53 uptime + CloudFront 5xx alarms live in `infra/terraform/uptime.tf`.
+- **A critical security patch** (`9df17ec`) — Next → **16.3.4** (two critical RCE advisories), `sharp` → 0.35.4, Payload → **3.89.0**. Triaging it also closed a real gap: `unlock` was the one access operation on `Users` not behind the 2FA step-up, so a stolen password could clear the login lockout. Note that the Payload advisory is **not** actually fixed by the version bump — see `docs/PROGRESS.md`.
+
+**⚠️ None of the above is confirmed deployed** — the CI audit gate was red at the last push, so `verify` failed and no deploy ran. Check the latest `deploy-staging`/`deploy-production` runs and confirm `npm run migrate:status` shows **three** migrations on both Neon branches before treating those stages as current.
+
+**Remaining launch blockers are external, not development work:** published `LegalInfo` details, an SES-verified mailbox + `EmailSender` (⚠️ **until it is set the contact form cannot deliver at all** — `/api/contact` returns 502 and the visitor is shown an error telling them to phone or email instead, so no message is lost silently, but every enquiry through the form fails), production Turnstile keys, and the indexing flip. Web analytics was evaluated and **deliberately left out of scope** (see below) — the site stays cookieless with no consent banner.
+
+Visit `http://localhost:3000` (redirects to `/en`); the admin panel stays at `/admin` (unlocalized). **`docs/PROGRESS.md` is the source of truth for progress and next steps.**
+
 
 ## Requirements
 
@@ -133,12 +109,29 @@ npx playwright install chromium
 ```
 
 ```bash
-npm run lint         # ESLint
+npm run lint         # ESLint (0 errors expected; ~15 known warnings)
 npm run typecheck    # tsc --noEmit
 npm run test:int     # Vitest — integration tests against DATABASE_URL
 npm run test:e2e     # Playwright — needs `npm run build && npm start` or `next dev` running
 npm run test         # both of the above
 ```
+
+`npm run test:e2e` also runs the **axe-core WCAG 2.2 AA gate**. That gate neutralises CSS
+animation before scanning (`tests/e2e/accessibility.e2e.spec.ts`) — do not "simplify" that
+away: without it the scan samples colours mid-fade and the result is non-deterministic,
+which is how a passing build and a failing build could differ by nothing but render timing.
+
+### Health endpoint
+
+`GET /api/health` returns `200 {"status":"ok",...}` (or `503 "degraded"` when a required
+runtime secret is missing), with `Cache-Control: no-store`. It is the target of the optional
+Route 53 uptime check in `infra/terraform/uptime.tf`.
+
+It **deliberately does not query the database**. A deep check sounds better but would defeat
+Neon's scale-to-zero — an uptime probe every 30s would keep the database awake permanently
+and blow the free tier. Database faults are surfaced a different way: every resilient read in
+`src/lib/content.ts` emits an `OPS_ALERT` line, which a CloudWatch metric filter turns into an
+alarm (see `docs/TECHSPEC.md` §8.1).
 
 ### Seeding sample content for the `/services/[slug]` audits
 
@@ -210,6 +203,23 @@ never destroy DNS or the database. See `infra/terraform/README.md` for the apply
 and import runbook. **Applied and live as of 2026-07-31** — the zone is created,
 DNS is delegated at EuroDNS, and the Neon project + deploy role are imported
 (file = live).
+
+**Where alarms live (changed 2026-09-10).** The per-stage Lambda alarms are now defined in
+`sst.config.ts`, wired to the real functions **by reference**. They used to sit in Terraform
+targeting function names hand-copied into `terraform.tfvars` — which rots silently, because
+any change that forces Lambda replacement renames the function and the alarms then watch
+nothing while sitting permanently green. The `web_function_name`/`pdf_function_name`
+variables are gone; delete them from your own `terraform.tfvars`.
+
+What stays in Terraform is the account-level SNS topic, AWS Budgets, and — opt-in via
+`manage_uptime_monitoring` — the Route 53 health check and CloudFront 5xx alarm in
+`uptime.tf`. Those cannot move: CloudFront and Route 53 publish metrics **only to
+us-east-1**, an alarm can only notify a topic in its own region, and the deploy role is
+scoped to eu-central-1. That second us-east-1 SNS topic needs **its own** subscription
+confirmation email.
+
+⚠️ **Apply order matters:** deploy SST **first**, then `terraform apply` — otherwise the plan
+destroys the three superseded hand-named alarms before their replacements exist.
 
 > **AWS account (2026-07-27):** the app runs in its **own dedicated account
 > `847321857537`** (`service-calculator-production`), migrated there from the
