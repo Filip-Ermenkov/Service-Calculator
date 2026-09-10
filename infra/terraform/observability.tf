@@ -1,13 +1,36 @@
-# ── Observability: SNS alert topic + CloudWatch Lambda alarms ───────────────
-# Closes the "if the app breaks, nothing tells you" gap for the compute tier.
+# ── Observability: the account-level SNS alert topic ────────────────────────
+# Closes the "if the app breaks, nothing tells you" gap. This file owns ONLY the
+# account-level piece: one SNS topic (plus its confirmed email subscription) that
+# everything else publishes to. It is cheap, has no dependencies, and — crucially
+# — must OUTLIVE any app stage, which is what puts it in this foundational layer
+# rather than in sst.config.ts (the §10.3 split-by-lifetime rule).
 #
-# The SNS topic + email subscription are always created (cheap, no dependency).
-# The alarms are OPT-IN via var.web_function_name / var.pdf_function_name: they
-# reference SST-managed Lambda functions whose names aren't known until a stage
-# is deployed (and the production stage isn't up until a later slice). Leaving the
-# name vars empty keeps the alarm count at 0 so the first apply is clean; fill them
-# after an `sst deploy` to switch the alarms on. This keeps ALL ops guardrails in
-# the foundational layer without a brittle cross-tool build-time dependency.
+# ── WHERE THE ACTUAL ALARMS LIVE (changed 2026-09 — read this before adding one)
+# Alarms are split by WHICH REGION THE METRIC EXISTS IN, which turns out to be
+# the same split as ownership:
+#
+#   • eu-central-1 metrics → sst.config.ts.
+#     The per-stage Lambda alarms (Web/Pdf Errors + Throttles) and the
+#     application-level OPS_ALERT log-metric alarm are defined there, wired to
+#     the real functions BY REFERENCE. They used to live here, targeting Lambda
+#     names copied by hand into terraform.tfvars — which was silently fragile:
+#     any change that forces Lambda replacement gives the function a new name
+#     suffix, and the alarms then watch a function that no longer exists while
+#     sitting permanently GREEN (treat_missing_data = notBreaching). An alarm
+#     that cannot tell you it stopped working is worse than no alarm. Defining
+#     them next to the resources they watch makes staleness impossible.
+#
+#   • us-east-1-only metrics → uptime.tf, in THIS layer.
+#     CloudFront and Route 53 publish their metrics exclusively to us-east-1,
+#     and an alarm's SNS action must be in the alarm's own region. The SST deploy
+#     role is deliberately scoped to eu-central-1 (with a narrow ACM-only
+#     us-east-1 carve-out), so those alarms cannot be created by a deploy at all
+#     — they belong to this layer, which applies with administrator credentials.
+#
+# MIGRATION NOTE (one-time): applying this file after the SST deploy DESTROYS the
+# three superseded hand-named alarms (bulbau-lu-web-lambda-errors,
+# -pdf-lambda-errors, -pdf-lambda-throttles). Deploy the SST stage FIRST so the
+# replacements exist, then apply here. See README → "Alarm ownership".
 
 resource "aws_sns_topic" "ops_alerts" {
   name = "bulbau-lu-ops-alerts"
@@ -21,60 +44,15 @@ resource "aws_sns_topic_subscription" "ops_email" {
   # until clicked. Terraform can't confirm it for you.
 }
 
-# Web (Next/Payload) Lambda — any error in a 5-minute window pages the email.
-resource "aws_cloudwatch_metric_alarm" "web_errors" {
-  count = var.web_function_name == "" ? 0 : 1
-
-  alarm_name          = "bulbau-lu-web-lambda-errors"
-  alarm_description   = "Web (Next/Payload) Lambda reported >=1 error in 5 minutes."
-  namespace           = "AWS/Lambda"
-  metric_name         = "Errors"
-  dimensions          = { FunctionName = var.web_function_name }
-  statistic           = "Sum"
-  period              = 300
-  evaluation_periods  = 1
-  threshold           = 1
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-  treat_missing_data  = "notBreaching"
-  alarm_actions       = [aws_sns_topic.ops_alerts.arn]
-  ok_actions          = [aws_sns_topic.ops_alerts.arn]
-}
-
-# Isolated PDF Lambda — errors (Chromium render failures) …
-resource "aws_cloudwatch_metric_alarm" "pdf_errors" {
-  count = var.pdf_function_name == "" ? 0 : 1
-
-  alarm_name          = "bulbau-lu-pdf-lambda-errors"
-  alarm_description   = "Pdf Lambda reported >=1 error in 5 minutes."
-  namespace           = "AWS/Lambda"
-  metric_name         = "Errors"
-  dimensions          = { FunctionName = var.pdf_function_name }
-  statistic           = "Sum"
-  period              = 300
-  evaluation_periods  = 1
-  threshold           = 1
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-  treat_missing_data  = "notBreaching"
-  alarm_actions       = [aws_sns_topic.ops_alerts.arn]
-  ok_actions          = [aws_sns_topic.ops_alerts.arn]
-}
-
-# … and throttles (would mean the account concurrency ceiling is being hit —
-# exactly the per-account Lambda-quota risk that drove the account migration).
-resource "aws_cloudwatch_metric_alarm" "pdf_throttles" {
-  count = var.pdf_function_name == "" ? 0 : 1
-
-  alarm_name          = "bulbau-lu-pdf-lambda-throttles"
-  alarm_description   = "Pdf Lambda was throttled — approaching the account concurrency ceiling."
-  namespace           = "AWS/Lambda"
-  metric_name         = "Throttles"
-  dimensions          = { FunctionName = var.pdf_function_name }
-  statistic           = "Sum"
-  period              = 300
-  evaluation_periods  = 1
-  threshold           = 1
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-  treat_missing_data  = "notBreaching"
-  alarm_actions       = [aws_sns_topic.ops_alerts.arn]
-  ok_actions          = [aws_sns_topic.ops_alerts.arn]
-}
+# NOTE on the topic's access policy: none is declared here on purpose. SNS's
+# DEFAULT topic policy already allows same-account principals (including the
+# CloudWatch alarm service) to publish, which is exactly what the SST-side alarms
+# need — and declaring an `aws_sns_topic_policy` REPLACES that default wholesale,
+# so a narrow hand-written policy would be a live risk of locking the topic's own
+# owner out of managing it, in exchange for no security gain in a single-app,
+# single-account setup.
+#
+# The cross-tool contract this establishes: sst.config.ts resolves this topic by
+# NAME (`aws.sns.getTopicOutput({ name: 'bulbau-lu-ops-alerts' })`). Renaming it
+# here therefore breaks the next `sst deploy` loudly (lookup fails) rather than
+# silently — which is the desired failure mode. Keep the name in sync.

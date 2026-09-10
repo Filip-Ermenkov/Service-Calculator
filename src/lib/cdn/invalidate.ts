@@ -48,6 +48,8 @@ import {
 } from '@aws-sdk/client-cloudfront'
 import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm'
 
+import { logOpsEvent } from '../observability/opsLog'
+
 /** Invalidating `/*` is a single billable path and covers every locale/route. */
 const DEFAULT_PATHS = ['/*'] as const
 
@@ -177,8 +179,11 @@ export async function invalidateCdn(
     const distributionId = await resolveDistributionId(controller.signal)
     if (!distributionId) {
       // Configured but the parameter is empty ⇒ a real misconfiguration.
-      console.warn(
-        `[cdn] distribution id resolved empty from SSM parameter ${process.env.CDN_DISTRIBUTION_ID_PARAM}`,
+      // Configured-but-empty is a real misconfiguration, not a transient fault:
+      // every content edit from here on silently fails to reach the edge.
+      logOpsEvent(
+        'cdn.resolveDistributionId',
+        `distribution id resolved empty from SSM parameter ${process.env.CDN_DISTRIBUTION_ID_PARAM}`,
       )
       return
     }
@@ -189,10 +194,8 @@ export async function invalidateCdn(
       `[cdn] invalidation created for distribution ${distributionId} (${paths.join(', ')})`,
     )
   } catch (err) {
-    console.warn(
-      '[cdn] invalidation skipped (content still served via the ISR window):',
-      (err as Error)?.message ?? err,
-    )
+    // The ISR window still serves fresh content eventually ⇒ `warn`.
+    logOpsEvent('cdn.invalidate', err, 'warn')
   } finally {
     clearTimeout(timer)
   }

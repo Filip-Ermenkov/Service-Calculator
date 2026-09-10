@@ -32,6 +32,8 @@
 
 import { SendEmailCommand, SESv2Client } from '@aws-sdk/client-sesv2'
 
+import { logOpsEvent } from '../observability/opsLog'
+
 /** A single email attachment (the quote PDF). `content` is raw bytes. */
 export interface EmailAttachment {
   filename: string
@@ -162,7 +164,9 @@ export async function sendEmail(params: SendEmailParams): Promise<SendResult> {
     }
     return { ok: true }
   } catch (err) {
-    console.warn('[email] SES send failed:', (err as Error)?.message ?? err)
+    // A failed send is a LOST customer enquiry (contact form) or a quote the
+    // visitor never received — user-visible and unrecoverable, so it pages.
+    logOpsEvent('email.send', err)
     return { ok: false, reason: 'send_failed' }
   } finally {
     clearTimeout(timer)

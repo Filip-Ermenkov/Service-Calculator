@@ -32,3 +32,14 @@ output "ses_mail_from_domain" {
   description = "The custom MAIL FROM subdomain (empty until manage_ses = true)."
   value       = var.manage_ses ? local.ses_mail_from_domain : ""
 }
+
+# ── Uptime monitoring (only meaningful when manage_uptime_monitoring = true) ──
+output "site_health_check_id" {
+  description = "Route 53 health check id probing https://<domain>/api/health (empty until manage_uptime_monitoring = true). Use it to find the check in the Route 53 console."
+  value       = var.manage_uptime_monitoring ? aws_route53_health_check.site[0].id : ""
+}
+
+output "ops_alerts_topic_arn_us_east_1" {
+  description = "ARN of the us-east-1 SNS topic the uptime + CloudFront alarms publish to (empty until manage_uptime_monitoring = true). Its email subscription needs its OWN confirmation click, separate from the eu-central-1 topic's."
+  value       = var.manage_uptime_monitoring ? aws_sns_topic.ops_alerts_us_east_1[0].arn : ""
+}

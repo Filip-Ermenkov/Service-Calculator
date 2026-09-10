@@ -11,6 +11,7 @@ import type {
 // module into the Lambda, so the import would throw `Cannot find module` at
 // runtime and the CDN purge would be silently swallowed.
 import { invalidateCdn } from './cdn/invalidate'
+import { logOpsEvent } from './observability/opsLog'
 
 /**
  * On-demand ISR invalidation for the public site (TECHSPEC §6.2).
@@ -94,10 +95,9 @@ export async function revalidatePublicSiteNow(source = 'hook'): Promise<void> {
     // The sitemap lists services/pages, so refresh it on any content change too.
     revalidatePath('/sitemap.xml')
   } catch (err) {
-    console.warn(
-      '[revalidate] skipped (not in a request scope?):',
-      (err as Error)?.message,
-    )
+    // Degraded but self-healing: the time-based `revalidate` window still
+    // refreshes the page, so this is a `warn`, not a paging `error`.
+    logOpsEvent('revalidate.revalidatePaths', err, 'warn')
   }
 
   // Purge CloudFront so the refreshed origin is actually served at the edge.
@@ -107,7 +107,7 @@ export async function revalidatePublicSiteNow(source = 'hook'): Promise<void> {
   try {
     await invalidateCdn()
   } catch (err) {
-    console.warn('[revalidate] CDN invalidation skipped:', (err as Error)?.message)
+    logOpsEvent('revalidate.invalidateCdn', err, 'warn')
   }
 }
 

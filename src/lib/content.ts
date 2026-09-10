@@ -1,6 +1,7 @@
 import { getPayload, type Payload } from 'payload'
 
 import configPromise from '@/payload.config'
+import { logOpsEvent } from '@/lib/observability/opsLog'
 import type { Locale } from '@/i18n/routing'
 import type {
   CareerListing,
@@ -66,7 +67,7 @@ export async function getServices(locale: Locale): Promise<Service[]> {
     })
     return res.docs
   } catch (err) {
-    console.error('[content] getServices failed:', err)
+    logOpsEvent('content.getServices', err, 'error', { locale })
     return []
   }
 }
@@ -87,7 +88,7 @@ export async function getServiceCardLimit(): Promise<number> {
     const n = typeof s?.serviceCardLimit === 'number' ? s.serviceCardLimit : 0
     return n > 0 ? n : 0
   } catch (err) {
-    console.error('[content] getServiceCardLimit failed:', err)
+    logOpsEvent('content.getServiceCardLimit', err)
     return 0
   }
 }
@@ -109,7 +110,7 @@ export async function getServiceBySlug(
     })
     return res.docs[0] ?? null
   } catch (err) {
-    console.error('[content] getServiceBySlug(%s) failed:', slug, err)
+    logOpsEvent('content.getServiceBySlug', err, 'error', { slug, locale })
     return null
   }
 }
@@ -130,7 +131,7 @@ export async function getPublishedServiceSlugs(): Promise<string[]> {
       .map((d) => d.slug)
       .filter((s): s is string => typeof s === 'string' && s.length > 0)
   } catch (err) {
-    console.error('[content] getPublishedServiceSlugs failed:', err)
+    logOpsEvent('content.getPublishedServiceSlugs', err)
     return []
   }
 }
@@ -149,7 +150,7 @@ export async function getProjects(locale: Locale): Promise<Project[]> {
     })
     return res.docs
   } catch (err) {
-    console.error('[content] getProjects failed:', err)
+    logOpsEvent('content.getProjects', err, 'error', { locale })
     return []
   }
 }
@@ -168,7 +169,7 @@ export async function getCareers(locale: Locale): Promise<CareerListing[]> {
     })
     return res.docs
   } catch (err) {
-    console.error('[content] getCareers failed:', err)
+    logOpsEvent('content.getCareers', err, 'error', { locale })
     return []
   }
 }
@@ -183,7 +184,7 @@ export async function getCompanyInfo(locale: Locale): Promise<CompanyInfo | null
       overrideAccess: false,
     })
   } catch (err) {
-    console.error('[content] getCompanyInfo failed:', err)
+    logOpsEvent('content.getCompanyInfo', err, 'error', { locale })
     return null
   }
 }
@@ -198,7 +199,7 @@ export async function getLegalInfo(locale: Locale): Promise<LegalInfo | null> {
       overrideAccess: false,
     })
   } catch (err) {
-    console.error('[content] getLegalInfo failed:', err)
+    logOpsEvent('content.getLegalInfo', err, 'error', { locale })
     return null
   }
 }

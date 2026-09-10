@@ -11,9 +11,18 @@ daily_budget_limit   = "1"
 monthly_budget_limit = "10"
 
 # ── Optional, enable per the README runbook AFTER importing ──────────────────
-# CloudWatch Lambda alarms — fill after an `sst deploy` reveals the function names
-web_function_name = ""   # e.g. "bulbau-lu-production-WebServerEucentral1Function-xxxxxxxx"
-pdf_function_name = ""   # e.g. "bulbau-lu-production-PdfFunction-xxxxxxxx"
+# Uptime + edge monitoring (Route 53 health check on /api/health, us-east-1 SNS
+# topic + alarms). ~$1.00-1.50/month; needs a SECOND SNS email confirmation.
+# Turn on before the public launch. See uptime.tf.
+manage_uptime_monitoring = false
+# CloudFront 5xx alarm — fill from `sst deploy --stage production`'s
+# `cdnDistributionId` output to switch it on (leave empty to skip that one alarm).
+cloudfront_distribution_id = ""   # e.g. "E3FHUL6KW814N6"
+#
+# NOTE: web_function_name / pdf_function_name are GONE. The per-stage Lambda
+# alarms they configured now live in sst.config.ts, wired to the functions by
+# reference so they can never point at a replaced function. Delete those two
+# lines from your own terraform.tfvars.
 
 # Neon — keep false until the existing project is `terraform import`ed
 manage_neon       = false

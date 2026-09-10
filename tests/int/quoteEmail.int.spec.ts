@@ -120,10 +120,16 @@ describe('email/ses.ts — SES send path', () => {
       __setSesSendForTests(async () => {
         throw new Error('SES exploded')
       })
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      // A failed send is a lost customer enquiry / an undelivered quote, so it
+      // must not only be swallowed — it has to raise an alertable OPS_ALERT line
+      // (src/lib/observability/opsLog.ts), which the CloudWatch metric filter in
+      // sst.config.ts turns into a paging alarm.
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
       const result = await sendEmail(params)
       expect(result).toEqual({ ok: false, reason: 'send_failed' })
-      expect(warn).toHaveBeenCalled()
+      expect(logged).toHaveBeenCalled()
+      expect(String(logged.mock.calls[0][0])).toContain('OPS_ALERT')
+      expect(String(logged.mock.calls[0][0])).toContain('"scope":"email.send"')
     })
   })
 })

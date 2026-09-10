@@ -36,19 +36,20 @@ variable "monthly_budget_limit" {
   default     = "10"
 }
 
-# ── CloudWatch Lambda alarms (opt-in) ───────────────────────────────────────
-# Empty by default so the FIRST apply doesn't reference Lambda functions that may
-# not exist yet (the production stage isn't deployed until a later slice). After
-# an `sst deploy`, set these to the real function names (from the deploy output /
-# Lambda console) to switch the alarms on. See observability.tf.
-variable "web_function_name" {
-  description = "Name of the SST 'Web' (Next/Payload) Lambda to alarm on. Empty = alarm disabled."
-  type        = string
-  default     = ""
+# ── Uptime + edge monitoring (opt-in, us-east-1) ────────────────────────────
+# NOTE: the per-stage Lambda alarms that used to be configured here (via
+# web_function_name / pdf_function_name) moved to sst.config.ts, where they wire
+# to the real functions BY REFERENCE instead of by a hand-copied name that goes
+# silently stale when a function is replaced. Those two variables were removed
+# with them — see observability.tf's header for the full rationale.
+variable "manage_uptime_monitoring" {
+  description = "Whether Terraform provisions the Route 53 health check on https://<domain>/api/health plus its us-east-1 SNS topic and alarms (uptime.tf). Kept FALSE by default: it costs ~$1.00-1.50/month and needs a second SNS email confirmation. Turn it on before the public launch."
+  type        = bool
+  default     = false
 }
 
-variable "pdf_function_name" {
-  description = "Name of the SST 'Pdf' Lambda to alarm on. Empty = alarm disabled."
+variable "cloudfront_distribution_id" {
+  description = "Production CloudFront distribution id, printed by `sst deploy --stage production` as the `cdnDistributionId` output. Enables the CloudFront 5xxErrorRate alarm (us-east-1 only, which is why it cannot live in sst.config.ts). Empty = that one alarm is skipped."
   type        = string
   default     = ""
 }

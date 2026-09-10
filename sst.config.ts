@@ -252,11 +252,149 @@ export default $config({
       value: web.nodes.cdn!.nodes.distribution.id,
     })
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Observability — CloudWatch alarms for THIS stage (Phase 7).
+    //
+    // WHY THESE LIVE HERE AND NOT IN infra/terraform/ (a deliberate correction).
+    // They used to be Terraform resources whose target Lambda names were COPIED
+    // BY HAND into terraform.tfvars after a deploy. That is silently fragile: a
+    // property change that forces Lambda replacement gives the function a new
+    // name suffix, and the alarms then watch a function that no longer exists —
+    // and because they are `treatMissingData: notBreaching`, they sit GREEN
+    // forever while monitoring nothing. Defining them here wires them to the
+    // real resources by reference, so they cannot go stale. It also matches
+    // §10.3's own ownership rule (split by resource LIFETIME): an alarm on a
+    // per-stage Lambda is a per-stage, disposable resource, exactly SST's remit.
+    // The account-level guardrails (the SNS topic itself, AWS Budgets) correctly
+    // stay in Terraform — they must outlive any stage.
+    //
+    // IAM: every resource below is regional in eu-central-1, so the deploy role's
+    // existing `DeploymentsScopedToRegion` allow already covers it — this slice
+    // needs NO deploy-policy change (unlike CloudFront/Route 53 monitoring, whose
+    // metrics only exist in us-east-1 and which therefore stay in Terraform).
+    const opsTopic = aws.sns.getTopicOutput({ name: 'bulbau-lu-ops-alerts' })
+
+    /** Every alarm shares the same delivery + noise policy. */
+    function opsAlarm(
+      logicalName: string,
+      args: {
+        description: string
+        namespace: string
+        metricName: string
+        dimensions?: Record<string, $util.Input<string>>
+      },
+    ) {
+      return new aws.cloudwatch.MetricAlarm(logicalName, {
+        name: `bulbau-lu-${$app.stage}-${logicalName}`,
+        alarmDescription: `[${$app.stage}] ${args.description}`,
+        namespace: args.namespace,
+        metricName: args.metricName,
+        dimensions: args.dimensions,
+        statistic: 'Sum',
+        period: 300,
+        evaluationPeriods: 1,
+        threshold: 1,
+        comparisonOperator: 'GreaterThanOrEqualToThreshold',
+        // These metrics are only PUBLISHED when the event occurs, so "no data"
+        // is the healthy steady state for a low-traffic site — it must not alarm.
+        treatMissingData: 'notBreaching',
+        alarmActions: [opsTopic.arn],
+        okActions: [opsTopic.arn],
+      })
+    }
+
+    const webFunctionName = web.nodes.server!.apply((fn) => fn.name)
+
+    // Unhandled exceptions and timeouts in the Next/Payload server function.
+    opsAlarm('web-lambda-errors', {
+      description: 'Web (Next/Payload) Lambda reported >=1 error in 5 minutes.',
+      namespace: 'AWS/Lambda',
+      metricName: 'Errors',
+      dimensions: { FunctionName: webFunctionName },
+    })
+    // Throttles on the WEB function were previously unmonitored — an omission,
+    // since this is the function that actually faces public traffic and the
+    // account still runs on the DEFAULT concurrency limit of 10 (see
+    // docs/PROGRESS.md → "Upstash + Lambda-quota"). Under a traffic spike this
+    // is the first thing that breaks, and visitors just see errors.
+    opsAlarm('web-lambda-throttles', {
+      description:
+        'Web Lambda was throttled — the account concurrency ceiling is being hit; visitors are seeing failures.',
+      namespace: 'AWS/Lambda',
+      metricName: 'Throttles',
+      dimensions: { FunctionName: webFunctionName },
+    })
+    opsAlarm('pdf-lambda-errors', {
+      description: 'Pdf Lambda reported >=1 error in 5 minutes (Chromium render failure).',
+      namespace: 'AWS/Lambda',
+      metricName: 'Errors',
+      dimensions: { FunctionName: pdf.name },
+    })
+    opsAlarm('pdf-lambda-throttles', {
+      description: 'Pdf Lambda was throttled — approaching the account concurrency ceiling.',
+      namespace: 'AWS/Lambda',
+      metricName: 'Throttles',
+      dimensions: { FunctionName: pdf.name },
+    })
+
+    // ── Application-level failures the Lambda metrics CANNOT see ──────────────
+    // The AWS/Lambda `Errors` metric only counts a handler that THREW. This app
+    // deliberately never throws on a content-layer fault: src/lib/content.ts
+    // returns an empty list when Neon is unreachable, so a database outage
+    // renders the entire public site as blank pages with HTTP 200 — and every
+    // alarm above stays green. Same for a failed contact-form relay (a lost
+    // customer enquiry) and a failed CDN purge (edits never reach visitors).
+    //
+    // Those paths now emit a single-line `OPS_ALERT {...}` marker
+    // (src/lib/observability/opsLog.ts). This metric filter turns that log line
+    // into a real metric, and the alarm pages on it. Cost: one custom metric.
+    // The pattern is a quoted LITERAL, so it matches the marker as a substring
+    // without depending on the JSON structure that follows it.
+    //
+    // Self-healing degradations (a missed CloudFront purge the ISR window will
+    // fix by itself) deliberately use a DIFFERENT marker, `OPS_WARN`, which this
+    // pattern does not match — so they stay greppable in the logs without paging
+    // anyone. That distinction lives in the marker rather than in a `severity`
+    // JSON field precisely because CloudWatch's unstructured filter syntax makes
+    // "literal AND nested-field" patterns an escaping hazard, and a monitoring
+    // rule that is subtly wrong is worse than one that is obviously simple.
+    // tests/int/observability.int.spec.ts asserts both halves of this contract.
+    const webLogGroupName = web.nodes.server!.apply((fn) =>
+      fn.nodes.logGroup.apply((lg) => lg!.name),
+    )
+
+    new aws.cloudwatch.LogMetricFilter('WebAppOpsAlerts', {
+      name: `bulbau-lu-${$app.stage}-ops-alerts`,
+      logGroupName: webLogGroupName,
+      pattern: '"OPS_ALERT"',
+      metricTransformation: {
+        name: 'AppOpsAlerts',
+        namespace: `BulbauLu/${$app.stage}`,
+        value: '1',
+        // Publish an explicit 0 when nothing matched, so the metric exists from
+        // the first log flush and the alarm reaches OK instead of INSUFFICIENT_DATA.
+        defaultValue: '0',
+        unit: 'Count',
+      },
+    })
+
+    opsAlarm('app-ops-alerts', {
+      description:
+        'The application logged an OPS_ALERT — a silent degradation the AWS/Lambda metrics cannot see (content read failed / email send failed / CDN purge failed). Check the Web function logs for the `scope` field.',
+      namespace: `BulbauLu/${$app.stage}`,
+      metricName: 'AppOpsAlerts',
+    })
+
     return {
       url: web.url,
       mediaBucket: media.name,
       pdfFunction: pdf.name,
       cdnDistributionIdParam,
+      // Printed by `sst deploy` — the value infra/terraform's optional CloudFront
+      // 5xx alarm needs (var.cloudfront_distribution_id). CloudFront metrics live
+      // ONLY in us-east-1, which this stage's deploy role cannot write to, so that
+      // one alarm stays in the Terraform layer. See infra/terraform/uptime.tf.
+      cdnDistributionId: web.nodes.cdn!.nodes.distribution.id,
     }
   },
 })

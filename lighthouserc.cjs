@@ -39,6 +39,9 @@ module.exports = {
         'http://localhost:3000/en',
         'http://localhost:3000/en/projects',
         'http://localhost:3000/en/about',
+        // The contact page (Phase 6): a form template with its own metadata and
+        // its own smallest-text risk, previously audited by neither gate.
+        'http://localhost:3000/en/contact',
         'http://localhost:3000/en/services/ci-sample-service',
         'http://localhost:3000/fr',
       ],

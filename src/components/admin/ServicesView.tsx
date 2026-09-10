@@ -94,7 +94,15 @@ export default async function ServicesView(props: AdminViewServerProps) {
     })) as Record<string, unknown>
     if (typeof settings?.serviceCardLimit === 'number') limit = settings.serviceCardLimit
   } catch {
-    /* global may not exist yet on first boot before migration/push — default 0 (all) */
+    // The home-settings singleton may not exist yet on a first boot (before the
+    // migration/push has run), so fall back to 0 = show all.
+    //
+    // NB: keep this a `//` comment. Written as a block comment starting with the
+    // word "global", ESLint parses it as a `/* global ... */` CONFIGURATION
+    // directive and declares every word in it as a global variable — which is
+    // exactly what happened here, producing 13 phantom `no-unused-vars` warnings
+    // ('may', 'not', 'exist', …) that looked like noise from the linter rather
+    // than a comment defect.
   }
 
   return (
