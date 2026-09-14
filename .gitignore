@@ -15,7 +15,8 @@ next-env.d.ts
 .terraform/
 *.tfstate
 *.tfstate.*
-.terraform.lock.hcl
+# .terraform.lock.hcl is deliberately COMMITTED (HashiCorp guidance: review provider
+# upgrades like code). infra/terraform/.gitignore keeps the rest of the Terraform noise out.
 
 # Build output
 dist/

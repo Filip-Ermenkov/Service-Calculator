@@ -2,6 +2,7 @@ import { getPayload, type Payload } from 'payload'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import config from '@/payload.config'
+import { serializeJsonLd } from '@/components/site/JsonLd'
 import { getProjects, getServiceBySlug, getServices, mediaProps } from '@/lib/content'
 import { lexicalToPlainText } from '@/lib/lexical'
 import { filterProjects, projectCategories, type ProjectCard } from '@/lib/projects'
@@ -98,6 +99,22 @@ describe('SEO alternates/metadata (src/lib/seo.ts)', () => {
     expect(meta.title).toBe('Über uns')
     expect((meta.alternates?.canonical as string)).toBe('/de/about')
     expect(meta.openGraph).toMatchObject({ title: 'Über uns', locale: 'de', siteName: 'Bulbau' })
+  })
+})
+
+describe('serializeJsonLd (src/components/site/JsonLd.tsx)', () => {
+  it('never emits a literal "<", so a value can’t close the inline <script>', () => {
+    const out = serializeJsonLd({
+      '@type': 'Service',
+      name: 'Roofing</script><script>alert(1)</script>',
+    })
+    expect(out).not.toContain('<')
+    expect(out).toContain('\\u003c/script')
+  })
+
+  it('stays valid JSON that decodes back to the original value', () => {
+    const data = { name: 'A <b> & "c"', nested: { url: 'https://x.test/?a=1<2' } }
+    expect(JSON.parse(serializeJsonLd(data))).toEqual(data)
   })
 })
 

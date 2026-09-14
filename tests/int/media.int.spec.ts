@@ -1,3 +1,15 @@
+/**
+ * @vitest-environment node
+ *
+ * Runs in the `node` environment rather than the suite-default `jsdom`, for the
+ * same reason as tests/int/rest.int.spec.ts. Since src/collections/Media.ts
+ * restricts `upload.mimeTypes`, Payload sniffs every upload's real bytes with
+ * `file-type` (checkFileRestrictions.js) — and under Vitest's jsdom setup the
+ * global `Uint8Array` is jsdom's copy, so a Node `Buffer` fails file-type's
+ * `instanceof` check and Payload rejects EVERY file with "Could not read uploaded
+ * file for type detection", valid PNGs included. These are server-side Local-API
+ * tests with no DOM; `node` is the correct environment.
+ */
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getPayload, Payload } from 'payload'
 import config from '@/payload.config'
@@ -129,5 +141,20 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
     // a Media doc whose S3 object no longer exists is exactly the failure
     // mode this test would catch.
     await expect(objectExists(filename)).resolves.toBe(false)
+  })
+
+  it('rejects a non-image upload (SVG can carry <script>; served same-origin it is stored XSS)', async () => {
+    // src/collections/Media.ts restricts `upload.mimeTypes` to raster images.
+    // Payload validates the mime type server-side on create, so the rejected
+    // file must never reach S3 either.
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>')
+    await expect(
+      payload.create({
+        collection: 'media',
+        data: { alt: 'Should be rejected' },
+        file: { data: svg, mimetype: 'image/svg+xml', name: 'media-int-test-reject.svg', size: svg.length },
+      }),
+    ).rejects.toThrow()
+    await expect(objectExists('media-int-test-reject.svg')).resolves.toBe(false)
   })
 })

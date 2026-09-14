@@ -17,7 +17,7 @@ import { TranslationManager } from './TranslationManager'
 /**
  * Translation Management — a custom admin Root View at /admin/translations
  * (FUNCTIONALITY.md §5.7, Phase 5 part 2). Registered in payload.config.ts under
- * admin.components.views; linked from the nav by TranslationsNavLink.tsx.
+ * admin.components.views; linked from the custom sidebar (AdminNav.tsx).
  *
  * It is a single cross-collection place to REVIEW every translatable string with
  * its EN source and the current FR/DE values side by side, edit a translation

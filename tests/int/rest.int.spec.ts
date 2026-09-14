@@ -247,4 +247,47 @@ describe('Public REST boundary — real route handler (src/app/(payload)/api)', 
       expect(status).toBe(200)
     })
   })
+
+  // ── POST /api/users/logout — expires the 2FA step-up cookie too ───────────
+  //
+  // Payload's logout only expires its own `payload-token`. The step-up cookie is
+  // an independent token, and until 2026-09-13 it survived logout: log out, log
+  // back in with just the password on the same browser within the ~2h TTL, and
+  // the TOTP prompt was skipped once. `clearStepUpCookieAfterLogout`
+  // (src/collections/Users.ts) closes that through Payload's `afterLogout` hook +
+  // `req.responseHeaders`, which the endpoint router merges into the response.
+  // This drives the REAL logout route handler and inspects the Set-Cookie headers
+  // it actually emits — the only place the fix is observable.
+  describe('POST /api/users/logout also expires the step-up cookie', () => {
+    it('emits an expired bulbau-totp-verified cookie alongside the expired payload-token', async () => {
+      // A fresh session of its own, so logging it out cannot disturb the shared
+      // verifiedCookie the other cases rely on.
+      const { token } = await payload.login({
+        collection: 'users',
+        data: { email: adminEmail, password: PASSWORD },
+      })
+      const cookie = `${AUTH_COOKIE}=${token}; ${STEPUP_COOKIE}=${signStepUpToken(String(adminId))}`
+
+      const headers = new Headers({ 'content-type': 'application/json', cookie })
+      const res = await postHandler(
+        new Request('http://localhost:3000/api/users/logout', { method: 'POST', headers }),
+        { params: Promise.resolve({ slug: ['users', 'logout'] }) },
+      )
+      expect(res.status).toBe(200)
+
+      const setCookies = res.headers.getSetCookie()
+      const payloadCookie = setCookies.find((c) => c.startsWith(`${AUTH_COOKIE}=`))
+      const stepUpCookie = setCookies.find((c) => c.startsWith(`${STEPUP_COOKIE}=`))
+
+      // Payload's own behaviour is unchanged…
+      expect(payloadCookie).toBeDefined()
+      // …and ours rides the same response: an EMPTY value with Max-Age=0 (i.e.
+      // "delete this cookie"), HttpOnly, on the same Path the live cookie uses.
+      expect(stepUpCookie).toBeDefined()
+      expect(stepUpCookie).toMatch(new RegExp(`^${STEPUP_COOKIE}=;`))
+      expect(stepUpCookie).toMatch(/Max-Age=0/)
+      expect(stepUpCookie).toMatch(/HttpOnly/)
+      expect(stepUpCookie).toMatch(/Path=\//)
+    })
+  })
 })

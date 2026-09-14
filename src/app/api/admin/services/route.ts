@@ -21,6 +21,7 @@ import { NextResponse } from 'next/server'
 import { generateNKeysBetween } from 'payload/shared'
 
 import { getPayloadClient } from '@/lib/content'
+import { revalidatePublicSiteNow } from '@/lib/revalidate'
 import { isStepUpVerified } from '@/lib/totp/requestHelpers'
 
 export const dynamic = 'force-dynamic'
@@ -96,9 +97,16 @@ export async function POST(request: Request): Promise<Response> {
           data,
           draft: status === 'draft',
           overrideAccess: true,
-          context: { skipAutoTranslate: true },
+          // Suppress BOTH per-document afterChange side effects here: nothing
+          // translatable changed (order only), and revalidating inside the loop
+          // would fire one ISR revalidation + one CloudFront `/*` invalidation
+          // PER SERVICE for a single drag — N invalidations for one edit, all
+          // but the last redundant. The one revalidation happens below instead.
+          context: { skipAutoTranslate: true, disableRevalidate: true },
         })
       }
+      // Exactly one revalidation + CDN purge for the whole reorder. Never throws.
+      await revalidatePublicSiteNow('services reorder')
       return NextResponse.json({ ok: true })
     }
 

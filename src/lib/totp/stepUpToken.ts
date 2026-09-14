@@ -86,23 +86,18 @@ export const STEP_UP_COOKIE_NAME = 'bulbau-totp-verified'
 export const STEP_UP_COOKIE_MAX_AGE_SECONDS = TOKEN_TTL_SECONDS
 
 /**
- * Known, accepted trade-off worth a fresh session/reviewer knowing about:
- * Payload's own /admin/logout view clears its own session cookie but has no
- * extension point this feature hooks into to also clear THIS cookie (it's a
- * Link to a built-in Route, not a call this code intercepts). So: log out,
- * then log back in with just the password, on the SAME browser, within the
- * ~2h step-up TTL -> the stale-but-still-valid step-up cookie is still
- * accepted, skipping the TOTP prompt for that one re-login.
+ * Lifecycle note. This cookie is issued by /api/users/totp/verify and /enable,
+ * and EXPIRED by two paths: /api/users/totp/disable (below, explicitly) and
+ * Payload's own logout — via the `afterLogout` hook on the Users collection
+ * (src/collections/Users.ts, `clearStepUpCookieAfterLogout`), which appends the
+ * expired cookie to `req.responseHeaders` so it rides the same response that
+ * expires `payload-token`.
  *
- * This does not weaken the feature's actual guarantee (a different device/
- * browser/session always requires the full password+TOTP flow — that's the
- * threat model this exists for), but it is a real, narrower gap: anyone who
- * both knows the password AND has access to the same already-logged-out
- * browser within that window skips the second factor once. Closing it
- * requires either overriding Payload's built-in Logout view/route (real
- * risk of subtly breaking its default behavior for a single-admin site
- * where the practical exposure is already narrow) or shortening the step-up
- * TTL well below Payload's own session length (blunt, and just narrows the
- * window rather than closing it). Deferred rather than done half-confidently
- * — revisit if this ever stops being a single-admin site.
+ * History, so nobody re-opens it: until 2026-09-13 logout did NOT clear this
+ * cookie (recorded as an accepted trade-off — "Payload's logout view has no
+ * extension point"). That was wrong: Payload's REST logout runs `afterLogout`
+ * hooks and merges `req.responseHeaders` into the response. Consequence of the
+ * old gap: log out, log back in with only the password on the SAME browser
+ * within the ~2h TTL → the still-valid step-up cookie skipped the TOTP prompt
+ * once. Closed by the hook; pinned by tests/int/rest.int.spec.ts.
  */

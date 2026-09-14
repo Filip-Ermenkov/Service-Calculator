@@ -136,8 +136,16 @@ export async function checkRateLimit(
  *     viewer, so we take the LAST entry as the more trustworthy one here.
  *  3. `x-real-ip`, then a constant fallback bucket so an IP-less request is
  *     still rate-limited (fail-safe, never fail-open).
+ *
+ * Verified empirically against the production CloudFront distribution
+ * (2026-09-13): a viewer-supplied `CloudFront-Viewer-Address` or `X-Real-IP` is
+ * STRIPPED by CloudFront, and a viewer-supplied `X-Forwarded-For` has the true
+ * TCP-source IP appended as the LAST hop — so none of the three can be used to
+ * rotate out of a bucket. Accepts anything with a `headers` map (a Fetch
+ * `Request` or a Payload `PayloadRequest`), so the TOTP endpoints and the public
+ * routes share one IP definition.
  */
-export function getClientIp(request: Request): string {
+export function getClientIp(request: { headers: Headers }): string {
   const viewer = request.headers.get('cloudfront-viewer-address')
   if (viewer) {
     // Strip the trailing ":port". IPv6 is bracketed ("[2001:db8::1]:443").

@@ -7,7 +7,7 @@ import { isStepUpVerified } from '@/lib/totp/requestHelpers'
  * completed TOTP second factor, not just Payload's own password session.
  *
  * This is the actual security boundary for the 2FA feature — the
- * /totp-verify admin view and the beforeDashboard redirect (see
+ * /totp-verify admin view and the custom Dashboard view's own redirect (see
  * src/app/(payload)/admin/...) exist for UX, but access control here is
  * what makes bypassing the UI (e.g. calling the REST/GraphQL API directly)
  * pointless without also passing TOTP.

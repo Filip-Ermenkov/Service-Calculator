@@ -38,14 +38,16 @@ updates:
     directory: /
     schedule:
       interval: weekly
-  # Tracks the pinned image tag in docker-compose.yml (adobe/s3mock:5.1.0).
-  # Does NOT cover the postgres:17-alpine or adobe/s3mock image tags pinned
-  # inside .github/workflows/ci.yml's `services:` block — Dependabot's docker
-  # ecosystem doesn't parse GitHub Actions workflow files, only
-  # Dockerfile/docker-compose.yml. Those two stay a manual, periodic-review
-  # item (see docs/PROGRESS.md) — same pre-existing gap postgres:17-alpine
-  # already had before this file existed.
-  - package-ecosystem: docker
+  # Tracks the image tags pinned in docker-compose.yml (postgres:17-alpine,
+  # adobe/s3mock:5.1.0). This is the `docker-compose` ecosystem on purpose: the
+  # `docker` ecosystem parses Dockerfiles ONLY, so until 2026-09-13 this entry
+  # was tracking a stock, non-building Dockerfile template (since removed — the
+  # app deploys to Lambda via OpenNext, not a container) while the compose file
+  # it claimed to cover was never checked. It still does NOT cover the two image
+  # tags pinned inside .github/workflows/ci.yml's `services:` block — Dependabot
+  # doesn't parse workflow files for images — so those stay a manual,
+  # periodic-review item: keep them identical to docker-compose.yml.
+  - package-ecosystem: docker-compose
     directory: /
     schedule:
       interval: weekly

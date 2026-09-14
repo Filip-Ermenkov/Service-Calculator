@@ -3,6 +3,7 @@ import type { Endpoint } from 'payload'
 import { decryptTotpSecret, encryptTotpSecret } from '@/lib/totp/crypto'
 import { buildOtpAuthUri, generateTotpSecret, verifyTotpToken } from '@/lib/totp/otp'
 import { generateQrCodeDataUrl } from '@/lib/totp/qr'
+import { getClientIp } from '@/lib/rateLimit'
 import { checkTotpRateLimit } from '@/lib/totp/rateLimit'
 import {
   buildStepUpClearCookie,
@@ -23,12 +24,6 @@ import {
  * — these endpoints are the one exception, and each one reasons explicitly
  * about which factor(s) it requires before acting.
  */
-
-function clientIp(headers: Headers): string {
-  const forwarded = headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0]!.trim()
-  return 'unknown'
-}
 
 function jsonError(message: string, status: number): Response {
   return Response.json({ error: message }, { status })
@@ -125,8 +120,17 @@ export const totpVerifyEndpoint: Endpoint = {
     if (!req.user) return jsonError('Not authenticated', 401)
     if (!req.user.totpEnabled) return jsonError('2FA is not enabled for this account', 409)
 
+    // Per-user AND per-IP budgets. The IP is resolved with the shared, CloudFront-
+    // aware helper (last X-Forwarded-For hop = the address CloudFront itself
+    // appended from the TCP connection), NOT the first hop: the first hop is
+    // whatever the client chose to send, so keying on it let an attacker rotate
+    // the per-IP budget away by changing a header. Verified against production
+    // on 2026-09-13 — CloudFront strips viewer-supplied CloudFront-Viewer-Address
+    // and X-Real-IP and appends the true viewer IP last. (The per-user budget was
+    // never bypassable; this closes the defence-in-depth gap, keeping the two
+    // public rate-limited routes and this one on one IP definition.)
     const userKey = `totp-verify:${req.user.id}`
-    const ipKey = `totp-verify-ip:${clientIp(req.headers)}`
+    const ipKey = `totp-verify-ip:${getClientIp(req)}`
     const [userLimit, ipLimit] = await Promise.all([
       checkTotpRateLimit(userKey),
       checkTotpRateLimit(ipKey),

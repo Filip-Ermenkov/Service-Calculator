@@ -283,13 +283,33 @@ jobs:
       #   • PAYLOAD_SECRET only has to be non-empty here: `payload migrate` does
       #     DDL, not token signing. It intentionally does not reuse the app's real
       #     secret (kept as the single-source SST secret), avoiding secret sprawl.
+      #
+      # FAIL-CLOSED WRAPPING (added 2026-09-13 after this step was found to have been
+      # a SILENT NO-OP on staging since 2026-08-01 — see scripts/verify-migrations.mjs):
+      # `payload migrate` is interactive. If the target database carries a dev-push
+      # marker (it was ever used in Payload's push/dev mode), it asks "data loss will
+      # occur, proceed? (y/N)", sits on that prompt (~5 minutes on this runner, even
+      # with stdin closed), then calls process.exit(0) — the step PASSES having
+      # applied nothing. Verified in the installed @payloadcms/drizzle source and in
+      # this workflow's own logs. So the step is now three commands, each fail-closed:
+      #   1. migrate:verify --pre   refuses a database with the dev-push marker, with
+      #                             the exact remediation (a ledger baseline), BEFORE
+      #                             Payload can reach its prompt.
+      #   2. timeout … migrate      the apply itself, with stdin closed and a hard
+      #                             ceiling so a prompt/hang can only ever FAIL the
+      #                             job (exit 124), never pass it. Real migrations
+      #                             here take well under a minute.
+      #   3. migrate:verify         post-condition: every committed migration file is
+      #                             recorded as applied in payload_migrations.
       - name: Run database migrations (staging)
         run: |
           if [ -z "$DATABASE_URL" ]; then
             echo "::error title=Staging DB URL missing::STAGING_DATABASE_URL_UNPOOLED is not set on the 'staging' GitHub Environment. Set it to the staging Neon branch's DIRECT (unpooled, no '-pooler' in the host) connection string, then re-run. One-time cutover runbook: docs/PROGRESS.md → 'Immediate next steps'. (An empty URL makes pg fall back to localhost:5432 — the ECONNREFUSED you may have just seen.)"
             exit 1
           fi
-          npm run migrate
+          npm run migrate:verify -- --pre
+          timeout 600s npm run migrate </dev/null
+          npm run migrate:verify
         env:
           NODE_ENV: production
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_UNPOOLED }}
@@ -356,13 +376,17 @@ jobs:
       #   • NODE_ENV=production forces Drizzle `push` OFF so ONLY migrations touch
       #     the schema (production must be migrations-only — never push).
       #   • PAYLOAD_SECRET only has to be non-empty here (DDL, not token signing).
+      #   • Same fail-closed wrapping as the staging step (pre-flight → bounded
+      #     apply → post-verification) — see the comment there.
       - name: Run database migrations (production)
         run: |
           if [ -z "$DATABASE_URL" ]; then
             echo "::error title=Production DB URL missing::PRODUCTION_DATABASE_URL_UNPOOLED is not set on the 'production' GitHub Environment. Set it to the production Neon branch's DIRECT (unpooled, no '-pooler' in the host) connection string, then re-run. (An empty URL makes pg fall back to localhost:5432 — the ECONNREFUSED you may have just seen.)"
             exit 1
           fi
-          npm run migrate
+          npm run migrate:verify -- --pre
+          timeout 600s npm run migrate </dev/null
+          npm run migrate:verify
         env:
           NODE_ENV: production
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_UNPOOLED }}

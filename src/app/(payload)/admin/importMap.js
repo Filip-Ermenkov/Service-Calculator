@@ -41,8 +41,6 @@ import { default as default_d0588eb7948ddcaab14f9f6ea2cd1dd7 } from '../../../co
 import { default as default_9bb8ea9971948830b3de812baaa56aec } from '../../../components/admin/BrandLogo'
 import { default as default_7006369d46333af165d19f6b340651f3 } from '../../../components/admin/ViewWebsiteAction'
 import { default as default_ad58a1585bcee035a66e94d6c1df4536 } from '../../../components/admin/BackToWebsite'
-import { default as default_ee569fec296445907bee2bc58d8e42b3 } from '../../../components/admin/TranslationsNavLink'
-import { default as default_2f55f09909699b450c22ddeafa847938 } from '../../../components/admin/BeforeDashboardTotpGate'
 import { default as default_7b77c0a8bf5649eadd846d28c5d927eb } from '../../../components/admin/LoginIntro'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { default as default_d5206ed16da09b4b168746139c60fd4a } from '../../../components/admin/DashboardView'
@@ -97,8 +95,6 @@ export const importMap = {
   "/components/admin/BrandLogo#default": default_9bb8ea9971948830b3de812baaa56aec,
   "/components/admin/ViewWebsiteAction#default": default_7006369d46333af165d19f6b340651f3,
   "/components/admin/BackToWebsite#default": default_ad58a1585bcee035a66e94d6c1df4536,
-  "/components/admin/TranslationsNavLink#default": default_ee569fec296445907bee2bc58d8e42b3,
-  "/components/admin/BeforeDashboardTotpGate#default": default_2f55f09909699b450c22ddeafa847938,
   "/components/admin/LoginIntro#default": default_7b77c0a8bf5649eadd846d28c5d927eb,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "/components/admin/DashboardView#default": default_d5206ed16da09b4b168746139c60fd4a,

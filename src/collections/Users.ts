@@ -1,6 +1,7 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionAfterLogoutHook, CollectionConfig } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
+import { buildStepUpClearCookie } from '@/lib/totp/requestHelpers'
 
 import {
   totpDisableEndpoint,
@@ -9,6 +10,28 @@ import {
   totpStatusEndpoint,
   totpVerifyEndpoint,
 } from './Users.endpoints'
+
+/**
+ * Clears the 2FA step-up cookie when the admin logs out.
+ *
+ * Payload's own logout only expires ITS session cookie (`payload-token`). The
+ * step-up cookie (src/lib/totp/stepUpToken.ts) is a second, independent token,
+ * so until now it survived logout: log out, then log back in with only the
+ * password on the SAME browser within its ~2h TTL, and the still-valid step-up
+ * cookie skipped the TOTP prompt for that one re-login. That was recorded as an
+ * accepted trade-off because Payload's logout view offered no hook to attach to.
+ *
+ * It does: `afterLogout` runs inside the REST logout operation, and anything
+ * appended to `req.responseHeaders` is merged into the final response by
+ * Payload's endpoint router (verified in the installed payload@3.89 source:
+ * `utilities/handleEndpoints.js` → `mergeHeaders(req.responseHeaders, …)`).
+ * Appending the expired step-up cookie here therefore rides the same response
+ * that expires `payload-token` — a full logout in one round-trip, no custom view.
+ */
+export const clearStepUpCookieAfterLogout: CollectionAfterLogoutHook = ({ req }) => {
+  req.responseHeaders ??= new Headers()
+  req.responseHeaders.append('Set-Cookie', buildStepUpClearCookie())
+}
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -35,6 +58,10 @@ export const Users: CollectionConfig = {
     totpDisableEndpoint,
     totpStatusEndpoint,
   ],
+  hooks: {
+    // Expire the 2FA step-up cookie alongside Payload's own session cookie.
+    afterLogout: [clearStepUpCookieAfterLogout],
+  },
   access: {
     // Payload's own default (`Boolean(user)`, i.e. any logged-in user) is
     // made explicit here specifically so it can be wrapped: `() => true`

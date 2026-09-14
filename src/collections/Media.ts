@@ -21,5 +21,13 @@ export const Media: CollectionConfig = {
       required: true,
     },
   ],
-  upload: true,
+  upload: {
+    // Only raster web images. Every upload here is a photo for a card, hero,
+    // project or job listing (the admin copy says "PNG or JPG"), so nothing
+    // legitimate is lost — and it closes the classic stored-XSS vector: an SVG
+    // (which can carry <script>) or an HTML/PDF file uploaded by a compromised
+    // admin session would otherwise be served back from the same origin via
+    // /api/media/file/<name>. Validated server-side by Payload on create/update.
+    mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  },
 }

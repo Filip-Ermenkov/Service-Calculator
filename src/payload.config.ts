@@ -46,21 +46,18 @@ export default buildConfig({
       // Replace Payload's default sidebar with the project's own bespoke admin
       // sidebar (grouped sections + logo header + user footer), matching
       // /prototype/admin. Rendered inside DefaultTemplate on every admin page.
+      // NB: because this REPLACES Payload's <Nav>, the `afterNavLinks` slot (which
+      // only the default Nav renders) is dead here — the Translations link lives
+      // directly in AdminNav.tsx instead. Likewise `beforeDashboard` only renders
+      // inside Payload's default Dashboard view, which the custom `dashboard`
+      // view below replaces; DashboardView.tsx applies the TOTP gate itself.
+      // Both slots were registered here until 2026-09-13 and never rendered.
       Nav: '/components/admin/AdminNav',
-      // Additive slot (renders before the default Dashboard contents, does
-      // not replace them) — the redirect gate for "logged in but hasn't
-      // completed TOTP yet". See BeforeDashboardTotpGate.tsx for why this
-      // slot specifically, and src/access/requireTotpVerified.ts for the
-      // actual enforcement (this component is UX, not the security boundary).
-      beforeDashboard: ['/components/admin/BeforeDashboardTotpGate'],
-      // Adds a "Translations" link to the admin nav that opens the custom
-      // Translation Management Root View below (Phase 5 part 2, §5.7).
-      afterNavLinks: ['/components/admin/TranslationsNavLink'],
       views: {
         // Custom Dashboard — OVERRIDES Payload's default `/admin` landing view
         // with the bespoke industrial dashboard (KPI cards + quick actions).
-        // See DashboardView.tsx: it re-applies the TOTP gate itself, since the
-        // `beforeDashboard` slot above doesn't render on a replaced view.
+        // See DashboardView.tsx: it re-applies the TOTP gate itself (the
+        // `beforeDashboard` slot does not render on a replaced view).
         dashboard: {
           Component: '/components/admin/DashboardView',
         },
