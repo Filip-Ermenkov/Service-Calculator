@@ -44,10 +44,19 @@ export interface EmailAttachment {
 
 /** A fully-resolved message (subject/body already in the recipient's language). */
 export interface SendEmailParams {
-  to: string
+  /** One recipient, or several (each receives the same message). */
+  to: string | string[]
   subject: string
   html: string
   text: string
+  /**
+   * Optional From override in RFC 5322 mailbox form — `"Bulbau" <info@bulbau.lu>`.
+   * The ADDRESS part must still be the verified `EMAIL_SENDER` identity (SES
+   * rejects anything else); this only adds the display name. Used by the Payload
+   * email adapter (src/lib/email/payloadEmailAdapter.ts); the quote/contact paths
+   * leave it unset and send from the bare `EMAIL_SENDER`.
+   */
+  from?: string | null
   /** Reply-To (typically the company's public inbox). Omitted when null. */
   replyTo?: string | null
   attachment?: EmailAttachment
@@ -132,8 +141,8 @@ export async function sendEmail(params: SendEmailParams): Promise<SendResult> {
     } else {
       await getClient().send(
         new SendEmailCommand({
-          FromEmailAddress: sender,
-          Destination: { ToAddresses: [params.to] },
+          FromEmailAddress: params.from?.trim() || sender,
+          Destination: { ToAddresses: Array.isArray(params.to) ? params.to : [params.to] },
           ReplyToAddresses: params.replyTo ? [params.replyTo] : undefined,
           Content: {
             Simple: {

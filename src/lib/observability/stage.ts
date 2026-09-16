@@ -14,24 +14,35 @@
 
 let cached: string | undefined
 
-/** Never throws; falls back to `NODE_ENV`, then `'unknown'`. */
-export function getDeployStage(): string {
-  if (cached !== undefined) return cached
-
-  const resourceApp = process.env.SST_RESOURCE_App
+/**
+ * The SST stage name ONLY when SST itself declared it (`SST_RESOURCE_App`, or
+ * `SST_STAGE` under `sst dev`) — `null` anywhere else, including a CI `next build`
+ * / `next start` that happens to run with NODE_ENV=production. Pure, never throws.
+ *
+ * Use this — not `getDeployStage()` — for any decision that must be TRUE only on
+ * a real deployed stage (e.g. "fall back to the production domain"): the latter
+ * deliberately falls back to NODE_ENV, which reads 'production' on the CI runner.
+ */
+export function readSstStage(
+  env: { SST_RESOURCE_App?: string; SST_STAGE?: string } = process.env as Record<string, string | undefined>,
+): string | null {
+  const resourceApp = env.SST_RESOURCE_App
   if (resourceApp) {
     try {
       const parsed = JSON.parse(resourceApp) as { stage?: unknown }
-      if (typeof parsed.stage === 'string' && parsed.stage.length > 0) {
-        cached = parsed.stage
-        return cached
-      }
+      if (typeof parsed.stage === 'string' && parsed.stage.length > 0) return parsed.stage
     } catch {
-      // Malformed/absent — fall through to the env fallbacks below.
+      // Malformed — fall through to SST_STAGE.
     }
   }
+  const stage = env.SST_STAGE?.trim()
+  return stage ? stage : null
+}
 
-  cached = process.env.SST_STAGE || process.env.NODE_ENV || 'unknown'
+/** Never throws; falls back to `NODE_ENV`, then `'unknown'`. */
+export function getDeployStage(): string {
+  if (cached !== undefined) return cached
+  cached = readSstStage() ?? (process.env.NODE_ENV || 'unknown')
   return cached
 }
 

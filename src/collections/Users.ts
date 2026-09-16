@@ -1,6 +1,13 @@
-import type { CollectionAfterLogoutHook, CollectionConfig } from 'payload'
+import type {
+  CollectionAfterLogoutHook,
+  CollectionBeforeOperationHook,
+  CollectionConfig,
+} from 'payload'
+import { APIError } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
+import { renderResetPasswordEmail, resetPasswordSubject } from '@/lib/email/resetPasswordEmail'
+import { checkRateLimit, getClientIp, type RateLimitPolicy } from '@/lib/rateLimit'
 import { buildStepUpClearCookie } from '@/lib/totp/requestHelpers'
 
 import {
@@ -33,6 +40,51 @@ export const clearStepUpCookieAfterLogout: CollectionAfterLogoutHook = ({ req })
   req.responseHeaders.append('Set-Cookie', buildStepUpClearCookie())
 }
 
+/** Display name on Payload's own emails (the admin password reset). */
+const COMPANY_NAME = 'Bulbau'
+
+/** How long a password-reset link stays valid (FUNCTIONALITY §5.1: "e.g. one hour"). */
+export const RESET_PASSWORD_EXPIRATION_MS = 60 * 60 * 1000
+
+/**
+ * Budget for `POST /api/users/forgot-password`. It is unauthenticated and every
+ * accepted call writes a reset token AND triggers an outbound SES email to the
+ * account holder — so without a cap it is both a mail-bombing vector against the
+ * one admin and a way to run up sending cost (OWASP Forgot Password Cheat Sheet:
+ * "rate-limit reset requests"). 5 per 15 minutes is far above any honest use.
+ * Applied per client IP AND per requested address, both via the shared limiter
+ * (Upstash on deployed stages, in-memory locally/CI), before the account lookup —
+ * so a limited caller learns nothing about whether the address exists.
+ */
+export const FORGOT_PASSWORD_RATE_LIMIT: RateLimitPolicy = {
+  prefix: 'bulbau-forgot',
+  max: 5,
+  windowSeconds: 15 * 60,
+}
+
+/** Rate-limits the forgot-password operation; a no-op for every other operation. */
+export const rateLimitForgotPassword: CollectionBeforeOperationHook = async ({
+  args,
+  operation,
+  req,
+}) => {
+  if (operation !== 'forgotPassword') return args
+  const email =
+    typeof (args as { data?: { email?: unknown } }).data?.email === 'string'
+      ? ((args as { data: { email: string } }).data.email.trim().toLowerCase())
+      : ''
+  const [byIp, byEmail] = await Promise.all([
+    checkRateLimit(FORGOT_PASSWORD_RATE_LIMIT, `ip:${getClientIp(req)}`),
+    email
+      ? checkRateLimit(FORGOT_PASSWORD_RATE_LIMIT, `email:${email}`)
+      : Promise.resolve({ success: true, remaining: 0 }),
+  ])
+  if (!byIp.success || !byEmail.success) {
+    throw new APIError('Too many password reset requests. Please wait a while and try again.', 429)
+  }
+  return args
+}
+
 export const Users: CollectionConfig = {
   slug: 'users',
   admin: {
@@ -50,6 +102,32 @@ export const Users: CollectionConfig = {
     // the one person who can use this panel).
     maxLoginAttempts: 5,
     lockTime: 10 * 60 * 1000,
+    // "Forgot your password?" (FUNCTIONALITY §5.1). Payload's default email is a
+    // bare line of text with a link built from `serverURL` — which this app now
+    // sets (see payload.config.ts / src/lib/serverUrl.ts); without it the link
+    // was relative. The branded template lives in src/lib/email/resetPasswordEmail.ts
+    // and is delivered by the SES adapter registered in payload.config.ts.
+    forgotPassword: {
+      expiration: RESET_PASSWORD_EXPIRATION_MS,
+      generateEmailSubject: () => resetPasswordSubject(COMPANY_NAME),
+      generateEmailHTML: (args) => {
+        const { req, token } = args ?? {}
+        // Build the link from the CONFIGURED origin only — never from the request's
+        // Host header (host-header injection would redirect the admin's reset token
+        // to an attacker's domain). An empty serverURL (a deployed stage without
+        // SiteUrl) yields a relative link, which payload.config.ts already warns about.
+        const cfg = req?.payload.config
+        const origin = cfg?.serverURL ?? ''
+        const adminRoute = cfg?.routes.admin ?? '/admin'
+        const resetRoute = cfg?.admin.routes.reset ?? '/reset'
+        const resetUrl = `${origin}${adminRoute}${resetRoute}/${token ?? ''}`
+        return renderResetPasswordEmail({
+          resetUrl,
+          expiresInMinutes: RESET_PASSWORD_EXPIRATION_MS / 60_000,
+          companyName: COMPANY_NAME,
+        }).html
+      },
+    },
   },
   endpoints: [
     totpSetupEndpoint,
@@ -59,6 +137,8 @@ export const Users: CollectionConfig = {
     totpStatusEndpoint,
   ],
   hooks: {
+    // Cap the unauthenticated forgot-password endpoint (see rateLimitForgotPassword).
+    beforeOperation: [rateLimitForgotPassword],
     // Expire the 2FA step-up cookie alongside Payload's own session cookie.
     afterLogout: [clearStepUpCookieAfterLogout],
   },

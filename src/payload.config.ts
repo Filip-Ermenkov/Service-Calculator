@@ -14,6 +14,8 @@ import { CompanyInfo } from './globals/CompanyInfo'
 import { LegalInfo } from './globals/LegalInfo'
 import { HomeSettings } from './globals/HomeSettings'
 import { ALLOW_REMOTE_PUSH_ENV, remotePushProblem } from './lib/dbGuard'
+import { payloadEmailAdapter } from './lib/email/payloadEmailAdapter'
+import { isDeployedWithoutServerUrl, resolveServerUrl } from './lib/serverUrl'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -30,7 +32,29 @@ const pushProblem = remotePushProblem({
 })
 if (pushProblem) throw new Error(pushProblem)
 
+// The one absolute origin Payload may put in emails (the admin password-reset
+// link) and — because Payload's sanitizer copies `serverURL` onto `csrf` — the
+// one `Origin` it accepts cookie-authenticated requests from. Resolved from the
+// stage's NEXT_PUBLIC_SITE_URL (the SST `SiteUrl` secret), else the production
+// domain on the production stage, else localhost outside production mode. See
+// src/lib/serverUrl.ts for why leaving this unset was two real gaps at once.
+const serverURL = resolveServerUrl(process.env)
+if (isDeployedWithoutServerUrl(process.env)) {
+  console.warn(
+    '[payload.config] NEXT_PUBLIC_SITE_URL is not set on this deployed stage, so Payload has ' +
+      'no serverURL: password-reset links will be RELATIVE (unusable) and the cookie CSRF ' +
+      'allowlist stays open. Fix: `npx sst secret set SiteUrl https://<this-stage-origin> ' +
+      '--stage <stage>` and redeploy.',
+  )
+}
+
 export default buildConfig({
+  serverURL,
+  // Transactional mail for Payload's own flows (today: the admin password reset)
+  // rides the same SES v2 path as the quote/contact emails. Without an adapter
+  // Payload only LOGS "email attempted without being configured" and reports
+  // success to the admin — see src/lib/email/payloadEmailAdapter.ts.
+  email: payloadEmailAdapter({ fromName: 'Bulbau' }),
   admin: {
     user: Users.slug,
     importMap: {

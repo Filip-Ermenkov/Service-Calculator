@@ -1,4 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "include": ["src/lib/translation/hook.ts","src/lib/revalidate.ts","src/lib/cdn/invalidate.ts"]
-}

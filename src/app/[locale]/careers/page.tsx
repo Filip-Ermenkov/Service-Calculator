@@ -120,7 +120,10 @@ export default async function CareersPage({
           <p style={{ color: 'var(--g400)', maxWidth: 480, margin: '0 auto 2rem', fontSize: '0.9375rem' }}>
             {t('spontaneousBody')}
           </p>
-          <Link href="/about" className="btn btn-primary">
+          {/* Spontaneous applications go through the contact form (FUNCTIONALITY
+              §3.5 "use the Contact page or call/email") — this pointed at /about
+              from before the dedicated /contact page existed (Phase 6). */}
+          <Link href="/contact" className="btn btn-primary">
             {t('spontaneousCta')}
           </Link>
         </div>

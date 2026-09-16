@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 import { routing } from '@/i18n/routing'
+import { securityHeaders } from '@/lib/security/headers'
 import { isStepUpVerified } from '@/lib/totp/requestHelpers'
 
 /**
@@ -137,17 +138,35 @@ async function adminGate(request: NextRequest): Promise<NextResponse> {
   return NextResponse.redirect(redirectUrl)
 }
 
+/**
+ * `next.config.ts`'s `headers()` only decorates responses Next renders for a
+ * matched route. A response the proxy itself terminates — the `/` → `/<locale>`
+ * locale redirect, next-intl's other redirects, the admin gate's redirect to
+ * `/admin/totp-verify` — never reaches that layer, so it went out with NO security
+ * headers (confirmed 2026-09-16 with `curl -I https://bulbau.lu/`: a bare 307 with
+ * neither HSTS nor CSP). Applying the same single-source-of-truth set here to
+ * redirects closes that. Deliberately ONLY on redirects: `NextResponse.next()` /
+ * rewrite responses carry on to a route that `headers()` already decorates, and
+ * adding them here too would emit every header twice.
+ */
+export function withSecurityHeadersOnRedirect(response: NextResponse): NextResponse {
+  if (response.status >= 300 && response.status < 400) {
+    for (const { key, value } of securityHeaders) response.headers.set(key, value)
+  }
+  return response
+}
+
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
   // The admin panel is unlocalized: gate it and return before next-intl can see
   // it. `/api/*` is excluded by the matcher, so it reaches neither branch.
   if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    return adminGate(request)
+    return withSecurityHeadersOnRedirect(await adminGate(request))
   }
 
   // Everything else is a public, localized route — hand it to next-intl.
-  return handleI18nRouting(request)
+  return withSecurityHeadersOnRedirect(handleI18nRouting(request))
 }
 
 export const config = {

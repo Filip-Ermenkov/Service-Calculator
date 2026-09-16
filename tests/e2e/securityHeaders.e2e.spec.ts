@@ -28,9 +28,23 @@ function assertHeaders(headers: Record<string, string>) {
     expect(headers[key], `missing/incorrect header: ${key}`).toBeDefined()
     expect(headers[key]).toMatch(pattern)
   }
+  // OWASP Secure Headers Project lists X-Powered-By among the headers to REMOVE.
+  // next.config.ts sets `poweredByHeader: false`; withPayload honours it and stops
+  // appending its own "Next.js, Payload" value (this was live in production).
+  expect(headers['x-powered-by'], 'X-Powered-By must not be emitted').toBeUndefined()
 }
 
 test.describe('Security headers', () => {
+  test('the bare `/` locale redirect (a proxy-terminated response) carries the full header set', async ({ request }) => {
+    // next.config `headers()` never sees a response the proxy terminates; the
+    // `/` → `/<locale>` 307 shipped with NO security headers until the proxy
+    // started applying the same set to its redirects (src/proxy.ts).
+    const res = await request.get(`${BASE}/`, { maxRedirects: 0 })
+    expect([307, 308]).toContain(res.status())
+    expect(res.headers()['location']).toMatch(/^\/(en|fr|de)$|\/(en|fr|de)$/)
+    assertHeaders(res.headers())
+  })
+
   test('a public localized page carries the full header set', async ({ request }) => {
     const res = await request.get(`${BASE}/en`)
     expect(res.status()).toBe(200)

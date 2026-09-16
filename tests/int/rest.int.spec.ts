@@ -37,19 +37,45 @@ const AUTH_COOKIE = 'payload-token'
 const STEPUP_COOKIE = 'bulbau-totp-verified'
 const PASSWORD = 'a-valid-test-password-123'
 
+/**
+ * The origin Payload's cookie-CSRF allowlist accepts in this environment
+ * (`serverURL` → `csrf`, see src/lib/serverUrl.ts). A browser sends `Origin` on
+ * every non-GET request and `Sec-Fetch-Site: same-origin` on same-origin GETs;
+ * these helpers send the header a real same-origin browser request would carry,
+ * so a cookie is honoured exactly as it is in the admin panel. The CSRF cases
+ * further down vary these headers deliberately.
+ */
+const SAME_ORIGIN = 'http://localhost:3000'
+
+/** Request-shaping knobs for the CSRF cases; the defaults model a same-origin browser. */
+interface RequestShape {
+  /** `Origin` header value; `null` = omit the header entirely. */
+  origin?: string | null
+  /** `Sec-Fetch-Site` value (only meaningful when `origin` is null). */
+  secFetchSite?: string
+}
+
+function applyShape(headers: Headers, shape: RequestShape | undefined): void {
+  const origin = shape?.origin === undefined ? SAME_ORIGIN : shape.origin
+  if (origin !== null) headers.set('origin', origin)
+  if (shape?.secFetchSite) headers.set('sec-fetch-site', shape.secFetchSite)
+}
+
 /** Invoke the real REST GET handler for a collection, optionally with cookies and a query string. */
 async function restGet(
   handler: ReturnType<typeof REST_GET>,
   slug: string[],
   cookie?: string,
   query?: string,
+  shape?: RequestShape,
 ): Promise<{
   status: number
   docs: Array<{ id: number | string; _status?: string; title?: string | null }>
 }> {
   const headers = new Headers()
   if (cookie) headers.set('cookie', cookie)
-  const url = `http://localhost:3000/api/${slug.join('/')}${query ? `?${query}` : ''}`
+  applyShape(headers, shape)
+  const url = `${SAME_ORIGIN}/api/${slug.join('/')}${query ? `?${query}` : ''}`
   const res = await handler(new Request(url, { headers }), { params: Promise.resolve({ slug }) })
   const body = (await res.json()) as {
     docs?: Array<{ id: number | string; _status?: string; title?: string | null }>
@@ -65,9 +91,11 @@ async function restPost(
   slug: string[],
   body: unknown,
   cookie?: string,
+  shape?: RequestShape,
 ): Promise<{ status: number }> {
   const headers = new Headers({ 'content-type': 'application/json' })
   if (cookie) headers.set('cookie', cookie)
+  applyShape(headers, shape)
   const res = await handler(
     new Request(`http://localhost:3000/api/${slug.join('/')}`, {
       method: 'POST',
@@ -174,6 +202,53 @@ describe('Public REST boundary — real route handler (src/app/(payload)/api)', 
     expect(idsOf(docs)).toContain(draftServiceId)
   })
 
+  // ── Payload's cookie-CSRF allowlist (serverURL → csrf) ────────────────────
+  //
+  // Until 2026-09-16 the config set neither `serverURL` nor `csrf`, and with an
+  // EMPTY `csrf` list Payload accepts the `payload-token` cookie from ANY Origin
+  // (verified in payload@3.89 `auth/extractJWT.js`) — its CSRF protection was off.
+  // `serverURL` is now resolved per stage (src/lib/serverUrl.ts) and Payload's
+  // sanitizer copies it onto `csrf`, so exactly one origin is trusted. These cases
+  // hold that in place; delete `serverURL` from the config and the foreign-origin
+  // case returns the draft.
+  describe('cookie auth honours the CSRF origin allowlist', () => {
+    it('ignores a verified-admin cookie sent from a FOREIGN Origin (treated as anonymous)', async () => {
+      const { status, docs } = await restGet(handler, ['services'], verifiedCookie, undefined, {
+        origin: 'https://evil.example',
+      })
+      expect(status).toBe(200)
+      expect(idsOf(docs)).toContain(publishedServiceId)
+      expect(idsOf(docs)).not.toContain(draftServiceId)
+    })
+
+    it('accepts the cookie on a same-origin GET that carries no Origin but Sec-Fetch-Site: same-origin (how browsers send them)', async () => {
+      const { status, docs } = await restGet(handler, ['services'], verifiedCookie, undefined, {
+        origin: null,
+        secFetchSite: 'same-origin',
+      })
+      expect(status).toBe(200)
+      expect(idsOf(docs)).toContain(draftServiceId)
+    })
+
+    it('ignores the cookie when neither Origin nor Sec-Fetch-Site is present (a non-browser client)', async () => {
+      const { docs } = await restGet(handler, ['services'], verifiedCookie, undefined, {
+        origin: null,
+      })
+      expect(idsOf(docs)).not.toContain(draftServiceId)
+    })
+
+    it('refuses the unlock operation for a fully verified session replayed from a foreign Origin', async () => {
+      const { status } = await restPost(
+        postHandler,
+        ['users', 'unlock'],
+        { email: adminEmail },
+        verifiedCookie,
+        { origin: 'https://evil.example' },
+      )
+      expect(status).toBe(403)
+    })
+  })
+
   it('GET /api/services with a password-only cookie (no TOTP step-up) hides drafts', async () => {
     // A stolen password, without the second factor, must be treated exactly
     // like the anonymous public — this is the whole point of the 2FA gate.
@@ -268,9 +343,9 @@ describe('Public REST boundary — real route handler (src/app/(payload)/api)', 
       })
       const cookie = `${AUTH_COOKIE}=${token}; ${STEPUP_COOKIE}=${signStepUpToken(String(adminId))}`
 
-      const headers = new Headers({ 'content-type': 'application/json', cookie })
+      const headers = new Headers({ 'content-type': 'application/json', cookie, origin: SAME_ORIGIN })
       const res = await postHandler(
-        new Request('http://localhost:3000/api/users/logout', { method: 'POST', headers }),
+        new Request(`${SAME_ORIGIN}/api/users/logout`, { method: 'POST', headers }),
         { params: Promise.resolve({ slug: ['users', 'logout'] }) },
       )
       expect(res.status).toBe(200)

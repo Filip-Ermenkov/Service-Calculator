@@ -17,6 +17,12 @@ const dirname = path.dirname(__filename)
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 
 const nextConfig: NextConfig = {
+  // Drop `X-Powered-By: Next.js, Payload`. OWASP's Secure Headers Project lists
+  // X-Powered-By among the headers to REMOVE (framework fingerprinting for free);
+  // it was live on every production response until 2026-09-16. `withPayload`
+  // honours this flag — it only re-adds its own value when the flag is not false
+  // (verified in @payloadcms/next/dist/withPayload/withPayload.js).
+  poweredByHeader: false,
   // Dart Sass prepends `@charset "UTF-8";` to any stylesheet whose output
   // contains a non-ASCII byte — which src/app/(payload)/custom.scss does, in its
   // comments alone (em dashes, arrows, "×"). Next's CSS pipeline then rewrites
