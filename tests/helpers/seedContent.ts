@@ -2,9 +2,19 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 
 import {
+  SAMPLE_MEDIA_ALT,
+  SAMPLE_PROJECT_TITLE,
   SAMPLE_SERVICE_SLUG,
   SAMPLE_SERVICE_TITLE,
 } from './sampleContent'
+
+// A minimal valid 1×1 PNG (the same fixture tests/int/media.int.spec.ts uses):
+// content is irrelevant, it only has to be a real image so Payload's byte-level
+// mime sniffing (Media.upload.mimeTypes) accepts it and S3Mock stores it.
+const onePixelPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+)
 
 /**
  * Idempotently seed ONE published sample service into the current database.
@@ -27,9 +37,12 @@ import {
  * Idempotent by delete-then-create on the fixed slug, so re-running (e.g. a CI
  * retry) always converges to exactly one copy.
  *
- * No media is attached (uploads would need real/mock S3 and add nothing to the
- * audits); the service page renders its placeholder icon when `heroImage` is
- * unset. The `formula` is left empty on purpose so the calculator exercises the
+ * The service carries no media (the service page renders its placeholder icon
+ * when `heroImage` is unset); since 2026-09-14 the seed ALSO publishes one sample
+ * project with one photo (through the real S3Mock upload path), so the Projects
+ * and Media admin lists have a row to render their drag/select columns on, and
+ * the public /projects grid is audited with content instead of its empty state.
+ * The `formula` is left empty on purpose so the calculator exercises the
  * DEFAULT per-field summation path (the common case); the custom-formula path
  * is already covered exhaustively by the pure unit tests.
  */
@@ -52,14 +65,25 @@ export async function seedSampleContent(): Promise<void> {
   // legitimately throws — skip the ISR revalidation hooks (src/lib/revalidate.ts).
   const context = { disableRevalidate: true }
 
-  // Idempotent: remove any prior copy of the sample service first.
+  // Idempotent: remove any prior copy of the sample content first (the project
+  // and photo too, so a re-run never accumulates duplicates).
+  await payload.delete({
+    collection: 'projects',
+    where: { title: { equals: SAMPLE_PROJECT_TITLE } },
+    context,
+  })
+  await payload.delete({
+    collection: 'media',
+    where: { alt: { equals: SAMPLE_MEDIA_ALT } },
+    context,
+  })
   await payload.delete({
     collection: 'services',
     where: { slug: { equals: SAMPLE_SERVICE_SLUG } },
     context,
   })
 
-  await payload.create({
+  const service = await payload.create({
     collection: 'services',
     context,
     data: {
@@ -104,7 +128,32 @@ export async function seedSampleContent(): Promise<void> {
     },
   })
 
+  // One photo + one published project linked to the service, so the Projects
+  // and Media lists (and the public /projects grid) have a real row in CI.
+  const photo = await payload.create({
+    collection: 'media',
+    context,
+    data: { alt: SAMPLE_MEDIA_ALT },
+    file: {
+      data: onePixelPng,
+      mimetype: 'image/png',
+      name: 'ci-sample-photo.png',
+      size: onePixelPng.length,
+    },
+  })
+  await payload.create({
+    collection: 'projects',
+    context,
+    data: {
+      title: SAMPLE_PROJECT_TITLE,
+      completionDate: '2026-06-15',
+      service: service.id,
+      photo: photo.id,
+      _status: 'published',
+    },
+  })
+
   payload.logger.info(
-    `[seed] published sample service "${SAMPLE_SERVICE_SLUG}" (idempotent).`,
+    `[seed] published sample service "${SAMPLE_SERVICE_SLUG}", project "${SAMPLE_PROJECT_TITLE}" and its photo (idempotent).`,
   )
 }

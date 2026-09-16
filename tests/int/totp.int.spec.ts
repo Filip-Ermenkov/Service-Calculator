@@ -5,7 +5,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
 import { decryptTotpSecret, encryptTotpSecret } from '@/lib/totp/crypto'
-import { generateTotpSecret, generateTotpToken, verifyTotpToken } from '@/lib/totp/otp'
+import {
+  buildOtpAuthUri,
+  generateTotpSecret,
+  generateTotpToken,
+  otpEnvironmentTag,
+  verifyTotpToken,
+} from '@/lib/totp/otp'
 import {
   __resetInMemoryRateLimitForTests,
   checkTotpRateLimit,
@@ -72,6 +78,30 @@ describe('TOTP verification (src/lib/totp/otp.ts)', () => {
 
     const replay = await verifyTotpToken({ secret, token, afterTimeStep: first.timeStep })
     expect(replay.valid).toBe(false)
+  })
+})
+
+describe('otpauth URI label carries the environment outside production (src/lib/totp/otp.ts)', () => {
+  // Same admin, three servers: the authenticator entries must be told apart, or
+  // a code read off the production entry fails on local/staging as a plain
+  // "Invalid code" (which is exactly what happened on 2026-09-14).
+  it('tags local and staging labels with the host, production not at all', () => {
+    expect(otpEnvironmentTag({ NEXT_PUBLIC_SITE_URL: 'https://bulbau.lu', NODE_ENV: 'production' })).toBeNull()
+    expect(otpEnvironmentTag({ NEXT_PUBLIC_SITE_URL: 'https://www.bulbau.lu/' })).toBeNull()
+    expect(otpEnvironmentTag({ NEXT_PUBLIC_SITE_URL: 'https://d1abc.cloudfront.net' })).toBe('d1abc.cloudfront.net')
+    expect(otpEnvironmentTag({ NEXT_PUBLIC_SITE_URL: 'http://localhost:3000' })).toBe('localhost:3000')
+    expect(otpEnvironmentTag({ NODE_ENV: 'development' })).toBe('localhost')
+    expect(otpEnvironmentTag({ NODE_ENV: 'production' })).toBeNull()
+  })
+
+  it('buildOtpAuthUri appends the tag to the label and leaves production untouched', () => {
+    const secret = generateTotpSecret()
+    const prod = buildOtpAuthUri({ secret, accountEmail: 'a@b.lu', environmentTag: null })
+    const local = buildOtpAuthUri({ secret, accountEmail: 'a@b.lu', environmentTag: 'localhost:3000' })
+    expect(decodeURIComponent(prod)).toContain('bulbau.lu:a@b.lu')
+    expect(decodeURIComponent(prod)).not.toContain('localhost')
+    expect(decodeURIComponent(local)).toContain('a@b.lu (localhost:3000)')
+    expect(local).toContain('secret=' + secret)
   })
 })
 

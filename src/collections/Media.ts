@@ -1,9 +1,28 @@
 import type { CollectionConfig } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
+import { orderNewDocumentsFirst } from '@/lib/orderable'
 
 export const Media: CollectionConfig = {
   slug: 'media',
+  admin: {
+    // Same card header as every other list ("All Media (n)"). Columns are
+    // Payload's upload defaults (thumbnail + file name, alt, updated, created).
+    components: {
+      beforeListTable: ['/components/admin/ListCardHeader#ListCardHeader'],
+    },
+  },
+  // Drag ordering + bulk selection like every other list (added 2026-09-14,
+  // migration `20260914_*_projects_media_orderable`). Nothing public reads the
+  // media order — it exists so the admin can arrange the library — so the only
+  // thing that matters is that it never makes the library WORSE to browse:
+  // `orderNewDocumentsFirst` inserts each new upload at the top and the
+  // migration backfilled existing files newest-first, so the default view still
+  // reads "newest first" exactly as it did before the order key existed.
+  orderable: true,
+  hooks: {
+    beforeChange: [orderNewDocumentsFirst],
+  },
   access: {
     // Public read is unrelated to admin auth (the public site fetches
     // media directly) and stays untouched. Writes go through the admin

@@ -1,3 +1,5 @@
+import { ListCardHeader as ListCardHeader_2d8fa7f93b87984eee488dd966b46dd8 } from '../../../components/admin/ListCardHeader'
+import { TitleCell as TitleCell_a9b4d8b89257a84f84710835e9cfd9ef } from '../../../components/admin/TitleCell'
 import { PublishStatusField as PublishStatusField_228f46b18f510d3c5dee34edf739ed23 } from '../../../components/admin/PublishStatusField'
 import { RscEntryLexicalCell as RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { RscEntryLexicalField as RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
@@ -28,10 +30,13 @@ import { CalculatorFieldRowLabel as CalculatorFieldRowLabel_8d64e47f78e9937f6517
 import { CalculatorFieldsLabel as CalculatorFieldsLabel_a173aab1c8e9282cd6baa6fd6663531b } from '../../../components/admin/AdminSectionLabel'
 import { FormulaBuilder as FormulaBuilder_2ab06f5861a7e276d60626fc8c3e8699 } from '../../../components/admin/FormulaBuilder'
 import { PriceFormulaLabel as PriceFormulaLabel_a173aab1c8e9282cd6baa6fd6663531b } from '../../../components/admin/AdminSectionLabel'
-import { ProjectDetailsLabel as ProjectDetailsLabel_a173aab1c8e9282cd6baa6fd6663531b } from '../../../components/admin/AdminSectionLabel'
+import { HomeCardCell as HomeCardCell_bf9c713a4ca23541dbaf0bbf20ff7f24 } from '../../../components/admin/ServiceSummaryCells'
+import { CalculatorFieldsCell as CalculatorFieldsCell_bf9c713a4ca23541dbaf0bbf20ff7f24 } from '../../../components/admin/ServiceSummaryCells'
 import { StatusBadgeCell as StatusBadgeCell_e8220a07894a1683cd3b7aa289c3cd3f } from '../../../components/admin/StatusBadgeCell'
 import { RowActionsCell as RowActionsCell_087b8dfa511f415fa07e26a4729cb0f7 } from '../../../components/admin/RowActionsCell'
-import { ListCardHeader as ListCardHeader_2d8fa7f93b87984eee488dd966b46dd8 } from '../../../components/admin/ListCardHeader'
+import { default as default_687e7543371b5c94a0cbba4a21c2b1be } from '../../../components/admin/HomeCardLimitSettings'
+import { ListOrderBanner as ListOrderBanner_1c7ab29a4abb9231cb93129bea781e4d } from '../../../components/admin/ListOrderBanner'
+import { ProjectDetailsLabel as ProjectDetailsLabel_a173aab1c8e9282cd6baa6fd6663531b } from '../../../components/admin/AdminSectionLabel'
 import { JobOpeningLabel as JobOpeningLabel_a173aab1c8e9282cd6baa6fd6663531b } from '../../../components/admin/AdminSectionLabel'
 import { AboutContentLabel as AboutContentLabel_a173aab1c8e9282cd6baa6fd6663531b } from '../../../components/admin/AdminSectionLabel'
 import { ContactDetailsNote as ContactDetailsNote_388ed59565d90f733dd2511e46e5dc94 } from '../../../components/admin/ContactDetailsNote'
@@ -44,7 +49,7 @@ import { default as default_ad58a1585bcee035a66e94d6c1df4536 } from '../../../co
 import { default as default_7b77c0a8bf5649eadd846d28c5d927eb } from '../../../components/admin/LoginIntro'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { default as default_d5206ed16da09b4b168746139c60fd4a } from '../../../components/admin/DashboardView'
-import { default as default_9535db0c6b712c08bc4f5cd525d7e624 } from '../../../components/admin/ServicesView'
+import { default as default_b5f3e370d7e19c538f450a4fe585c663 } from '../../../components/admin/ServicesRedirect'
 import { default as default_d3bcd6b26bcbfa2512d67965e00aa168 } from '../../../components/admin/TotpSetupView'
 import { default as default_7a9acd40ce8825a2bd222927c3f9ad93 } from '../../../components/admin/TotpVerifyView'
 import { default as default_94803bc5cd550e7385f10011bc982182 } from '../../../components/admin/TranslationsView'
@@ -52,6 +57,8 @@ import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } f
 
 /** @type import('payload').ImportMap */
 export const importMap = {
+  "/components/admin/ListCardHeader#ListCardHeader": ListCardHeader_2d8fa7f93b87984eee488dd966b46dd8,
+  "/components/admin/TitleCell#TitleCell": TitleCell_a9b4d8b89257a84f84710835e9cfd9ef,
   "/components/admin/PublishStatusField#PublishStatusField": PublishStatusField_228f46b18f510d3c5dee34edf739ed23,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalField": RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e,
@@ -82,10 +89,13 @@ export const importMap = {
   "/components/admin/AdminSectionLabel#CalculatorFieldsLabel": CalculatorFieldsLabel_a173aab1c8e9282cd6baa6fd6663531b,
   "/components/admin/FormulaBuilder#FormulaBuilder": FormulaBuilder_2ab06f5861a7e276d60626fc8c3e8699,
   "/components/admin/AdminSectionLabel#PriceFormulaLabel": PriceFormulaLabel_a173aab1c8e9282cd6baa6fd6663531b,
-  "/components/admin/AdminSectionLabel#ProjectDetailsLabel": ProjectDetailsLabel_a173aab1c8e9282cd6baa6fd6663531b,
+  "/components/admin/ServiceSummaryCells#HomeCardCell": HomeCardCell_bf9c713a4ca23541dbaf0bbf20ff7f24,
+  "/components/admin/ServiceSummaryCells#CalculatorFieldsCell": CalculatorFieldsCell_bf9c713a4ca23541dbaf0bbf20ff7f24,
   "/components/admin/StatusBadgeCell#StatusBadgeCell": StatusBadgeCell_e8220a07894a1683cd3b7aa289c3cd3f,
   "/components/admin/RowActionsCell#RowActionsCell": RowActionsCell_087b8dfa511f415fa07e26a4729cb0f7,
-  "/components/admin/ListCardHeader#ListCardHeader": ListCardHeader_2d8fa7f93b87984eee488dd966b46dd8,
+  "/components/admin/HomeCardLimitSettings#default": default_687e7543371b5c94a0cbba4a21c2b1be,
+  "/components/admin/ListOrderBanner#ListOrderBanner": ListOrderBanner_1c7ab29a4abb9231cb93129bea781e4d,
+  "/components/admin/AdminSectionLabel#ProjectDetailsLabel": ProjectDetailsLabel_a173aab1c8e9282cd6baa6fd6663531b,
   "/components/admin/AdminSectionLabel#JobOpeningLabel": JobOpeningLabel_a173aab1c8e9282cd6baa6fd6663531b,
   "/components/admin/AdminSectionLabel#AboutContentLabel": AboutContentLabel_a173aab1c8e9282cd6baa6fd6663531b,
   "/components/admin/ContactDetailsNote#ContactDetailsNote": ContactDetailsNote_388ed59565d90f733dd2511e46e5dc94,
@@ -98,7 +108,7 @@ export const importMap = {
   "/components/admin/LoginIntro#default": default_7b77c0a8bf5649eadd846d28c5d927eb,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "/components/admin/DashboardView#default": default_d5206ed16da09b4b168746139c60fd4a,
-  "/components/admin/ServicesView#default": default_9535db0c6b712c08bc4f5cd525d7e624,
+  "/components/admin/ServicesRedirect#default": default_b5f3e370d7e19c538f450a4fe585c663,
   "/components/admin/TotpSetupView#default": default_d3bcd6b26bcbfa2512d67965e00aa168,
   "/components/admin/TotpVerifyView#default": default_7a9acd40ce8825a2bd222927c3f9ad93,
   "/components/admin/TranslationsView#default": default_94803bc5cd550e7385f10011bc982182,

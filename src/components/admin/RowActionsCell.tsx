@@ -14,7 +14,8 @@
  * the document editor. Nothing here bypasses it.
  *
  * Archive/Restore only appears for a collection that actually has an
- * active/archived `status` field (careers); everything else gets Edit · Delete.
+ * active/archived `status` field (careers); a public URL slug (services) adds a
+ * Preview link to the live page; everything else gets Edit · Delete.
  */
 
 import Link from 'next/link'
@@ -26,6 +27,12 @@ type Row = {
   id?: number | string
   status?: string
   title?: string
+  slug?: string
+}
+
+/** Public page for a row, when the collection has one (only services today). */
+const PUBLIC_PATH: Record<string, (slug: string) => string> = {
+  services: (slug) => `/en/services/${encodeURIComponent(slug)}`,
 }
 
 export const RowActionsCell = ({
@@ -52,6 +59,10 @@ export const RowActionsCell = ({
   const endpoint = `${serverURL}${api}/${collectionSlug}/${id}`
   const isArchived = rowData?.status === 'archived'
   const canArchive = rowData?.status === 'active' || isArchived
+  const previewHref =
+    typeof rowData?.slug === 'string' && rowData.slug && PUBLIC_PATH[collectionSlug]
+      ? PUBLIC_PATH[collectionSlug](rowData.slug)
+      : null
 
   async function send(
     method: 'DELETE' | 'PATCH',
@@ -113,6 +124,19 @@ export const RowActionsCell = ({
       <Link className="arow__link" href={`${admin}/collections/${collectionSlug}/${id}`}>
         Edit
       </Link>
+      {previewHref ? (
+        <>
+          <span className="arow__sep">·</span>
+          <a
+            className="arow__link arow__link--gray"
+            href={previewHref}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Preview
+          </a>
+        </>
+      ) : null}
       {canArchive ? (
         <>
           <span className="arow__sep">·</span>

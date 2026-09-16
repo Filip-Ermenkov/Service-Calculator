@@ -1,7 +1,7 @@
 import type { Endpoint } from 'payload'
 
 import { decryptTotpSecret, encryptTotpSecret } from '@/lib/totp/crypto'
-import { buildOtpAuthUri, generateTotpSecret, verifyTotpToken } from '@/lib/totp/otp'
+import { buildOtpAuthUri, generateTotpSecret, otpEnvironmentTag, verifyTotpToken } from '@/lib/totp/otp'
 import { generateQrCodeDataUrl } from '@/lib/totp/qr'
 import { getClientIp } from '@/lib/rateLimit'
 import { checkTotpRateLimit } from '@/lib/totp/rateLimit'
@@ -48,22 +48,55 @@ export const totpSetupEndpoint: Endpoint = {
     const rateLimit = await checkTotpRateLimit(`totp-setup:${req.user.id}`)
     if (!rateLimit.success) return jsonError('Too many attempts. Please wait and try again.', 429)
 
-    const secret = generateTotpSecret()
-    const otpAuthUri = buildOtpAuthUri({ secret, accountEmail: String(req.user.email) })
+    // First-time enrolment REUSES a pending (never confirmed) secret rather than
+    // minting a new one per call. The setup view mounts more than once in normal
+    // use (land here → gated route → redirected back, a page reload, HMR in dev),
+    // and every mount used to replace the secret behind the QR the admin had
+    // just scanned — the code their app then produced was for a secret that no
+    // longer existed, reported as a plain "Invalid code". Reuse is no weaker: a
+    // pending secret is only reachable through the same password login that
+    // could mint a fresh one. Re-enrolment (totpEnabled) always starts afresh.
+    // (`req.user` never carries totpSecret — field read access strips it — so
+    // read the row with overrideAccess like /totp/enable and /totp/verify do.)
+    let secret: string | null = null
+    if (!req.user.totpEnabled) {
+      const row = await req.payload.findByID({
+        collection: 'users',
+        id: req.user.id,
+        overrideAccess: true,
+      })
+      if (typeof row.totpSecret === 'string' && row.totpSecret) {
+        try {
+          secret = decryptTotpSecret(row.totpSecret)
+        } catch {
+          secret = null // undecryptable (key rotated) — replace it below
+        }
+      }
+    }
+    const reused = secret !== null
+    if (secret === null) secret = generateTotpSecret()
+
+    const otpAuthUri = buildOtpAuthUri({
+      secret,
+      accountEmail: String(req.user.email),
+      environmentTag: otpEnvironmentTag(),
+    })
     const qrCodeDataUrl = await generateQrCodeDataUrl(otpAuthUri)
 
-    await req.payload.update({
-      collection: 'users',
-      id: req.user.id,
-      data: {
-        totpSecret: encryptTotpSecret(secret),
-        // Only flips to true once /totp/enable confirms a real code. A
-        // /totp/setup call that's never confirmed leaves the previous
-        // enrollment state untouched from the access-control wrapper's
-        // point of view.
-      },
-      overrideAccess: true,
-    })
+    if (!reused) {
+      await req.payload.update({
+        collection: 'users',
+        id: req.user.id,
+        data: {
+          totpSecret: encryptTotpSecret(secret),
+          // Only flips to true once /totp/enable confirms a real code. A
+          // /totp/setup call that's never confirmed leaves the previous
+          // enrollment state untouched from the access-control wrapper's
+          // point of view.
+        },
+        overrideAccess: true,
+      })
+    }
 
     return Response.json({ secret, otpAuthUri, qrCodeDataUrl })
   },

@@ -145,7 +145,11 @@ export async function getProjects(locale: Locale): Promise<Project[]> {
       depth: 1, // populate photo + the related service (for the category tag)
       limit: 500,
       pagination: false,
-      sort: '-completionDate', // newest first (FUNCTIONALITY §3.2)
+      // The admin's drag order (Projects is `orderable` since 2026-09-14). It
+      // starts out as "newest completion first" — the migration backfilled it
+      // that way and a new project is inserted at the top — so FUNCTIONALITY
+      // §3.2's default holds, and the admin can now curate exceptions by hand.
+      sort: '_order',
       overrideAccess: false,
     })
     return res.docs

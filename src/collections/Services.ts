@@ -1,4 +1,5 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, JSONFieldValidation, TextFieldValidation } from 'payload'
+import { text as validateText } from 'payload/shared'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
 import { readPublishedOrVerified } from '@/access/publicRead'
@@ -8,6 +9,48 @@ import {
 } from '@/lib/revalidate'
 import { translateCollectionAfterChange } from '@/lib/translation/hook'
 import { slugField } from '@/lib/slug'
+import { validateStoredFormula, type FormulaFieldRef } from '@/lib/pricing/formulaExpression'
+
+/** The calculator fields as the formula language sees them, from validate() data. */
+function formulaFieldRefs(data: unknown): FormulaFieldRef[] {
+  const rows = (data as { calculatorFields?: unknown } | undefined)?.calculatorFields
+  if (!Array.isArray(rows)) return []
+  return rows
+    .filter((r): r is { fieldKey: string; label?: string | null } => !!r && typeof r.fieldKey === 'string' && r.fieldKey !== '')
+    .map((r) => ({ fieldKey: r.fieldKey, label: r.label ?? null }))
+}
+
+/**
+ * `Services.formula` must always be something the shared evaluator can run: an
+ * empty value, or JSONLogic over the supported operators that only references
+ * this service's calculator fields. The Formula editor stores a
+ * `{ "__draft": text }` marker while the typed text does not parse — this is
+ * what turns that marker into a save-blocking field error (with the parse
+ * problem as the message). Runs server-side on every save/publish; the editor
+ * registers the same function client-side so the refusal is immediate.
+ */
+export const validateFormula: JSONFieldValidation = (value, { data, siblingData }) =>
+  validateStoredFormula(value as unknown, formulaFieldRefs(data ?? siblingData))
+
+/**
+ * Field keys are the names formulas refer to, so two rows sharing one would make
+ * the formula (and the visitor's input map) ambiguous, and whitespace would need
+ * the {braced} spelling everywhere. Everything else Payload's own text rules.
+ */
+export const validateFieldKey: TextFieldValidation = (value, options) => {
+  const base = validateText(value, options)
+  if (base !== true) return base
+  const key = (value ?? '').trim()
+  if (key === '') return 'Enter a field key, e.g. roof_area.'
+  if (/\s/.test(key)) return 'Field keys cannot contain spaces — use underscores, e.g. roof_area.'
+  if (/[{}]/.test(key)) return 'Field keys cannot contain { or }.'
+  const rows = (options.data as { calculatorFields?: { fieldKey?: string | null }[] } | undefined)
+    ?.calculatorFields
+  if (Array.isArray(rows) && rows.filter((r) => (r?.fieldKey ?? '').trim() === key).length > 1) {
+    return `Another calculator field already uses the key "${key}" — keys must be unique within a service.`
+  }
+  return true
+}
 
 /**
  * Services — the core product offering (FUNCTIONALITY.md §3.3, §5.3;
@@ -29,11 +72,25 @@ export const Services: CollectionConfig = {
   slug: 'services',
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', '_status', 'updatedAt'],
+    // The prototype's Services table: Service | Home Page Card | Calculator
+    // Fields | Status | Actions (/prototype/admin/services.html). The last four
+    // are list-only `ui` fields below; `title` renders through TitleCell.
+    defaultColumns: ['title', 'homeCard', 'calculatorSummary', 'statusBadge', 'rowActions'],
     group: 'Content',
     description:
       'Company services. Drag to reorder — this sets the order of the cards ' +
       'on the Home page.',
+    components: {
+      // Order banner + "All Services (n)" card header above the table, and the
+      // Home-page card-count setting beneath it (after the pagination row) — the
+      // prototype's Services screen, rebuilt on Payload's native list so it gets
+      // bulk selection, search and drag ordering from the platform, not bespoke code.
+      beforeListTable: [
+        '/components/admin/ListOrderBanner#ListOrderBanner',
+        '/components/admin/ListCardHeader#ListCardHeader',
+      ],
+      afterList: ['/components/admin/HomeCardLimitSettings'],
+    },
   },
   // Native drag-and-drop ordering (fractional indexing). This order is what the
   // Home page uses for its service cards (FUNCTIONALITY.md §3.1 / §5.3).
@@ -76,7 +133,11 @@ export const Services: CollectionConfig = {
               type: 'text',
               required: true,
               localized: true,
-              admin: { width: '50%' },
+              admin: {
+                width: '50%',
+                // List: bold title link + "Last edited: …" sub-line (TitleCell).
+                components: { Cell: '/components/admin/TitleCell#TitleCell' },
+              },
             },
             // Publish state. NOT a stored field — `_status` is a submit-time
             // override in Payload — so this is a `ui` field that performs
@@ -210,10 +271,12 @@ export const Services: CollectionConfig = {
               label: 'Field Key',
               type: 'text',
               required: true,
+              validate: validateFieldKey,
               admin: {
                 description:
-                  'Stable name the price formula refers to, e.g. "roof_area". ' +
-                  'Lowercase, no spaces. Do not change it once a formula uses it.',
+                  'The name the price formula refers to, e.g. "roof_area". Letters, ' +
+                  'digits and underscores, unique within this service. Renaming it ' +
+                  'breaks any formula that uses it until the formula is updated.',
               },
             },
             {
@@ -332,16 +395,17 @@ export const Services: CollectionConfig = {
         {
           name: 'formula',
           type: 'json',
+          validate: validateFormula,
           admin: {
             description:
-              'How this service’s price is calculated from its calculator fields. ' +
-              'Built visually below; stored as a JSONLogic structure (never ' +
-              'executable code). Leave empty to simply add up each field’s own ' +
-              'unit price.',
-            // The visual Formula Builder + live preview replaces raw JSON editing
-            // of this field (TECHSPEC §6.4). It compiles to the same JSONLogic the
-            // public calculator + shared evaluator already run, and falls back to a
-            // raw-JSON editor for any non-builder formula.
+              'How this service’s price is calculated from its calculator fields — ' +
+              'any formula, written in the formula bar below; stored as a JSONLogic ' +
+              'structure (never executable code). Leave empty to simply add up each ' +
+              'field’s own unit price.',
+            // The formula bar + live preview replaces raw JSON editing of this
+            // field (TECHSPEC §6.4). It compiles to the same JSONLogic the public
+            // calculator + shared evaluator already run, and falls back to a
+            // raw-JSON editor for any formula the language can't spell.
             components: {
               Field: '/components/admin/FormulaBuilder#FormulaBuilder',
             },
@@ -359,6 +423,43 @@ export const Services: CollectionConfig = {
           },
         },
       ],
+    },
+    // ── List-only columns ────────────────────────────────────────────────
+    // `ui` fields store nothing and render nothing in the editor (Payload's UI
+    // field returns null without a `Field` component); they exist purely to give
+    // the list table the prototype's summary, status and Actions columns — the
+    // same pattern Projects and Careers use for theirs.
+    {
+      name: 'homeCard',
+      label: 'Home Page Card',
+      type: 'ui',
+      admin: {
+        components: { Cell: '/components/admin/ServiceSummaryCells#HomeCardCell' },
+      },
+    },
+    {
+      name: 'calculatorSummary',
+      label: 'Calculator Fields',
+      type: 'ui',
+      admin: {
+        components: { Cell: '/components/admin/ServiceSummaryCells#CalculatorFieldsCell' },
+      },
+    },
+    {
+      name: 'statusBadge',
+      label: 'Status',
+      type: 'ui',
+      admin: {
+        components: { Cell: '/components/admin/StatusBadgeCell#StatusBadgeCell' },
+      },
+    },
+    {
+      name: 'rowActions',
+      label: 'Actions',
+      type: 'ui',
+      admin: {
+        components: { Cell: '/components/admin/RowActionsCell#RowActionsCell' },
+      },
     },
   ],
 }

@@ -1,9 +1,11 @@
 /* ============================================================================
    PRICE FORMULA BUILDER — /prototype/admin/service-editor.html
    ----------------------------------------------------------------------------
-   A bordered card with a tab strip (Formula Composition / Test-Preview), a dark
-   token canvas showing the formula as it is built, a "Fixed Costs & Adjustments"
-   panel, and a live preview.
+   A bordered card with a tab strip (Formula / Test-Preview). The Formula tab is
+   a spreadsheet-style FORMULA BAR: a syntax-highlighted expression input with
+   autocomplete, a plain-language status line under it ("Reads as: …" or the
+   error), click-to-insert chips for fields / operators / functions, and a
+   collapsible reference. The Test tab is the live preview.
 
    Styled with the admin design system's tokens (src/app/(payload)/custom.scss)
    so it inherits the industrial look, both themes and the reduced-motion rules
@@ -21,6 +23,20 @@
   --fb-surface: var(--theme-elevation-50);
   --fb-surface-2: var(--theme-elevation-100);
   --fb-accent: var(--bulbau-orange, #bf4c00);
+  --fb-mono: var(--font-mono, ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace);
+
+  /* Highlight palette — light theme. Backgrounds and text colours ONLY: the
+     highlight layer must never change glyph metrics (no bold, no padding),
+     because it sits pixel-for-pixel behind a transparent textarea. */
+  --fb-hl-field-bg: var(--bulbau-orange-bg, #fff3ec);
+  --fb-hl-field-fg: var(--bulbau-orange, #bf4c00);
+  --fb-hl-number-fg: var(--bulbau-green-fg, #166534);
+  --fb-hl-fn-fg: #5b3fb8;
+  --fb-hl-kw-fg: #7c5a00;
+  --fb-hl-op-fg: var(--theme-elevation-700);
+  --fb-hl-unknown-fg: var(--bulbau-red-fg, #b91c1c);
+  --fb-hl-match-bg: var(--bulbau-orange-bg-strong, #ffe4d4);
+  --fb-hl-error: var(--bulbau-red-fg, #b91c1c);
 
   display: flex;
   flex-direction: column;
@@ -32,8 +48,12 @@
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    justify-content: flex-end;
-    gap: var(--s-3);
+    justify-content: space-between;
+    gap: var(--s-2) var(--s-4);
+
+    .fb-help {
+      flex: 1 1 28rem;
+    }
   }
 
   .fb-help,
@@ -42,6 +62,14 @@
     font-size: var(--fs--1);
     line-height: 1.6;
     color: var(--theme-elevation-600);
+
+    code {
+      padding: 0 0.3em;
+      background: var(--fb-surface-2);
+      font-family: var(--fb-mono);
+      font-size: 0.92em;
+      color: var(--theme-elevation-800);
+    }
   }
 
   .fb-note {
@@ -60,109 +88,14 @@
     font-weight: 600;
     color: var(--fb-accent);
     text-decoration: none;
+    white-space: nowrap;
 
     &:hover {
       text-decoration: underline;
     }
   }
 
-  /* ---- Panels & rows ------------------------------------------------------ */
-  .fb-section {
-    padding: var(--s-4);
-    background: var(--fb-surface);
-    border: 1px solid var(--fb-border);
-
-    h4 {
-      margin: 0 0 var(--s-3);
-      font-family: var(--font-display);
-      font-size: var(--fs--1);
-      font-weight: 700;
-      letter-spacing: var(--tracking-label, 0.12em);
-      text-transform: uppercase;
-      color: var(--theme-elevation-700);
-    }
-  }
-
-  /* One term of the formula. Wraps to as many lines as it needs — a term can
-     carry a field, an operator, a number and its controls, which never fits on
-     one line on a phone. */
-  .fb-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s-2);
-    padding: var(--s-3);
-    margin-bottom: var(--s-2);
-    background: var(--theme-input-bg, var(--theme-elevation-0));
-    border: 1px solid var(--fb-hair);
-    border-inline-start: 3px solid var(--theme-elevation-200);
-    transition: border-color var(--t-fast, 0.14s) var(--ease, ease);
-
-    &:last-child {
-      margin-bottom: 0;
-    }
-
-    &:focus-within {
-      border-inline-start-color: var(--fb-accent);
-    }
-  }
-
-  /* A small technical caption in front of a control ("Field", "Fixed", "%"). */
-  .fb-tag,
-  .fb-pct {
-    font-family: var(--font-display);
-    font-size: var(--fs--2);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--theme-elevation-500);
-    white-space: nowrap;
-  }
-
-  .fb-op {
-    font-family: var(--font-display);
-    font-size: var(--fs-1);
-    font-weight: 800;
-    color: var(--theme-elevation-700);
-  }
-
-  /* +/− segmented control. */
-  .fb-sign {
-    display: inline-flex;
-    flex-shrink: 0;
-    border: 1px solid var(--fb-border);
-
-    button {
-      width: 32px;
-      height: 32px;
-      border: none;
-      background: var(--fb-surface-2);
-      color: var(--theme-elevation-700);
-      cursor: pointer;
-      font-family: var(--font-display);
-      font-size: var(--fs-1);
-      font-weight: 800;
-      line-height: 1;
-      transition:
-        background var(--t-fast, 0.14s) var(--ease, ease),
-        color var(--t-fast, 0.14s) var(--ease, ease);
-
-      & + button {
-        border-inline-start: 1px solid var(--fb-border);
-      }
-
-      &:hover:not(.is-active) {
-        background: var(--theme-elevation-150);
-      }
-
-      &.is-active {
-        background: var(--fb-accent);
-        color: #fff;
-      }
-    }
-  }
-
-  /* ---- Controls ----------------------------------------------------------- */
+  /* ---- Controls (preview inputs, raw JSON) ---------------------------------- */
   input,
   select,
   textarea {
@@ -193,153 +126,9 @@
     }
   }
 
-  /* Control widths. `max-width` (not `width`) everywhere, so a narrow container
-     shrinks them instead of overflowing the card. */
-  .fb-num {
-    width: 100px;
-    max-width: 100%;
-    font-variant-numeric: tabular-nums;
-  }
-  .fb-text {
-    width: 160px;
-    max-width: 100%;
-  }
-  .fb-select {
-    max-width: 100%;
-    min-width: 0;
-    flex: 1 1 12rem;
-  }
-  .fb-factor-type {
-    max-width: 130px;
-  }
-
-  /* Row controls (move up / down / remove) — pushed to the end of the row. */
-  .fb-controls {
-    display: inline-flex;
-    gap: 2px;
-    margin-inline-start: auto;
-
-    button {
-      width: 30px;
-      height: 30px;
-      border: 1px solid var(--fb-border);
-      background: var(--fb-surface-2);
-      color: var(--theme-elevation-700);
-      cursor: pointer;
-      transition:
-        border-color var(--t-fast, 0.14s) var(--ease, ease),
-        color var(--t-fast, 0.14s) var(--ease, ease);
-
-      &:hover:not(:disabled) {
-        border-color: var(--fb-accent);
-        color: var(--fb-accent);
-      }
-
-      &:disabled {
-        opacity: 0.35;
-        cursor: default;
-      }
-    }
-  }
-
-  .fb-remove,
-  .fb-clear {
-    color: var(--bulbau-red-fg, #b91c1c);
-  }
-
-  .fb-controls .fb-remove:hover:not(:disabled) {
-    border-color: var(--bulbau-red-fg, #b91c1c);
-    color: var(--bulbau-red-fg, #b91c1c);
-  }
-
-  .fb-remove-sm {
-    width: 26px;
-    height: 26px;
-    border: 1px solid var(--fb-border);
-    background: none;
-    cursor: pointer;
-    color: var(--theme-elevation-500);
-
-    &:hover {
-      border-color: var(--bulbau-red-fg, #b91c1c);
-      color: var(--bulbau-red-fg, #b91c1c);
-    }
-  }
-
-  .fb-clear {
-    align-self: flex-start;
-    padding: var(--s-2) var(--s-3);
-    border: 1px solid currentColor;
-    background: none;
-    cursor: pointer;
-    font-family: var(--font-body);
-    font-size: var(--fs--1);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-
-    &:hover {
-      background: var(--bulbau-red-bg, #fee2e2);
-    }
-  }
-
-  /* "Add …" affordances — the dashed industrial buttons. */
-  .fb-add {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--s-2);
-    margin-top: var(--s-3);
-
-    button {
-      padding: var(--s-2) var(--s-3);
-      border: 1px dashed var(--theme-elevation-250);
-      background: transparent;
-      color: var(--fb-accent);
-      cursor: pointer;
-      font-family: var(--font-body);
-      font-size: var(--fs--1);
-      font-weight: 600;
-      letter-spacing: 0.03em;
-      transition:
-        border-color var(--t-fast, 0.14s) var(--ease, ease),
-        background var(--t-fast, 0.14s) var(--ease, ease);
-
-      &:hover {
-        border-style: solid;
-        border-color: var(--fb-accent);
-        background: var(--bulbau-orange-bg, #fff3ec);
-      }
-    }
-  }
-
-  /* Grouped terms — a bracketed sub-expression. */
-  .fb-group {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s-1);
-  }
-
-  .fb-group-members {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s-1);
-    padding: var(--s-1);
-    background: var(--fb-surface);
-    border: 1px solid var(--fb-border);
-  }
-
-  .fb-member {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-1);
-  }
-
-  /* Raw-expression escape hatch. */
   .fb-raw-input {
     width: 100%;
-    font-family: var(--font-mono, monospace);
+    font-family: var(--fb-mono);
     font-size: var(--fs--1);
     resize: vertical;
   }
@@ -354,21 +143,468 @@
     color: var(--bulbau-red-fg, #b91c1c);
   }
 
-  /* ---- Preview ------------------------------------------------------------ */
-  .fb-preview {
+  /* ==========================================================================
+     THE FORMULA BAR
+     A transparent <textarea> (the real, accessible control) stacked over a
+     <pre> that paints the very same text with colours. Both share one font,
+     size, line-height, padding and border box, so they line up exactly.
+     ========================================================================== */
+  .fb-editor {
+    position: relative;
+    font-family: var(--fb-mono);
+    font-size: 16px;
+    line-height: 1.6;
+    tab-size: 2;
+
+    @media (min-width: 601px) {
+      font-size: 15px;
+    }
+  }
+
+  .fb-hl,
+  .fb-input {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+    padding: var(--s-3) var(--s-4);
+    border: 1px solid var(--fb-border);
+    font: inherit;
+    letter-spacing: normal;
+    word-spacing: normal;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .fb-hl {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background: var(--theme-input-bg, var(--theme-elevation-0));
+    color: var(--theme-elevation-800);
+    border-color: transparent;
+  }
+
+  .fb-input {
+    position: relative;
+    display: block;
+    min-height: calc(1.6em + 2 * var(--s-3) + 2px);
+    resize: none;
+    overflow: hidden;
+    background: transparent;
+    /* The text is painted by the highlight layer — only the caret shows here. */
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    caret-color: var(--theme-elevation-800);
+
+    &::placeholder {
+      color: var(--theme-elevation-400);
+      -webkit-text-fill-color: var(--theme-elevation-400);
+    }
+
+    &::selection {
+      background: rgba(191, 76, 0, 0.2);
+    }
+
+    &:focus {
+      border-color: var(--fb-accent);
+      box-shadow: var(--bulbau-ring, 0 0 0 2px rgba(191, 76, 0, 0.22));
+    }
+  }
+
+  .fb-editor--error .fb-input {
+    border-color: var(--fb-hl-error);
+
+    &:focus {
+      box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.2);
+    }
+  }
+
+  /* Token colours (see the metrics note on the palette variables above). */
+  .fb-hl--field {
+    background: var(--fb-hl-field-bg);
+    color: var(--fb-hl-field-fg);
+    border-radius: 3px;
+  }
+  .fb-hl--number {
+    color: var(--fb-hl-number-fg);
+  }
+  .fb-hl--function {
+    color: var(--fb-hl-fn-fg);
+  }
+  .fb-hl--keyword {
+    color: var(--fb-hl-kw-fg);
+  }
+  .fb-hl--operator,
+  .fb-hl--comma,
+  .fb-hl--percent,
+  .fb-hl--paren {
+    color: var(--fb-hl-op-fg);
+  }
+  .fb-hl--unknown,
+  .fb-hl--invalid {
+    color: var(--fb-hl-unknown-fg);
+    text-decoration: underline wavy var(--fb-hl-error);
+    text-decoration-skip-ink: none;
+    text-underline-offset: 3px;
+  }
+  .fb-hl--match {
+    background: var(--fb-hl-match-bg);
+    border-radius: 3px;
+  }
+  .fb-hl--error {
+    text-decoration: underline wavy var(--fb-hl-error);
+    text-decoration-skip-ink: none;
+    text-underline-offset: 3px;
+  }
+  /* A zero-width error at the very end of the text ("something is missing"). */
+  .fb-hl--caret {
+    display: inline-block;
+    width: 0.6ch;
+    border-bottom: 2px solid var(--fb-hl-error);
+    vertical-align: baseline;
+  }
+
+  /* ---- Autocomplete --------------------------------------------------------- */
+  .fb-ac {
+    position: absolute;
+    z-index: 6;
+    top: 100%;
+    left: 0;
+    width: min(100%, 34rem);
+    max-height: 16rem;
+    margin: 2px 0 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+    background: var(--theme-elevation-0);
+    border: 1px solid var(--fb-border);
+    box-shadow: var(--bulbau-shadow-sm, 0 2px 10px rgba(0, 0, 0, 0.12));
+    font-family: var(--font-body);
+    font-size: var(--fs--1);
+  }
+
+  .fb-ac__item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-3);
+    padding: var(--s-2) var(--s-3);
+    cursor: pointer;
+    color: var(--theme-elevation-700);
+
+    & + & {
+      border-top: 1px solid var(--fb-hair);
+    }
+
+    &.is-active {
+      background: var(--fb-surface);
+      color: var(--theme-elevation-900);
+      box-shadow: inset 3px 0 0 var(--fb-accent);
+    }
+  }
+
+  .fb-ac__key {
+    font-family: var(--fb-mono);
+    font-size: 0.95em;
+    color: var(--fb-hl-field-fg);
+    white-space: nowrap;
+  }
+  .fb-ac__item--function .fb-ac__key {
+    color: var(--fb-hl-fn-fg);
+  }
+  .fb-ac__item--keyword .fb-ac__key {
+    color: var(--fb-hl-kw-fg);
+  }
+  .fb-ac__desc {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ---- Status line under the bar ------------------------------------------- */
+  .fb-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-1) var(--s-3);
+    margin-top: calc(var(--s-4) * -1 + var(--s-2));
+    padding: var(--s-2) var(--s-3);
+    border-inline-start: 3px solid var(--theme-elevation-300);
+    background: var(--fb-surface);
+    font-size: var(--fs--1);
+    line-height: 1.55;
+    color: var(--theme-elevation-700);
+
+    &--ok {
+      border-inline-start-color: var(--bulbau-green-fg, #166534);
+    }
+    &--error {
+      border-inline-start-color: var(--fb-hl-error);
+      background: var(--bulbau-red-bg, #fee2e2);
+      color: var(--theme-elevation-800);
+    }
+    &--empty {
+      border-inline-start-style: dashed;
+    }
+  }
+
+  .fb-status__label {
+    font-family: var(--font-display);
+    font-size: var(--fs--2);
+    font-weight: 700;
+    letter-spacing: var(--tracking-label, 0.12em);
+    text-transform: uppercase;
+    color: var(--theme-elevation-500);
+    white-space: nowrap;
+  }
+  .fb-status--error .fb-status__label {
+    color: var(--fb-hl-error);
+  }
+  .fb-status__reads {
+    font-family: var(--fb-mono);
+    font-size: 0.95em;
+    color: var(--theme-elevation-900);
+    overflow-wrap: anywhere;
+  }
+
+  /* ---- Quick actions -------------------------------------------------------- */
+  .fb-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin-top: calc(var(--s-4) * -1 + var(--s-2));
+
+    &:empty {
+      display: none;
+    }
+  }
+
+  .fb-quick__btn {
+    padding: var(--s-2) var(--s-3);
+    border: 1px dashed var(--theme-elevation-250);
+    background: transparent;
+    color: var(--fb-accent);
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: var(--fs--1);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    transition:
+      border-color var(--t-fast, 0.14s) var(--ease, ease),
+      background var(--t-fast, 0.14s) var(--ease, ease);
+
+    &:hover {
+      border-style: solid;
+      border-color: var(--fb-accent);
+      background: var(--bulbau-orange-bg, #fff3ec);
+    }
+
+    &--danger {
+      color: var(--bulbau-red-fg, #b91c1c);
+
+      &:hover {
+        border-color: var(--bulbau-red-fg, #b91c1c);
+        background: var(--bulbau-red-bg, #fee2e2);
+      }
+    }
+  }
+
+  /* ---- Insert palette -------------------------------------------------------- */
+  .fb-palette {
+    display: grid;
+    gap: var(--s-3);
     padding: var(--s-4);
     background: var(--fb-surface);
     border: 1px solid var(--fb-border);
+  }
 
-    h4 {
-      margin: 0 0 var(--s-3);
+  .fb-palette__group {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    align-items: start;
+    gap: var(--s-2) var(--s-3);
+  }
+
+  .fb-palette__label {
+    padding-top: 6px;
+    font-family: var(--font-display);
+    font-size: var(--fs--2);
+    font-weight: 700;
+    letter-spacing: var(--tracking-label, 0.12em);
+    text-transform: uppercase;
+    color: var(--theme-elevation-500);
+  }
+
+  .fb-palette__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+
+  .fb-palette__empty {
+    font-size: var(--fs--1);
+    line-height: 1.6;
+    color: var(--theme-elevation-500);
+  }
+
+  .fb-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--s-2);
+    max-width: 100%;
+    min-height: 32px;
+    padding: 4px 10px;
+    border: 1px solid var(--fb-border);
+    background: var(--theme-elevation-0);
+    color: var(--theme-elevation-800);
+    cursor: pointer;
+    font-family: var(--fb-mono);
+    font-size: var(--fs--1);
+    line-height: 1.5;
+    text-align: start;
+    transition:
+      border-color var(--t-fast, 0.14s) var(--ease, ease),
+      background var(--t-fast, 0.14s) var(--ease, ease),
+      color var(--t-fast, 0.14s) var(--ease, ease);
+
+    &:hover {
+      border-color: var(--fb-accent);
+      background: var(--bulbau-orange-bg, #fff3ec);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--fb-accent);
+      outline-offset: 1px;
+    }
+
+    &--field {
+      border-color: var(--bulbau-orange-bg-strong, #ffe4d4);
+      background: var(--fb-hl-field-bg);
+      color: var(--fb-hl-field-fg);
+      font-family: var(--font-body);
+      font-weight: 600;
+    }
+    &--op {
+      min-width: 32px;
+      justify-content: center;
+      font-size: var(--fs-0);
+      color: var(--fb-hl-op-fg);
+    }
+    &--fn {
+      color: var(--fb-hl-fn-fg);
+    }
+    &--kw {
+      color: var(--fb-hl-kw-fg);
+    }
+  }
+
+  .fb-chip__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .fb-chip__key {
+    font-family: var(--fb-mono);
+    font-size: 0.9em;
+    font-weight: 400;
+    opacity: 0.8;
+    white-space: nowrap;
+  }
+  .fb-chip__paren {
+    opacity: 0.55;
+  }
+
+  /* ---- Reference panel --------------------------------------------------------- */
+  .fb-ref {
+    border: 1px solid var(--fb-border);
+    background: var(--theme-elevation-0);
+
+    summary {
+      padding: var(--s-3) var(--s-4);
+      cursor: pointer;
       font-family: var(--font-display);
       font-size: var(--fs--1);
       font-weight: 700;
       letter-spacing: var(--tracking-label, 0.12em);
       text-transform: uppercase;
       color: var(--theme-elevation-700);
+      list-style: none;
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+      &::before {
+        content: '+';
+        display: inline-block;
+        width: 1.2em;
+        color: var(--fb-accent);
+      }
+      &:hover {
+        color: var(--theme-elevation-900);
+      }
+      &:focus-visible {
+        outline: 2px solid var(--fb-accent);
+        outline-offset: -2px;
+      }
     }
+
+    &[open] summary {
+      border-bottom: 1px solid var(--fb-hair);
+
+      &::before {
+        content: '−';
+      }
+    }
+  }
+
+  .fb-ref__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+    padding: var(--s-4);
+  }
+
+  .fb-ref__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs--1);
+    line-height: 1.5;
+
+    th,
+    td {
+      padding: var(--s-2) var(--s-3);
+      border-bottom: 1px solid var(--fb-hair);
+      text-align: start;
+      vertical-align: top;
+      color: var(--theme-elevation-700);
+    }
+
+    th {
+      font-family: var(--font-display);
+      font-size: var(--fs--2);
+      font-weight: 700;
+      letter-spacing: var(--tracking-label, 0.12em);
+      text-transform: uppercase;
+      color: var(--theme-elevation-500);
+    }
+
+    code {
+      font-family: var(--fb-mono);
+      font-size: 0.95em;
+      color: var(--theme-elevation-900);
+      overflow-wrap: anywhere;
+    }
+  }
+
+  /* ---- Preview ------------------------------------------------------------ */
+  .fb-preview {
+    padding: var(--s-4);
+    background: var(--fb-surface);
+    border: 1px solid var(--fb-border);
   }
 
   .fb-preview-inputs {
@@ -454,6 +690,23 @@
   }
 }
 
+/* Dark theme: keep every token legible on the dark input surface. */
+html[data-theme='dark'] .fb {
+  --fb-hl-field-bg: rgba(224, 90, 0, 0.22);
+  --fb-hl-field-fg: #ff8a45;
+  --fb-hl-number-fg: #86efac;
+  --fb-hl-fn-fg: #c4b5fd;
+  --fb-hl-kw-fg: #fcd34d;
+  --fb-hl-op-fg: var(--theme-elevation-600);
+  --fb-hl-unknown-fg: #fca5a5;
+  --fb-hl-match-bg: rgba(224, 90, 0, 0.35);
+  --fb-hl-error: #fca5a5;
+
+  .fb-input::selection {
+    background: rgba(255, 138, 69, 0.3);
+  }
+}
+
 /* ============================================================================
    CARD SHELL — the prototype's `.formula-builder`
    ========================================================================== */
@@ -530,102 +783,6 @@
     }
   }
 
-  .fb-canvas-label {
-    margin-bottom: calc(var(--s-4) * -1 + var(--s-1));
-    font-family: var(--font-display);
-    font-size: var(--fs--2);
-    font-weight: 700;
-    letter-spacing: var(--tracking-label, 0.12em);
-    text-transform: uppercase;
-    color: var(--theme-elevation-500);
-  }
-
-  /* The dark canvas — the one place in the admin where the formula is shown as
-     machine-readable tokens rather than as form controls. */
-  .fb-canvas {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--s-2);
-    min-height: 5rem;
-    padding: var(--s-4);
-    background-color: var(--bulbau-ink-2, #1c1a18);
-    background-image: var(--bulbau-grid-dark);
-    background-size: 24px 24px;
-    /* Long formulas wrap rather than forcing the page to scroll sideways. */
-    overflow-wrap: anywhere;
-
-    &--empty {
-      display: block;
-      min-height: 0;
-      padding: var(--s-3) var(--s-4);
-      font-size: var(--fs-0);
-      color: var(--bulbau-g400, #a3a3a3);
-    }
-  }
-
-  .fb-token {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-1);
-    padding: 6px 10px;
-    font-family: var(--font-display);
-    font-size: var(--fs--1);
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    white-space: nowrap;
-
-    &--field {
-      background: rgba(224, 90, 0, 0.2);
-      color: #ff8a45;
-      border: 1px solid rgba(224, 90, 0, 0.35);
-    }
-    &--op {
-      padding: 4px 10px;
-      background: rgba(255, 255, 255, 0.08);
-      color: #ded9d3;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      font-size: var(--fs-1);
-    }
-    &--fixed {
-      background: rgba(100, 200, 100, 0.14);
-      color: #86efac;
-      border: 1px solid rgba(100, 200, 100, 0.24);
-    }
-    &--num {
-      background: rgba(255, 255, 255, 0.06);
-      color: #fafafa;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      text-transform: none;
-      font-variant-numeric: tabular-nums;
-    }
-    &--pct {
-      background: rgba(120, 165, 255, 0.14);
-      color: #a8c6ff;
-      border: 1px solid rgba(120, 165, 255, 0.24);
-      text-transform: none;
-    }
-  }
-
-  .fb-fixed {
-    display: flex;
-    flex-direction: column;
-    gap: var(--s-3);
-    padding: var(--s-4);
-    background: var(--fb-surface);
-    border: 1px solid var(--fb-border);
-  }
-
-  .fb-fixed-title {
-    font-family: var(--font-display);
-    font-size: var(--fs--1);
-    font-weight: 700;
-    letter-spacing: var(--tracking-label, 0.12em);
-    text-transform: uppercase;
-    color: var(--theme-elevation-600);
-  }
-
   /* Preview (the prototype's `.formula-preview`): sample inputs on the left, the
      result on the right once the card has room — stacked when it doesn't. */
   .fb-preview {
@@ -672,4 +829,29 @@
     border-top: 0;
     border-inline-start: 1px solid var(--fb-border);
   }
+}
+
+/* Narrow container: the palette labels stack above their chips. */
+@container fb-card (max-width: 30rem) {
+  .fb .fb-palette__group {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fb .fb-palette__label {
+    padding-top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fb * {
+    transition: none !important;
+  }
+}
+
+/* Status line while an error is pending (typing has not paused yet). */
+.fb .fb-status--pending {
+  border-inline-start-color: var(--theme-elevation-300);
+}
+.fb .fb-status__pending {
+  color: var(--theme-elevation-400);
+  letter-spacing: 0.2em;
 }

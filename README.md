@@ -6,17 +6,19 @@ the same app. See `docs/FUNCTIONALITY.md` (the "what") and
 `docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
 day-to-day commands.
 
-**Status (2026-09-10):** **The site is LIVE in production at `https://bulbau.lu`** (custom domain, apex + `www`→apex redirect, valid ACM cert; deployed via the manual-approval `deploy-production` CI job) but is **not yet publicly launched** — search indexing stays off until the Phase 7 launch flip.
+**Status (2026-09-16):** **The site is LIVE in production at `https://bulbau.lu`** (custom domain, apex + `www`→apex redirect, valid ACM cert; deployed via the manual-approval `deploy-production` CI job) but is **not yet publicly launched** — search indexing stays off until the Phase 7 launch flip.
 
-**Every planned feature (§12 roadmap Phases 0–6) is built**: the admin panel with mandatory 2FA, the full content model, per-deploy migrations, the public trilingual site (`/en|/fr|/de`), the real-time price calculator + shared `src/lib/pricing/` evaluator, the visual admin Formula Builder, PDF quote generation (Download **and** email-the-quote via SES), EN→FR/DE auto-translation via AWS Translate, the Translation Management admin screen, the `/contact` page with Cloudflare Turnstile, on-demand CloudFront invalidation, OWASP security headers, and CI axe (WCAG 2.2 AA) + Lighthouse gates.
+**Every planned feature (§12 roadmap Phases 0–6) is built**: the admin panel with mandatory 2FA, the full content model, per-deploy migrations, the public trilingual site (`/en|/fr|/de`), the real-time price calculator + shared `src/lib/pricing/` evaluator, the admin **formula bar** (any pricing formula — `(area × rate + 200) × (1 + 17%)`, `if(…)`, `min`/`max`/`ceil`… — compiled to JSONLogic, invalid formulas cannot be published), PDF quote generation (Download **and** email-the-quote via SES), EN→FR/DE auto-translation via AWS Translate, the Translation Management admin screen, the `/contact` page with Cloudflare Turnstile, on-demand CloudFront invalidation, OWASP security headers, and CI axe (WCAG 2.2 AA) + Lighthouse gates.
 
 **Phase 7 (hardening + launch) has started.** Landed since 2026-09-07:
 
 - **A bespoke admin panel** (`984be35`) — branded login/sidebar, a custom dashboard, and a dedicated Services screen with drag ordering. It also shipped the **Home-page service-card limit** (a `HomeSettings` global), which `FUNCTIONALITY.md` §3.1 had specified but nothing had implemented, plus `unit`/`defaultOn` on calculator fields. **Adds the third migration** (`20260825_173608`).
 - **Failure visibility** (`7e02c94`) — the app previously had **no way to tell you it was broken**: `src/lib/content.ts` never throws, so a database outage rendered the whole site as blank pages with HTTP 200, and the `AWS/Lambda Errors` metric only counts handlers that actually *threw*. Now every silent-degradation path emits an `OPS_ALERT` line that a CloudWatch metric filter turns into an alarm, there is a `GET /api/health` liveness endpoint, and the Web/Pdf alarms are auto-wired in `sst.config.ts` instead of targeting hand-copied function names. Opt-in Route 53 uptime + CloudFront 5xx alarms live in `infra/terraform/uptime.tf`.
 - **A critical security patch** (`9df17ec`) — Next → **16.3.4** (two critical RCE advisories), `sharp` → 0.35.4, Payload → **3.89.0**. Triaging it also closed a real gap: `unlock` was the one access operation on `Users` not behind the 2FA step-up, so a stolen password could clear the login lockout. Note that the Payload advisory is **not** actually fixed by the version bump — see `docs/PROGRESS.md`.
+- **Fail-closed migrations** (`060db5b`, 2026-09-14) — the CI `payload migrate` step had been a **silent no-op on staging for six weeks**: with Payload's dev-push marker in the ledger (written by a local `.env` pointed at staging) the command prompts and exits 0. `scripts/verify-migrations.mjs` (`npm run migrate:verify [-- --pre]`) now brackets the apply and fails on a marker or an unapplied migration; `src/lib/dbGuard.ts` (2026-09-16) makes `npm run dev`/`test:int` **refuse to start** against any non-local database. Same commit: logout clears the 2FA step-up cookie, one CloudFront-aware client-IP helper, JSON-LD escaping, image-only uploads.
+- **One list design for every collection + the formula bar** (2026-09-14, uncommitted at the time of writing) — the bespoke Services screen was removed; Services, Projects, Careers and Media use Payload's native list, restyled, with **multi-select and drag ordering**. Projects and Media became `orderable` → **the fourth migration** (`20260914_165124_projects_media_orderable`, with a newest-first backfill); the public Projects order now follows the admin's drag order. The structured Formula Builder was replaced by a **formula bar** (free-form expression, highlighting, autocomplete, plain-language errors; stored value still plain JSONLogic; a broken formula is refused on Publish). Two desktop layout bugs in the admin (document views collapsing to a narrow column above 1440 px; two-column rows wrapping) were fixed. 2FA enrolment reuses a pending secret and labels non-production authenticator entries with the host.
 
-**⚠️ None of the above is confirmed deployed** — the CI audit gate was red at the last push, so `verify` failed and no deploy ran. Check the latest `deploy-staging`/`deploy-production` runs and confirm `npm run migrate:status` shows **three** migrations on both Neon branches before treating those stages as current.
+**⚠️ None of the above is confirmed deployed, and the databases are about to be reset.** Decision (2026-09-16): wipe the staging and production Neon branches (`DROP SCHEMA public CASCADE; CREATE SCHEMA public;` on each branch's direct URL) and let the deploy job apply all **four** migrations from empty — the project is pre-launch and holds no data worth keeping. Runbook: `docs/PROGRESS.md` → "Immediate next steps" step 0. After it, `npx cross-env DATABASE_URL="<direct url>" npm run migrate:verify` must print ✅ with four rows on each branch.
 
 **Remaining launch blockers are external, not development work:** published `LegalInfo` details, an SES-verified mailbox + `EmailSender` (⚠️ **until it is set the contact form cannot deliver at all** — `/api/contact` returns 502 and the visitor is shown an error telling them to phone or email instead, so no message is lost silently, but every enquiry through the form fails), production Turnstile keys, and the indexing flip. Web analytics was evaluated and **deliberately left out of scope** (see below) — the site stays cookieless with no consent banner.
 
@@ -46,9 +48,12 @@ cp .env.example .env
 # Local Postgres + S3Mock via Docker:
 docker compose up -d
 
-# Postgres alternative — point DATABASE_URL at a personal Neon branch instead
-# (use the POOLED connection string, hostname contains "-pooler"); S3Mock has
-# no such hosted alternative, always run it locally for dev/test.
+# Postgres alternative — point DATABASE_URL at a PERSONAL Neon dev branch instead
+# (its DIRECT/unpooled URL — local dev pushes schema, and DDL breaks through the
+# PgBouncer pooler). NEVER a stage's branch: since 2026-09-16 the app REFUSES TO
+# START in dev/test mode against any non-local DATABASE_URL (src/lib/dbGuard.ts),
+# because a dev server pointed at staging silently disabled every staging
+# migration for six weeks. S3Mock has no hosted alternative — always run it locally.
 
 npm install
 npm run dev
@@ -171,9 +176,20 @@ npm run migrate:create my_change      # writes src/migrations/<ts>_my_change.{ts
 
 npm run migrate:status                # which migrations have/haven't run
 npm run migrate                       # apply pending migrations to DATABASE_URL
+npm run migrate:verify -- --pre       # fail-closed pre-flight: refuses a dev-push marker
+npm run migrate:verify                # post-check: every committed migration is recorded as applied
 ```
 
-**CI enforces this.** The `verify` job runs a schema-drift guard (`migrate:create --skip-empty`, the equivalent of Django's `makemigrations --check`): if you change a collection/field/global and forget to commit a migration, the build fails with a clear message rather than silently shipping code against a schema staging never got. Locally, `push` keeps your dev DB in sync so you won't notice the gap — the guard is what catches it before merge. If it fails, run `npm run migrate:create`, commit the generated `.ts`/`.json`, and push. (Details: `docs/TECHSPEC.md` §10.5 / `docs/PROGRESS.md`.) The same job also runs a **generated-artifact drift guard**: it regenerates `payload-types.ts` + `admin/importMap.js` and fails on any diff, so stale types or a stale import map (a runtime-only admin breakage) can't ship — if it fails, run `npm run generate:types` and `npm run generate:importmap`, commit, and push.
+**Against a deployed stage, pass the URL explicitly — never by editing `.env`:**
+
+```bash
+npx cross-env DATABASE_URL="<stage DIRECT url>" npm run migrate:verify -- --pre
+npx cross-env NODE_ENV=production DATABASE_URL="<stage DIRECT url>" npm run migrate   # only if not letting CI do it
+```
+
+`NODE_ENV=production` keeps Drizzle push OFF (so `payload migrate` applies only the tracked files), and without it the app refuses to start against a non-local database anyway (`src/lib/dbGuard.ts`). A running dev server keeps the connection it started with — changing `.env` does not switch databases until you restart it.
+
+**CI enforces this, fail-closed (since 2026-09-14).** Both deploy jobs run `migrate:verify -- --pre` → `timeout 600s npm run migrate </dev/null` → `migrate:verify`: `payload migrate` is interactive and, on a database carrying Payload's dev-push marker (`payload_migrations` row `dev`, batch `-1`), prompts and exits **0 having applied nothing** — which is exactly what every staging deploy did from 2026-08-01 to 2026-09-14. The pre-flight refuses the marker, the timeout can't hang, and the post-check fails unless every committed migration is recorded. (A brand-new database with no ledger table passes the pre-flight, which is what lets a stage be reset from empty — see `docs/TECHSPEC.md` §10.5 "Resetting a stage's database".) The `verify` job additionally runs a schema-drift guard (`migrate:create --skip-empty`, the equivalent of Django's `makemigrations --check`): if you change a collection/field/global and forget to commit a migration, the build fails with a clear message rather than silently shipping code against a schema staging never got. Locally, `push` keeps your dev DB in sync so you won't notice the gap — the guard is what catches it before merge. If it fails, run `npm run migrate:create`, commit the generated `.ts`/`.json`, and push. (Details: `docs/TECHSPEC.md` §10.5 / `docs/PROGRESS.md`.) The same job also runs a **generated-artifact drift guard**: it regenerates `payload-types.ts` + `admin/importMap.js` and fails on any diff, so stale types or a stale import map (a runtime-only admin breakage) can't ship — if it fails, run `npm run generate:types` and `npm run generate:importmap`, commit, and push.
 
 **Neon note:** run migrations against the **direct (unpooled)** connection
 string — the one **without** `-pooler` in the hostname. DDL breaks through

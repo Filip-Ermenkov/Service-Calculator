@@ -18,13 +18,51 @@ export function generateTotpSecret(): string {
 /**
  * Builds the `otpauth://` URI an authenticator app scans (via QR code) or
  * accepts as manual entry text.
+ *
+ * `environmentTag` (e.g. "localhost:3000", "staging") is appended to the
+ * account label on non-production servers, so the same admin enrolling on
+ * local, staging and production ends up with three DISTINGUISHABLE entries in
+ * their authenticator app instead of three identical "bulbau.lu:
+ * name@example.com" rows — reading a code off the wrong one is reported as a
+ * plain "Invalid code" and is near-impossible to diagnose from the outside.
+ * Production stays exactly `bulbau.lu: <email>`.
  */
-export function buildOtpAuthUri(params: { secret: string; accountEmail: string }): string {
+export function buildOtpAuthUri(params: {
+  secret: string
+  accountEmail: string
+  environmentTag?: string | null
+}): string {
+  const label = params.environmentTag
+    ? `${params.accountEmail} (${params.environmentTag})`
+    : params.accountEmail
   return generateURI({
     issuer: ISSUER,
-    label: params.accountEmail,
+    label,
     secret: params.secret,
   })
+}
+
+const PRODUCTION_HOSTS = new Set(['bulbau.lu', 'www.bulbau.lu'])
+
+/**
+ * The tag `buildOtpAuthUri` should carry for THIS server: null on the production
+ * domain, otherwise the site host (local dev, the staging CloudFront URL, …).
+ * Reads NEXT_PUBLIC_SITE_URL (the deployed stage's origin, an SST secret); with
+ * nothing set outside production it assumes a local dev server.
+ */
+export function otpEnvironmentTag(
+  env: { NEXT_PUBLIC_SITE_URL?: string; NODE_ENV?: string } = process.env,
+): string | null {
+  const raw = env.NEXT_PUBLIC_SITE_URL?.trim()
+  if (raw) {
+    try {
+      const host = new URL(raw).host.toLowerCase()
+      return PRODUCTION_HOSTS.has(host) ? null : host
+    } catch {
+      return raw
+    }
+  }
+  return env.NODE_ENV === 'production' ? null : 'localhost'
 }
 
 /** Generates the current 6-digit TOTP token for a secret. Test/dev use only. */

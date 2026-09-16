@@ -13,9 +13,22 @@ import { CareerListings } from './collections/CareerListings'
 import { CompanyInfo } from './globals/CompanyInfo'
 import { LegalInfo } from './globals/LegalInfo'
 import { HomeSettings } from './globals/HomeSettings'
+import { ALLOW_REMOTE_PUSH_ENV, remotePushProblem } from './lib/dbGuard'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+// Schema-push mode (see the adapter's `push` below) may only ever target a LOCAL
+// database. A dev server accidentally pointed at a stage's Neon branch pushed
+// schema + the dev-migration marker into staging three times in two days; this
+// makes that a refused start with an actionable message instead. See src/lib/dbGuard.ts.
+const pushSchema = process.env.NODE_ENV !== 'production'
+const pushProblem = remotePushProblem({
+  databaseUrl: process.env.DATABASE_URL || '',
+  push: pushSchema,
+  override: process.env[ALLOW_REMOTE_PUSH_ENV],
+})
+if (pushProblem) throw new Error(pushProblem)
 
 export default buildConfig({
   admin: {
@@ -61,20 +74,19 @@ export default buildConfig({
         dashboard: {
           Component: '/components/admin/DashboardView',
         },
+        // `/admin/services` was the bespoke Services screen until 2026-09-14;
+        // it is now Payload's native list at /admin/collections/services (see
+        // src/collections/Services.ts — the banner, summary columns and the
+        // Home-page card-count setting moved into list slots). Kept only as a
+        // redirect so old links don't 404.
+        services: {
+          Component: '/components/admin/ServicesRedirect',
+          path: '/services',
+        },
         // New Root Views (not overrides of any built-in Payload view) for
         // the TOTP enrollment and per-login verification steps. Payload's
         // own /admin/login view is untouched — it still handles the
         // password (first) factor exactly as it always has.
-        // Custom Services management screen — the bespoke list from
-        // /prototype/admin/services (drag-order + card summary + inline actions +
-        // Home-page card-count setting). Registered as a Root View at
-        // /admin/services (the nav "Services" link points here); document editing
-        // still uses Payload's native editor at /admin/collections/services/<id>.
-        // Writes go through /api/admin/services. See ServicesView.tsx.
-        services: {
-          Component: '/components/admin/ServicesView',
-          path: '/services',
-        },
         totpSetup: {
           Component: '/components/admin/TotpSetupView',
           path: '/totp-setup',
@@ -143,7 +155,7 @@ export default buildConfig({
     //     the CI deploy job BEFORE `sst deploy` (see .github/workflows/ci.yml).
     // This is Payload's own default (push⇔dev); we set it explicitly so the
     // boundary is documented and can't drift silently.
-    push: process.env.NODE_ENV !== 'production',
+    push: pushSchema,
     // NOTE: `prodMigrations` is deliberately NOT set. That option runs pending
     // migrations at Payload init (server startup), which is correct for a
     // long-running container but wrong for Lambda: it would run on every cold

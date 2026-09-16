@@ -31,7 +31,10 @@ export const CareerListings: CollectionConfig = {
     defaultColumns: ['title', 'status', 'rowActions'],
     group: 'Content',
     components: {
-      beforeListTable: ['/components/admin/ListCardHeader#ListCardHeader'],
+      beforeListTable: [
+        '/components/admin/ListOrderBanner#ListOrderBanner',
+        '/components/admin/ListCardHeader#ListCardHeader',
+      ],
     },
     description:
       'Open positions. Drag to reorder — this sets the display order on the ' +
@@ -77,7 +80,10 @@ export const CareerListings: CollectionConfig = {
               type: 'text',
               required: true,
               localized: true,
-              admin: { width: '50%' },
+              admin: {
+                width: '50%',
+                components: { Cell: '/components/admin/TitleCell#TitleCell' },
+              },
             },
             {
               // NOT Payload's draft/publish state — §5.5 models careers as an

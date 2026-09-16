@@ -2,7 +2,7 @@
 
 > This document describes the complete functionality of the bulbau.lu website from a non-technical perspective. It covers every page, every user-facing interaction, every admin capability, and all cross-cutting behaviours. It is intended to serve as the single source of truth before any technical decisions are made.
 >
-> **Status as of 2026-09-10 — read this first.** **Every feature described in this document is now built.** Since the previous update three things changed, none of which alter what the website does for a visitor:
+> **Status as of 2026-09-16 — read this first.** **Every feature described in this document is now built.** Since 2026-09-10 four more things changed (2026-09-13 → 16), two of them visible to the admin: **the price formula can now be ANY calculation** — the admin types it in a formula bar (`(area × rate + 200) × (1 + 17%)`, tiers with `if`, minimum charges with `max`, whole units with `ceil`…) with plain-language error messages, and a formula with a mistake cannot be published (§5.3); **every admin list (Services, Projects, Careers, Media) now looks and works the same** — drag to reorder, tick several rows for bulk actions, search — and the Projects page order follows the admin's drag order (§3.2, §5.4); the desktop admin layout no longer squeezes editing screens into a narrow column; and a fault in the deployment pipeline that had silently skipped database updates on the test environment since August was fixed, with a safeguard so a developer's machine can no longer connect to a live environment by accident. **Before the next deployment the databases (test and live) are being reset from empty** — the project holds no real content yet, and this removes any doubt about their state. Previously (2026-09-10) three things changed, none of which alter what the website does for a visitor:
 >
 > 1. **The admin panel was redesigned** (2026-09-07). It now carries the company's own branding and a purpose-built dashboard, navigation and Services screen instead of looking like a generic content-management tool. Nothing was removed — it is the same capabilities, presented properly. The **one genuinely new capability** is the control described in §3.1: the admin can now choose **how many service cards appear on the Home page**, which had been described here but never actually built.
 > 2. **The website can now report its own faults** (2026-09-10). Previously, if the database became unreachable the site would quietly serve *empty* pages while still looking "up", and nobody would be told. It now raises an alert to the operator's inbox when that (or a failed contact-form delivery, or an unreachable site) happens. This is invisible to visitors and changes nothing they see — it is what makes the site safe to leave running with only occasional maintenance.
@@ -163,6 +163,8 @@ Showcases the company's portfolio of completed work to build trust with prospect
   - A brief description.
   - A completion date.
 - Cards are sorted by completion date, newest first, by default.
+
+  > **🔁 Updated 2026-09-14.** The order is now the one the admin sets by **dragging projects** in the admin list (see §5.4). A new project is inserted at the top, so with no dragging the page still reads newest first; dragging lets the admin pin a showcase project above newer ones.
 - If there are many projects, the page uses pagination or a "load more" button to avoid an excessively long page.
 
 ---
@@ -190,7 +192,7 @@ Because different services have entirely different parameters (e.g., roof area a
 - As the visitor fills in or adjusts any field, the estimated total price updates in real time on the screen — no submit button is needed for the price to recalculate.
 - The estimated price is displayed prominently, formatted as a currency amount.
 
-> **✅ Built in Phase 3 part 1 (2026-07-19).** The live calculator is real on the Service page: number / dropdown / yes-no fields the admin has defined, the total recomputing on every change and formatted in euros for the current language (`€1,234.50` / `1.234,50 €`), plus an itemised estimate breakdown. Two behaviours worth noting: the total is **held back with a short prompt until every required (\*) field has a value** — so the visitor never sees a confident price that ignores a missing input (a typed **0 counts as a real value**, not "empty") — and if the configured formula ever yields a zero/negative/undefined total, the screen shows **"Contact us for a price"** instead of a number (§7). The pricing math is a shared, dependency-free engine reused everywhere a price is shown, so the on-screen estimate and the (Phase 4) PDF can never disagree. Editing those fields/formula through a *visual* admin builder is **done as of Phase 3 part 2 (2026-07-20)** — see §5.3; the *quote actions* below (Download / Send-to-Email PDF) are **Phase 4**.
+> **✅ Built in Phase 3 part 1 (2026-07-19).** The live calculator is real on the Service page: number / dropdown / yes-no fields the admin has defined, the total recomputing on every change and formatted in euros for the current language (`€1,234.50` / `1.234,50 €`), plus an itemised estimate breakdown. Two behaviours worth noting: the total is **held back with a short prompt until every required (\*) field has a value** — so the visitor never sees a confident price that ignores a missing input (a typed **0 counts as a real value**, not "empty") — and if the configured formula ever yields a zero/negative/undefined total, the screen shows **"Contact us for a price"** instead of a number (§7). The pricing math is a shared, dependency-free engine reused everywhere a price is shown, so the on-screen estimate and the (Phase 4) PDF can never disagree. Editing those fields/formula through a *visual* admin builder is **done as of Phase 3 part 2 (2026-07-20), and rebuilt on 2026-09-14 as a free-form formula bar** — see §5.3; the *quote actions* below (Download / Send-to-Email PDF) are **Phase 4**.
 
 **Quote Actions**
 - Once the visitor has filled in the form, two action buttons are available:
@@ -342,7 +344,7 @@ This is the most flexible and powerful section of the admin panel. Services are 
 
 #### Service List
 
-> **✅ Built as a dedicated Services screen (2026-09-07).** Exactly as described below — the list, the drag-to-reorder, the per-row actions — plus the **Home page card count** control (§3.1) which is edited right here rather than on a separate settings page. Clicking **Edit** opens the normal service editor.
+> **✅ Built as a dedicated Services screen (2026-09-07), then moved onto the standard list (2026-09-14).** Everything described below is there — the list with name, status and Edit / Delete / **Preview** buttons, drag-to-reorder, the New Service button — plus the **Home page card count** control (§3.1) edited right under the list. Since 2026-09-14 the Services list is the same standard list every other section uses (Projects, Careers, Media all look and behave the same), which also brings **multi-select with bulk actions** (tick several rows → Edit / Publish / Unpublish / Delete), search and pagination. The old `/admin/services` address simply forwards to it.
 
 - Shows all existing services in a list.
 - Each row shows the service name, its published/draft status, and action buttons: **Edit**, **Delete**, **Preview**.
@@ -383,7 +385,7 @@ This is the most flexible and powerful section of the admin panel. Services are 
 - The formula builder uses a visual, structured interface (not raw code) so that a non-technical admin can construct complex pricing logic without programming knowledge.
 - A **live preview** in the editor lets the admin enter sample values and see the calculated result, to verify the formula is working as intended before publishing.
 
-> **✅ Built in Phase 3 part 2 (2026-07-20).** The **Calculator Field Builder** above is the native field editor in the `Services` form (add/reorder fields; set label, type, options, unit price, +/− sign, required). The **Formula Builder** is a custom visual editor on the pricing-formula field: the admin adds **terms** (a field × a multiplier, a fixed cost, or a bracketed group like "(A + B) × C"), each set to add or subtract, then optional **percentage adjustments** applied in order (e.g. "+10 % VAT"). It is entirely point-and-click — no code — and a **live preview** right below it lets the admin type sample values and see the resulting price update instantly, shown **exactly as a visitor would see it** (including the "fill the required fields" hold-back and the "Contact us for a price" fallback). Leaving the formula empty is valid: the price then simply adds up each field's own unit price. An admin who prefers to hand-write the underlying rule can switch to a raw view, and any rule created that way is preserved.
+> **✅ Built in Phase 3 part 2 (2026-07-20) — and rebuilt on 2026-09-14 so that ANY formula can be written.** The **Calculator Field Builder** above is the native field editor in the `Services` form (add/reorder fields; set label, type, options, unit price, +/− sign, required; each field also has a short **field key** such as `roof_area`, which is the name the formula uses — keys must be unique within a service and contain no spaces). The **Formula Builder** is a **formula bar**: the admin types (or clicks together) an ordinary calculation over those keys — `area × rate + 200`, `(area × rate + 200) × (1 + 17%)` for VAT, `if(area > 100, area × 10, area × 12)` for a cheaper rate above a threshold, `max(area × 12, 500)` for a minimum charge, `min(…, 5000)` for a cap, `ceil(area / 1.7) × 250` for whole panels, `rush × 200` for a yes/no option (a toggle counts as 1 or 0; a dropdown counts as its option's value). Brackets control the order; `× ÷ − ≤ ≥ ≠` or the keyboard forms `* / - <= >= !=` both work; decimals use a dot. Below the bar the formula is read back **in words** using the fields' labels ("Roof area × Price per m² + 200") so a typo is obvious, and every mistake is explained in plain language at the exact spot ("Unknown field "aera". Did you mean "area"?", "Missing a closing bracket )", "Use a dot for decimals: write "1.5", not "1,5""). Chips insert any field, operator or function without typing; **Start from the default sum** prefills the formula the calculator uses when none is set; a built-in reference lists recipes. A **live preview** tab runs sample values through the very same calculation visitors get (including the "fill the required fields" hold-back and the "Contact us for a price" fallback). Leaving the formula empty is still valid (each field's own unit price is added up). **A formula with an error cannot be published** — Publish is refused with the message on the field, and the unfinished text is kept so nothing is lost; likewise a formula that refers to a field key that was renamed or removed blocks publishing until it is updated. Formulas made with the earlier click-to-add builder open in the bar unchanged.
 
 ---
 
@@ -392,6 +394,8 @@ This is the most flexible and powerful section of the admin panel. Services are 
 #### Project List
 - Shows all projects in a list with their title, completion date, associated service category, and action buttons: **Edit**, **Delete**.
 - A **New Project** button opens the project editor.
+
+> **🔁 Updated 2026-09-14.** Same standard list as Services: **drag-and-drop ordering** (this order is the order of the cards on the public Projects page, §3.2 — a new project goes to the top) and **multi-select with bulk actions** (Edit / Publish / Unpublish / Delete).
 
 #### Project Editor (Create / Edit)
 - Project title (text).
@@ -410,6 +414,8 @@ This is the most flexible and powerful section of the admin panel. Services are 
 - Action buttons: **Edit**, **Delete**, **Archive / Restore**.
 - A **New Job Opening** button opens the job editor.
 - The admin can reorder listings by drag-and-drop; this order determines the display order on the public Careers page.
+
+> **🔁 Updated 2026-09-14.** Same standard list as Services and Projects, with **multi-select and bulk actions**. The **Media** library (photos) uses it too: drag to arrange, tick several files to delete them at once.
 
 #### Job Editor (Create / Edit)
 - Job title (text).

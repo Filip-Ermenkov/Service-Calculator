@@ -1,13 +1,17 @@
 /**
- * Services management write API — the write side of the custom Services admin
- * screen (ServicesView / ServicesManager). The screen itself is a read-only
- * server component; every mutation it offers goes through this one route:
+ * Home-page card-count setting — the one write the Services list still needs
+ * outside Payload's own REST API.
  *
- *   • reorder  — persist a new drag order (fractional `_order` keys). This order
- *                is what the public Home page uses for its service cards
- *                (FUNCTIONALITY.md §3.1 / §5.3).
- *   • delete   — delete a single service.
- *   • setLimit — save the Home-page "number of cards" setting (home-settings global).
+ *   • setLimit — save how many service cards the public Home page shows
+ *                (the `home-settings` global; 0 = show all). Used by the
+ *                HomeCardLimitForm rendered under the Services list.
+ *
+ * Until 2026-09-14 this route also carried `reorder` and `delete` for a bespoke
+ * Services table. That table is gone — the Services list is Payload's native
+ * list view, whose drag ordering goes through Payload's own `/api/reorder`
+ * endpoint (gated by the collection's `update` access, i.e. the TOTP step-up)
+ * and whose deletes/bulk actions go through the collection's REST endpoints.
+ * Fewer bespoke write paths, same security boundary.
  *
  * SECURITY: unlocalized `/api/*` route (src/proxy.ts does NOT gate it — the
  * matcher excludes /api), so it authenticates itself exactly like
@@ -18,18 +22,14 @@
 
 import { headers as getHeaders } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { generateNKeysBetween } from 'payload/shared'
 
 import { getPayloadClient } from '@/lib/content'
-import { revalidatePublicSiteNow } from '@/lib/revalidate'
 import { isStepUpVerified } from '@/lib/totp/requestHelpers'
 
 export const dynamic = 'force-dynamic'
 
 interface WriteBody {
-  action?: 'reorder' | 'delete' | 'setLimit'
-  ids?: (string | number)[]
-  id?: string | number
+  action?: 'setLimit'
   limit?: number
 }
 
@@ -39,7 +39,7 @@ function bad(status: number, error: string) {
 
 export async function POST(request: Request): Promise<Response> {
   const contentLength = Number(request.headers.get('content-length') ?? '0')
-  if (Number.isFinite(contentLength) && contentLength > 64 * 1024) {
+  if (Number.isFinite(contentLength) && contentLength > 4 * 1024) {
     return bad(413, 'payload_too_large')
   }
 
@@ -50,9 +50,10 @@ export async function POST(request: Request): Promise<Response> {
     return bad(400, 'invalid_json')
   }
 
-  const { action } = body
-  if (action !== 'reorder' && action !== 'delete' && action !== 'setLimit') {
-    return bad(400, 'invalid_action')
+  if (body.action !== 'setLimit') return bad(400, 'invalid_action')
+  const limit = body.limit
+  if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 0 || limit > 1000) {
+    return bad(400, 'invalid_limit')
   }
 
   // ── AuthN/AuthZ: valid session + valid TOTP step-up cookie ──
@@ -63,65 +64,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!isStepUpVerified(headers, String(user.id))) return bad(403, 'step_up_required')
 
   try {
-    if (action === 'reorder') {
-      const ids = Array.isArray(body.ids) ? body.ids : null
-      if (!ids || ids.length === 0) return bad(400, 'missing_ids')
-      if (ids.length > 500) return bad(413, 'too_many_ids')
-
-      // Fresh, evenly-spaced fractional keys for the whole list in the new order.
-      const keys = generateNKeysBetween(null, null, ids.length)
-
-      // Preserve each doc's publish state exactly — reordering must never flip a
-      // draft to published or vice-versa (mirrors the translations route).
-      const existing = await payload.find({
-        collection: 'services',
-        depth: 0,
-        limit: 1000,
-        pagination: false,
-        overrideAccess: true,
-        draft: true,
-      })
-      const statusById = new Map<string, string | undefined>()
-      for (const d of existing.docs) {
-        statusById.set(String(d.id), d._status ?? undefined)
-      }
-
-      for (let i = 0; i < ids.length; i++) {
-        const id = ids[i]
-        const status = statusById.get(String(id))
-        const data: Record<string, unknown> = { _order: keys[i] }
-        if (status) data._status = status
-        await (payload.update as CallableFunction)({
-          collection: 'services',
-          id,
-          data,
-          draft: status === 'draft',
-          overrideAccess: true,
-          // Suppress BOTH per-document afterChange side effects here: nothing
-          // translatable changed (order only), and revalidating inside the loop
-          // would fire one ISR revalidation + one CloudFront `/*` invalidation
-          // PER SERVICE for a single drag — N invalidations for one edit, all
-          // but the last redundant. The one revalidation happens below instead.
-          context: { skipAutoTranslate: true, disableRevalidate: true },
-        })
-      }
-      // Exactly one revalidation + CDN purge for the whole reorder. Never throws.
-      await revalidatePublicSiteNow('services reorder')
-      return NextResponse.json({ ok: true })
-    }
-
-    if (action === 'delete') {
-      const id = body.id
-      if (id === undefined || id === null || id === '') return bad(400, 'missing_id')
-      await payload.delete({ collection: 'services', id, overrideAccess: true })
-      return NextResponse.json({ ok: true })
-    }
-
-    // action === 'setLimit'
-    const limit = body.limit
-    if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 0 || limit > 1000) {
-      return bad(400, 'invalid_limit')
-    }
+    // The global's afterChange revalidate hook fires, so the Home page refreshes.
     await (payload.updateGlobal as CallableFunction)({
       slug: 'home-settings',
       data: { serviceCardLimit: limit },
@@ -129,7 +72,7 @@ export async function POST(request: Request): Promise<Response> {
     })
     return NextResponse.json({ ok: true })
   } catch (err) {
-    payload.logger?.error?.(`[services] ${action} failed: ${(err as Error)?.message ?? err}`)
+    payload.logger?.error?.(`[services] setLimit failed: ${(err as Error)?.message ?? err}`)
     return bad(500, 'write_failed')
   }
 }

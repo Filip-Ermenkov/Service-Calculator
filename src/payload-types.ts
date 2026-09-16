@@ -165,6 +165,7 @@ export interface User {
  */
 export interface Media {
   id: number;
+  _order?: string | null;
   alt: string;
   updatedAt: string;
   createdAt: string;
@@ -232,7 +233,7 @@ export interface Service {
          */
         label: string;
         /**
-         * Stable name the price formula refers to, e.g. "roof_area". Lowercase, no spaces. Do not change it once a formula uses it.
+         * The name the price formula refers to, e.g. "roof_area". Letters, digits and underscores, unique within this service. Renaming it breaks any formula that uses it until the formula is updated.
          */
         fieldKey: string;
         type: 'number' | 'dropdown' | 'toggle';
@@ -264,7 +265,7 @@ export interface Service {
       }[]
     | null;
   /**
-   * How this service’s price is calculated from its calculator fields. Built visually below; stored as a JSONLogic structure (never executable code). Leave empty to simply add up each field’s own unit price.
+   * How this service’s price is calculated from its calculator fields — any formula, written in the formula bar below; stored as a JSONLogic structure (never executable code). Leave empty to simply add up each field’s own unit price.
    */
   formula?:
     | {
@@ -303,6 +304,7 @@ export interface Service {
  */
 export interface Project {
   id: number;
+  _order?: string | null;
   title: string;
   completionDate: string;
   /**
@@ -488,6 +490,7 @@ export interface UsersSelect<T extends boolean = true> {
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
+  _order?: T;
   alt?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -549,6 +552,7 @@ export interface ServicesSelect<T extends boolean = true> {
  * via the `definition` "projects_select".
  */
 export interface ProjectsSelect<T extends boolean = true> {
+  _order?: T;
   title?: T;
   completionDate?: T;
   service?: T;

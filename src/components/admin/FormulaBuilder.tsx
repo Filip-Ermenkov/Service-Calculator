@@ -2,36 +2,55 @@
 
 /**
  * Formula Builder — custom admin field for the Services `formula` field
- * (Phase 3 part 2 — TECHSPEC §6.4, FUNCTIONALITY §5.3).
+ * (TECHSPEC §6.4, FUNCTIONALITY §5.3; rebuilt 2026-09-14 as a formula bar).
  *
- * A non-technical, structured UI for assembling a pricing formula: field terms
- * (field × multiplier, + or −), fixed costs, groupings ("(A + B) × C") and
- * percentage adjustments (e.g. +10% VAT). It compiles to the SAME JSONLogic the
- * public calculator + shared evaluator (`src/lib/pricing/`) already run, so what
- * the operator builds is exactly what visitors get. A **live preview** panel
- * feeds sample inputs through the very same `computePrice()` the public page
- * uses (preview == production, by construction).
+ * The admin writes the price as an ordinary expression — `area × rate + 200`,
+ * `if(area > 100, area × 10, area × 12)`, `ceil(area / 1.7) × 250` — in a
+ * single formula bar with syntax highlighting, bracket matching, autocomplete
+ * for field keys/functions, and click-to-insert chips for every field, operator
+ * and function, so nothing has to be typed from memory. Under the bar, the
+ * formula is read back "in words" (field labels instead of keys) or a
+ * plain-language error points at the exact spot. A **Test / Preview** tab feeds
+ * sample inputs through the very same `computePrice()` the public page uses.
  *
- * The stored value is always plain JSONLogic (never the builder's own model), so
- * nothing downstream changes and no migration is needed. Anything hand-authored
- * outside the builder's canonical shape is detected and shown in a raw-JSON
- * editor instead — nothing is ever locked out.
+ * Everything language-related (tokenizer, parser → JSONLogic, printer,
+ * validation) lives in the pure `src/lib/pricing/formulaExpression.ts`; this
+ * file is only the UI over it. The stored value stays plain JSONLogic (with a
+ * `{ "__draft": text }` marker while the text does not parse, which the field's
+ * server-side `validate` rejects — see that module), so the public calculator,
+ * the evaluator and the PDF are untouched and no migration is needed. A formula
+ * that JSONLogic can express but the language can't (hand-authored raw JSON) is
+ * shown in a raw-JSON editor instead — nothing is ever locked out.
  */
 
-import { useMemo, useState, type KeyboardEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type RefObject,
+} from 'react'
 import { useAllFormFields, useField } from '@payloadcms/ui'
 import { reduceFieldsToValues } from 'payload/shared'
 
 import {
-  compileFormula,
-  parseFormula,
-  emptyFormula,
-  type BuilderAdjustment,
-  type BuilderFormula,
-  type BuilderTerm,
-  type GroupMember,
-  type Sign,
-} from '@/lib/pricing/formulaBuilder'
+  FORMULA_FUNCTIONS,
+  compileExpression,
+  describeFormula,
+  fieldKeyToText,
+  highlightTokens,
+  isReservedWord,
+  readStoredFormula,
+  toStoredFormula,
+  validateStoredFormula,
+  type ExpressionError,
+  type FormulaFieldRef,
+  type HighlightToken,
+} from '@/lib/pricing/formulaExpression'
 import {
   coerceInputs,
   computePrice,
@@ -49,284 +68,260 @@ type Props = { path?: string }
 const PREVIEW_LOCALE = 'en'
 
 // ---------------------------------------------------------------------------
-// Small presentational helpers
+// Palette content
 // ---------------------------------------------------------------------------
 
-function num(v: string): number {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
-}
+const OPERATOR_CHIPS: { text: string; title: string }[] = [
+  { text: '+', title: 'Add' },
+  { text: '−', title: 'Subtract' },
+  { text: '×', title: 'Multiply' },
+  { text: '÷', title: 'Divide' },
+  { text: '(', title: 'Open bracket — groups a calculation so it happens first' },
+  { text: ')', title: 'Close bracket' },
+  { text: '%', title: 'Percent — 17% means 0.17, so × (1 + 17%) adds 17 % VAT' },
+]
 
-function SignToggle({ value, onChange }: { value: Sign; onChange: (s: Sign) => void }) {
-  return (
-    <div className="fb-sign" role="group" aria-label="Sign">
-      <button
-        type="button"
-        className={value === 'add' ? 'is-active' : ''}
-        onClick={() => onChange('add')}
-        aria-pressed={value === 'add'}
-        title="Adds to the price"
-      >
-        +
-      </button>
-      <button
-        type="button"
-        className={value === 'subtract' ? 'is-active' : ''}
-        onClick={() => onChange('subtract')}
-        aria-pressed={value === 'subtract'}
-        title="Subtracts from the price"
-      >
-        −
-      </button>
-    </div>
-  )
-}
+const COMPARE_CHIPS: { text: string; title: string }[] = [
+  { text: '>', title: 'Greater than' },
+  { text: '<', title: 'Less than' },
+  { text: '≥', title: 'Greater than or equal' },
+  { text: '≤', title: 'Less than or equal' },
+  { text: '=', title: 'Equal to' },
+  { text: '≠', title: 'Not equal to' },
+  { text: 'and', title: 'Both conditions must hold' },
+  { text: 'or', title: 'Either condition may hold' },
+  { text: 'not', title: 'The opposite of a condition' },
+]
+
+/** Worked examples for the reference panel — plain pricing situations. */
+const RECIPES: { need: string; formula: string }[] = [
+  { need: 'Multiply two fields', formula: 'area × rate' },
+  { need: 'Add a fixed cost', formula: 'area × rate + 200' },
+  { need: 'Add 17 % VAT to everything', formula: '(area × rate + 200) × (1 + 17%)' },
+  { need: 'Cheaper rate above 100 m²', formula: 'if(area > 100, area × 10, area × 12)' },
+  { need: 'Never below a minimum charge', formula: 'max(area × 12, 500)' },
+  { need: 'Never above a cap', formula: 'min(area × 12, 5000)' },
+  { need: 'Whole units (e.g. panels of 1.7 m²)', formula: 'ceil(area / 1.7) × 250' },
+  { need: 'A yes/no option adds a fee', formula: 'area × 12 + rush × 200' },
+  { need: 'Combine conditions', formula: 'if(rush = 1 and area > 50, 150, 0)' },
+]
 
 // ---------------------------------------------------------------------------
-// Formula canvas — a read-only picture of the formula being built
+// Helpers
 // ---------------------------------------------------------------------------
 
 /**
- * The prototype's dark "current formula" strip: the structured model rendered as
- * colour-coded tokens, so the operator can *see* the arithmetic they assembled
- * without reading JSON. Purely derived from `model` — there is no second source
- * of truth and nothing here can drift from what gets compiled and stored.
+ * The formula the default (no-formula) pricing implies — Σ signed unitPrice × field
+ * — written in the language, so the admin can start from what already happens
+ * and adjust it rather than from a blank line.
  */
-type CanvasToken = {
-  kind: 'field' | 'fixed' | 'num' | 'op' | 'pct'
-  text: string
-  title?: string
+function defaultSumExpression(fields: PricingField[]): string {
+  const parts: { text: string; negative: boolean }[] = []
+  for (const f of fields) {
+    if (f.unitPrice === null || f.unitPrice === undefined) continue
+    const key = fieldKeyToText(f.fieldKey)
+    const price = Math.abs(f.unitPrice)
+    const text = price === 1 ? key : `${key} × ${price}`
+    parts.push({ text, negative: (f.sign === 'subtract') !== (f.unitPrice < 0) })
+  }
+  return parts
+    .map((p, i) => (i === 0 ? (p.negative ? `-${p.text}` : p.text) : `${p.negative ? '−' : '+'} ${p.text}`))
+    .join(' ')
 }
 
-function formulaTokens(model: BuilderFormula, fields: PricingField[]): CanvasToken[] {
-  const labelOf = (key: string) =>
-    fields.find((f) => f.fieldKey === key)?.label || key || '(no field)'
-  const out: CanvasToken[] = []
-  const op = (text: string) => out.push({ kind: 'op', text })
-  const fieldToken = (key: string, multiplier: number) => {
-    out.push({ kind: 'field', text: (key || '?').toUpperCase(), title: labelOf(key) })
-    if (multiplier !== 1) {
-      op('×')
-      out.push({ kind: 'num', text: String(multiplier), title: 'Multiplier' })
+/** Find the bracket that pairs with the one at token index `i`, if any. */
+function matchingParen(tokens: HighlightToken[], i: number): number {
+  const t = tokens[i]
+  if (t.kind !== 'paren') return -1
+  if (t.text === '(') {
+    for (let j = i + 1; j < tokens.length; j++) {
+      const u = tokens[j]
+      if (u.kind === 'paren' && u.text === ')' && u.depth === t.depth) return j
+    }
+  } else {
+    for (let j = i - 1; j >= 0; j--) {
+      const u = tokens[j]
+      if (u.kind === 'paren' && u.text === '(' && u.depth === t.depth) return j
     }
   }
+  return -1
+}
 
-  model.terms.forEach((term, i) => {
-    if (term.sign === 'subtract') op('−')
-    else if (i > 0) op('+')
+type Suggestion =
+  | { kind: 'field'; key: string; label: string; insert: string }
+  | { kind: 'function'; name: string; signature: string; insert: string }
+  | { kind: 'keyword'; name: string; insert: string }
 
-    if (term.kind === 'field') {
-      fieldToken(term.fieldKey, term.multiplier)
-      return
+/** Autocomplete candidates for the word being typed before the caret. */
+function suggestionsFor(
+  text: string,
+  caret: number,
+  fields: FormulaFieldRef[],
+): { items: Suggestion[]; start: number } | null {
+  const before = text.slice(0, caret)
+  const m = /(\{[^}]*|[\p{L}_][\p{L}\p{N}_]*)$/u.exec(before)
+  if (!m) return null
+  const raw = m[1]
+  const braced = raw.startsWith('{')
+  const query = (braced ? raw.slice(1) : raw).trim().toLowerCase()
+  if (query === '' && !braced) return null
+
+  const items: Suggestion[] = []
+  for (const f of fields) {
+    const label = (f.label ?? '').trim()
+    if (f.fieldKey.toLowerCase().includes(query) || label.toLowerCase().includes(query)) {
+      items.push({ kind: 'field', key: f.fieldKey, label: label || f.fieldKey, insert: fieldKeyToText(f.fieldKey) })
     }
-    if (term.kind === 'fixed') {
-      out.push({
-        kind: 'fixed',
-        text: `€${Math.abs(term.amount)}`,
-        title: 'Fixed cost',
-      })
-      return
-    }
-    // group: ( member + member ) × factor
-    op('(')
-    term.members.forEach((m, j) => {
-      if (j > 0) op('+')
-      if (m.kind === 'field') fieldToken(m.fieldKey, m.multiplier)
-      else out.push({ kind: 'fixed', text: `€${m.amount}`, title: 'Fixed cost' })
-    })
-    op(')')
-    const usesField = term.factorType === 'field'
-    if (usesField || term.factorConstant !== 1) {
-      op('×')
-      if (usesField) {
-        out.push({
-          kind: 'field',
-          text: (term.factorField || '?').toUpperCase(),
-          title: labelOf(term.factorField),
-        })
-      } else {
-        out.push({ kind: 'num', text: String(term.factorConstant), title: 'Factor' })
+  }
+  if (!braced) {
+    for (const fn of FORMULA_FUNCTIONS) {
+      if (fn.name.startsWith(query)) {
+        items.push({ kind: 'function', name: fn.name, signature: fn.signature, insert: fn.insert })
       }
     }
-  })
-
-  model.adjustments.forEach((adj) => {
-    const signed = adj.sign === 'subtract' ? -adj.percent : adj.percent
-    const factor = Math.round((1 + signed / 100) * 1e6) / 1e6
-    op('×')
-    out.push({
-      kind: 'pct',
-      text: String(factor),
-      title: `${adj.label || 'Adjustment'} ${signed >= 0 ? '+' : '−'}${Math.abs(adj.percent)}%`,
-    })
-  })
-
-  return out
-}
-
-function FormulaCanvas({
-  fields,
-  model,
-}: {
-  fields: PricingField[]
-  model: BuilderFormula
-}) {
-  const tokens = useMemo(() => formulaTokens(model, fields), [model, fields])
-
-  if (tokens.length === 0) {
-    return (
-      <div className="fb-canvas fb-canvas--empty">
-        No formula yet — the price is the sum of each field&rsquo;s own unit price.
-      </div>
-    )
+    for (const kw of ['and', 'or', 'not']) {
+      if (kw.startsWith(query) && kw !== query) items.push({ kind: 'keyword', name: kw, insert: `${kw} ` })
+    }
   }
-
-  // One readable string for assistive tech, instead of a stream of loose tokens.
-  return (
-    <div
-      aria-label={`Current formula: ${tokens.map((t) => t.text).join(' ')}`}
-      className="fb-canvas"
-      role="img"
-    >
-      {tokens.map((t, i) => (
-        <span className={`fb-token fb-token--${t.kind}`} key={i} title={t.title}>
-          {t.text}
-        </span>
-      ))}
-    </div>
-  )
+  // Nothing to offer once the word already IS the only match.
+  if (items.length === 0) return null
+  if (items.length === 1 && items[0].kind === 'field' && items[0].key === (braced ? raw.slice(1).trim() : raw)) {
+    return null
+  }
+  return { items: items.slice(0, 8), start: caret - raw.length }
 }
 
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
+/** Show an error only once typing has paused — no red flashes mid-keystroke. */
+function useSettledError(error: ExpressionError | null, delayMs: number): ExpressionError | null {
+  // Keyed on the error's CONTENT, not the object: every form-state update
+  // re-runs the parser and yields a fresh object for the same problem, which
+  // must neither restart the timer nor make an already-shown error blink.
+  const key = error ? [error.start, error.end, error.message].join('|') : ''
+  const [settledKey, setSettledKey] = useState('')
+  useEffect(() => {
+    if (!key) return
+    const timer = setTimeout(() => setSettledKey(key), delayMs)
+    return () => clearTimeout(timer)
+  }, [key, delayMs])
+  return error && settledKey === key ? error : null
+}
+
 export const FormulaBuilder = ({ path = 'formula' }: Props) => {
-  const { value, setValue } = useField<JsonLogic | null>({ path })
   const [allFields] = useAllFormFields()
+  const uid = useId()
 
   // Live list of the service's calculator fields (from sibling form state).
   const pricingFields: PricingField[] = useMemo(() => {
-    const data = reduceFieldsToValues(allFields, true) as {
-      calculatorFields?: unknown
-    }
-    return toPricingFields(
-      (data.calculatorFields as Parameters<typeof toPricingFields>[0]) ?? [],
-    )
+    const data = reduceFieldsToValues(allFields, true) as { calculatorFields?: unknown }
+    return toPricingFields((data.calculatorFields as Parameters<typeof toPricingFields>[0]) ?? [])
   }, [allFields])
+  // Memoised on CONTENT (keys + labels), not on the array identity: Payload
+  // rebuilds form state on every change and every server round trip, and a
+  // fresh array each time would cascade into re-parses, re-registered
+  // validators and reset timers below.
+  const refSignature = pricingFields.map((f) => f.fieldKey + '|' + f.label).join('||')
+  const fieldRefs: FormulaFieldRef[] = useMemo(
+    () => pricingFields.map((f) => ({ fieldKey: f.fieldKey, label: f.label })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refSignature captures pricingFields' relevant content
+    [refSignature],
+  )
+  const keySignature = fieldRefs.map((f) => f.fieldKey).join('|')
 
-  // Initialise the builder model / mode once from the stored value.
-  const [model, setModel] = useState<BuilderFormula>(() => {
-    const parsed = parseFormula(value)
-    return parsed ?? emptyFormula()
+  // The same check the server runs (the Services.formula validate), registered
+  // client-side too so Save/Publish is refused immediately, with the message on
+  // the field, instead of after a round trip.
+  const clientValidate = useCallback(
+    (val: unknown) => validateStoredFormula(val, fieldRefs),
+    [fieldRefs],
+  )
+  const { value, setValue, showError, errorMessage } = useField<JsonLogic | null>({
+    path,
+    validate: clientValidate,
   })
-  const [mode, setMode] = useState<'builder' | 'raw'>(() =>
-    parseFormula(value) === null ? 'raw' : 'builder',
-  )
-  const [rawText, setRawText] = useState<string>(() =>
-    value ? JSON.stringify(value, null, 2) : '',
-  )
-  const [rawError, setRawError] = useState<string | null>(null)
 
-  // Sample values for the live preview (fieldKey → raw form value).
+  // --- editor state ----------------------------------------------------------
+  const [text, setText] = useState<string>(() => readStoredFormula(value) ?? '')
+  const [mode, setMode] = useState<'expression' | 'raw'>(() =>
+    readStoredFormula(value) === null ? 'raw' : 'expression',
+  )
+  const [rawText, setRawText] = useState<string>(() => (value ? JSON.stringify(value, null, 2) : ''))
+  const [rawError, setRawError] = useState<string | null>(null)
+  const [tab, setTab] = useState<'compose' | 'test'>('compose')
   const [sample, setSample] = useState<Record<string, RawInput>>({})
 
-  // Which builder tab is showing (composition ⟷ test/preview).
-  const [tab, setTab] = useState<'compose' | 'test'>('compose')
+  const compiled = useMemo(() => compileExpression(text, fieldRefs), [text, fieldRefs])
+  const readsAs = useMemo(
+    () => (compiled.logic ? describeFormula(compiled.logic, fieldRefs) : null),
+    [compiled.logic, fieldRefs],
+  )
 
-  // Commit a new builder model: update local state + the stored JSONLogic value.
-  const commit = (next: BuilderFormula) => {
-    setModel(next)
-    setValue(compileFormula(next))
-  }
+  // Commit new text: local state + the stored value (JSONLogic / draft / null).
+  const applyText = useCallback(
+    (next: string) => {
+      setText(next)
+      setValue(toStoredFormula(next, fieldRefs).value)
+    },
+    [fieldRefs, setValue],
+  )
 
-  // --- term mutators -------------------------------------------------------
-  const firstFieldKey = pricingFields[0]?.fieldKey ?? ''
+  // When the calculator fields change AFTER mount (a key renamed, a field added),
+  // the same text may now compile — or stop compiling. Re-derive the stored value
+  // so it always mirrors the text. Not on mount: that would mark an untouched
+  // form as modified. Only when the result actually differs.
+  const prevSignature = useRef(keySignature)
+  useEffect(() => {
+    if (prevSignature.current === keySignature) return
+    prevSignature.current = keySignature
+    if (mode !== 'expression') return
+    const next = toStoredFormula(text, fieldRefs).value
+    if (JSON.stringify(next ?? null) !== JSON.stringify(value ?? null)) setValue(next)
+  }, [keySignature, mode, text, fieldRefs, value, setValue])
 
-  const addFieldTerm = () =>
-    commit({
-      ...model,
-      terms: [
-        ...model.terms,
-        { kind: 'field', sign: 'add', fieldKey: firstFieldKey, multiplier: 1 },
-      ],
-    })
-  const addFixedTerm = () =>
-    commit({
-      ...model,
-      terms: [...model.terms, { kind: 'fixed', sign: 'add', amount: 0 }],
-    })
-  const addGroupTerm = () =>
-    commit({
-      ...model,
-      terms: [
-        ...model.terms,
-        {
-          kind: 'group',
-          sign: 'add',
-          members: [{ kind: 'field', fieldKey: firstFieldKey, multiplier: 1 }],
-          factorType: 'constant',
-          factorConstant: 1,
-          factorField: '',
-        },
-      ],
-    })
+  // --- caret-aware insertion (palette chips, autocomplete) -------------------
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const pendingCaret = useRef<number | null>(null)
 
-  const updateTerm = (i: number, t: BuilderTerm) => {
-    const terms = model.terms.slice()
-    terms[i] = t
-    commit({ ...model, terms })
-  }
-  const removeTerm = (i: number) =>
-    commit({ ...model, terms: model.terms.filter((_, j) => j !== i) })
-  const moveTerm = (i: number, dir: -1 | 1) => {
-    const j = i + dir
-    if (j < 0 || j >= model.terms.length) return
-    const terms = model.terms.slice()
-    ;[terms[i], terms[j]] = [terms[j], terms[i]]
-    commit({ ...model, terms })
-  }
+  useLayoutEffect(() => {
+    const ta = textareaRef.current
+    if (!ta || pendingCaret.current === null) return
+    ta.setSelectionRange(pendingCaret.current, pendingCaret.current)
+    pendingCaret.current = null
+  }, [text])
 
-  // --- adjustment mutators -------------------------------------------------
-  const addAdjustment = () =>
-    commit({
-      ...model,
-      adjustments: [
-        ...model.adjustments,
-        { sign: 'add', percent: 10, label: 'VAT' },
-      ],
-    })
-  const updateAdjustment = (i: number, a: BuilderAdjustment) => {
-    const adjustments = model.adjustments.slice()
-    adjustments[i] = a
-    commit({ ...model, adjustments })
-  }
-  const removeAdjustment = (i: number) =>
-    commit({ ...model, adjustments: model.adjustments.filter((_, j) => j !== i) })
-  const moveAdjustment = (i: number, dir: -1 | 1) => {
-    const j = i + dir
-    if (j < 0 || j >= model.adjustments.length) return
-    const adjustments = model.adjustments.slice()
-    ;[adjustments[i], adjustments[j]] = [adjustments[j], adjustments[i]]
-    commit({ ...model, adjustments })
-  }
+  /** Insert at the caret (replacing any selection), spacing it like typed text. `|` marks where the caret lands. */
+  const insertSnippet = useCallback(
+    (snippet: string, range?: [number, number]) => {
+      const ta = textareaRef.current
+      const start = range?.[0] ?? ta?.selectionStart ?? text.length
+      const end = range?.[1] ?? ta?.selectionEnd ?? text.length
+      const caretMark = snippet.indexOf('|')
+      const clean = snippet.replace('|', '')
+      const before = text.slice(0, start)
+      const after = text.slice(end)
+      const spaceBefore = before.length > 0 && !/[\s(]$/.test(before) && !/^[)%,]/.test(clean)
+      const spaceAfter = after.length > 0 && !/^[\s),%]/.test(after) && !/[(]$/.test(clean)
+      const inserted = `${spaceBefore ? ' ' : ''}${clean}${spaceAfter ? ' ' : ''}`
+      pendingCaret.current = start + (spaceBefore ? 1 : 0) + (caretMark >= 0 ? caretMark : clean.length)
+      applyText(before + inserted + after)
+      ta?.focus()
+    },
+    [applyText, text],
+  )
 
-  const clearAll = () => {
-    commit(emptyFormula())
-    setRawText('')
-    setRawError(null)
-  }
-
-  // --- raw-mode handlers ---------------------------------------------------
-  const applyRaw = (text: string) => {
-    setRawText(text)
-    if (text.trim() === '') {
+  // --- raw-mode handlers ------------------------------------------------------
+  const applyRaw = (next: string) => {
+    setRawText(next)
+    if (next.trim() === '') {
       setRawError(null)
       setValue(null)
       return
     }
     try {
-      const parsed = JSON.parse(text) as JsonLogic
+      const parsed = JSON.parse(next) as JsonLogic
       setRawError(null)
       setValue(parsed)
     } catch {
@@ -334,21 +329,19 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
     }
   }
 
-  const switchToBuilder = () => {
-    const parsed = parseFormula(value)
-    if (parsed === null) {
+  const switchToExpression = () => {
+    const printed = readStoredFormula(value)
+    if (printed === null) {
       const ok = window.confirm(
-        'This formula was not created with the visual builder and cannot be ' +
-          'shown in it without change. Switch anyway and start from an empty ' +
-          'builder? (The current raw formula will be replaced when you edit.)',
+        'This formula uses operations the formula bar cannot show. Switch anyway and start from an empty formula? (The current raw formula is replaced when you edit.)',
       )
       if (!ok) return
-      setModel(emptyFormula())
+      setText('')
       setValue(null)
     } else {
-      setModel(parsed)
+      setText(printed)
     }
-    setMode('builder')
+    setMode('expression')
   }
 
   const switchToRaw = () => {
@@ -357,42 +350,52 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
     setMode('raw')
   }
 
-  // --- live preview --------------------------------------------------------
+  const clearAll = () => {
+    applyText('')
+    setRawText('')
+    setRawError(null)
+    textareaRef.current?.focus()
+  }
+
+  const defaultSum = useMemo(() => defaultSumExpression(pricingFields), [pricingFields])
+
+  // --- live preview -------------------------------------------------------------
   const preview = useMemo(() => {
     const inputs = coerceInputs(pricingFields, sample)
-    return computePrice({
-      fields: pricingFields,
-      formula: value ?? null,
-      inputs,
-    })
+    return computePrice({ fields: pricingFields, formula: value ?? null, inputs })
   }, [pricingFields, sample, value])
 
   // Mirror the public calculator's required-field gating EXACTLY so the preview
   // matches production: the total is withheld until every required number field
   // has a value. An explicit 0 counts as filled; only an untouched/blank field
-  // is "missing" (dropdowns/toggles always carry a value, so only number-type
-  // fields can be missing). See ServiceCalculator.tsx.
+  // is "missing". See ServiceCalculator.tsx.
   const missingRequired = useMemo(
     () =>
       pricingFields.filter(
         (f) =>
           f.required &&
           f.type === 'number' &&
-          (sample[f.fieldKey] === '' ||
-            sample[f.fieldKey] === null ||
-            sample[f.fieldKey] === undefined),
+          (sample[f.fieldKey] === '' || sample[f.fieldKey] === null || sample[f.fieldKey] === undefined),
       ),
     [pricingFields, sample],
   )
   const hasAllRequired = missingRequired.length === 0
+  const setSampleValue = (key: string, v: RawInput) => setSample((prev) => ({ ...prev, [key]: v }))
 
-  const setSampleValue = (key: string, v: RawInput) =>
-    setSample((prev) => ({ ...prev, [key]: v }))
+  // --- errors -----------------------------------------------------------------------
+  // The live parse result drives the stored value at once, but its message and
+  // underline appear only after a short pause — while you are still typing
+  // "area ×", "something is missing after ×" is noise, not help.
+  const liveError: ExpressionError | null = mode === 'expression' ? compiled.error : null
+  const ownError = useSettledError(liveError, 450)
+  // A server-side validation message (after a failed save) that the client
+  // parse did not produce itself — e.g. the raw JSON references a missing field.
+  const serverError = showError && errorMessage && !ownError ? errorMessage : null
+  const hasError = !!ownError || !!serverError
 
-  // -------------------------------------------------------------------------
-
+  // -------------------------------------------------------------------------------
   const TABS = [
-    { id: 'compose', label: 'Formula Composition' },
+    { id: 'compose', label: 'Formula' },
     { id: 'test', label: 'Test / Preview' },
   ] as const
 
@@ -412,31 +415,33 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
     document.getElementById(`fb-tab-${next}`)?.focus()
   }
 
+  const statusId = `${uid}-status`
+
   return (
-    <div className="fb field-type">
+    <div className={`fb field-type${hasError ? ' error' : ''}`}>
       <div className="fb-head">
         {/* The section header above already reads "Price Formula Builder", so the
             field's own label is for assistive tech only. */}
-        <label className="field-label visually-hidden">Price formula</label>
+        <label className="field-label visually-hidden" htmlFor={`${uid}-input`}>
+          Price formula
+        </label>
+        <p className="fb-help">
+          Write the price as a calculation over the fields above — any formula you
+          like, with brackets, conditions and rounding. Leave it empty to simply add
+          up each field&rsquo;s own unit price.
+        </p>
         <div className="fb-modes">
-          {mode === 'builder' ? (
+          {mode === 'expression' ? (
             <button type="button" className="fb-link" onClick={switchToRaw}>
               Edit raw JSON
             </button>
           ) : (
-            <button type="button" className="fb-link" onClick={switchToBuilder}>
-              Use visual builder
+            <button type="button" className="fb-link" onClick={switchToExpression}>
+              Use the formula bar
             </button>
           )}
         </div>
       </div>
-
-      <p className="fb-help">
-        Define exactly how the fields above combine to produce the final price.
-        Leave it empty to simply add up each field&rsquo;s own unit price. Terms
-        are summed top to bottom, then each percentage adjustment is applied in
-        turn.
-      </p>
 
       <div className="fb-card">
         <div className="fb-tabs" role="tablist" aria-label="Price formula">
@@ -458,7 +463,7 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
           ))}
         </div>
 
-        {/* --- Tab 1: composition ------------------------------------------ */}
+        {/* --- Tab 1: the formula ------------------------------------------ */}
         <div
           aria-labelledby="fb-tab-compose"
           className="fb-panel"
@@ -476,60 +481,226 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
                 rows={10}
                 onChange={(e) => applyRaw(e.target.value)}
                 placeholder='e.g. {"+":[{"*":[{"var":"area"},12]},100]}'
+                aria-describedby={serverError ? statusId : undefined}
               />
               {rawError && <p className="fb-error">{rawError}</p>}
+              {serverError && (
+                <p className="fb-error" id={statusId} role="status">
+                  {serverError}
+                </p>
+              )}
               <p className="fb-help">
-                Advanced: a JSONLogic rule using only <code>var</code>,{' '}
-                <code>+ &minus; &times; &divide;</code>, <code>min</code>,{' '}
-                <code>max</code>. Anything else renders as &ldquo;Contact us for
-                a price&rdquo;.
+                Advanced: a JSONLogic rule. Supported operations: <code>var</code>,{' '}
+                <code>+ &minus; &times; &divide; %</code>, <code>min</code>, <code>max</code>,{' '}
+                <code>if</code>, comparisons, <code>and</code>/<code>or</code>/<code>!</code>,{' '}
+                <code>round</code>, <code>ceil</code>, <code>floor</code>, <code>abs</code>.
+                Anything else cannot be saved.
               </p>
             </div>
           ) : (
             <>
-              <div className="fb-canvas-label">Current formula</div>
-              <FormulaCanvas fields={pricingFields} model={model} />
+              <FormulaInput
+                id={`${uid}-input`}
+                describedBy={statusId}
+                error={ownError}
+                fields={fieldRefs}
+                onChange={applyText}
+                onInsert={insertSnippet}
+                textareaRef={textareaRef}
+                value={text}
+              />
 
-              {pricingFields.length === 0 && (
-                <p className="fb-note">
-                  No calculator fields yet. Add fields above first &mdash; then
-                  reference them here. You can still add fixed costs.
-                </p>
-              )}
+              <div
+                className={`fb-status${hasError ? ' fb-status--error' : compiled.empty ? ' fb-status--empty' : liveError ? ' fb-status--pending' : ' fb-status--ok'}`}
+                id={statusId}
+                role={hasError ? 'status' : undefined}
+              >
+                {ownError ? (
+                  <>
+                    <span className="fb-status__label">Problem</span>
+                    <span className="fb-status__text">{ownError.message}</span>
+                  </>
+                ) : serverError ? (
+                  <>
+                    <span className="fb-status__label">Problem</span>
+                    <span className="fb-status__text">{serverError}</span>
+                  </>
+                ) : compiled.empty ? (
+                  <span className="fb-status__text">
+                    No formula &mdash; the price is the sum of each field&rsquo;s unit price
+                    &times; its value. Type a formula, click the chips below, or start from
+                    the default sum.
+                  </span>
+                ) : liveError ? (
+                  // Not valid yet — the message itself is held back until typing pauses.
+                  <span className="fb-status__text fb-status__pending">&hellip;</span>
+                ) : (
+                  <>
+                    <span className="fb-status__label">Reads as</span>
+                    <span className="fb-status__text fb-status__reads">{readsAs}</span>
+                  </>
+                )}
+              </div>
 
-              <div className="fb-section">
-                <h4>Terms (summed)</h4>
-                {model.terms.length === 0 && <p className="fb-note">No terms yet.</p>}
-                {model.terms.map((term, i) => (
-                  <TermRow
-                    key={i}
-                    term={term}
-                    index={i}
-                    total={model.terms.length}
-                    fields={pricingFields}
-                    onChange={(t) => updateTerm(i, t)}
-                    onRemove={() => removeTerm(i)}
-                    onMove={(dir) => moveTerm(i, dir)}
-                  />
-                ))}
-                <div className="fb-add">
-                  <button type="button" onClick={addFieldTerm}>
-                    + Field term
+              <div className="fb-quick">
+                {defaultSum && (
+                  <button
+                    type="button"
+                    className="fb-quick__btn"
+                    onClick={() => {
+                      pendingCaret.current = defaultSum.length
+                      applyText(defaultSum)
+                      textareaRef.current?.focus()
+                    }}
+                    title={defaultSum}
+                  >
+                    {compiled.empty ? 'Start from the default sum' : 'Replace with the default sum'}
                   </button>
-                  <button type="button" onClick={addFixedTerm}>
-                    + Fixed cost
+                )}
+                {!compiled.empty && (
+                  <button type="button" className="fb-quick__btn fb-quick__btn--danger" onClick={clearAll}>
+                    Clear formula
                   </button>
-                  <button type="button" onClick={addGroupTerm}>
-                    + Group (&hellip;)
-                  </button>
+                )}
+              </div>
+
+              <div className="fb-palette" aria-label="Insert into the formula">
+                <div className="fb-palette__group">
+                  <span className="fb-palette__label">Fields</span>
+                  <div className="fb-palette__chips">
+                    {fieldRefs.length === 0 && (
+                      <span className="fb-palette__empty">
+                        No calculator fields yet &mdash; add fields above, then use them here.
+                      </span>
+                    )}
+                    {fieldRefs.map((f) => (
+                      <button
+                        type="button"
+                        className="fb-chip fb-chip--field"
+                        key={f.fieldKey}
+                        onClick={() => insertSnippet(fieldKeyToText(f.fieldKey))}
+                        title={`Insert "${f.fieldKey}" — ${(f.label ?? '').trim() || f.fieldKey}`}
+                      >
+                        <span className="fb-chip__label">{(f.label ?? '').trim() || f.fieldKey}</span>
+                        <code className="fb-chip__key">{fieldKeyToText(f.fieldKey)}</code>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="fb-palette__group">
+                  <span className="fb-palette__label">Operators</span>
+                  <div className="fb-palette__chips">
+                    {OPERATOR_CHIPS.map((op) => (
+                      <button
+                        type="button"
+                        className="fb-chip fb-chip--op"
+                        key={op.text}
+                        onClick={() => insertSnippet(op.text)}
+                        title={op.title}
+                        aria-label={`${op.title} (${op.text})`}
+                      >
+                        {op.text}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="fb-palette__group">
+                  <span className="fb-palette__label">Functions</span>
+                  <div className="fb-palette__chips">
+                    {FORMULA_FUNCTIONS.map((fn) => (
+                      <button
+                        type="button"
+                        className="fb-chip fb-chip--fn"
+                        key={fn.name}
+                        onClick={() => insertSnippet(fn.insert)}
+                        title={`${fn.signature} — ${fn.description}`}
+                      >
+                        {fn.name}
+                        <span className="fb-chip__paren">(&hellip;)</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="fb-palette__group">
+                  <span className="fb-palette__label">Conditions</span>
+                  <div className="fb-palette__chips">
+                    {COMPARE_CHIPS.map((c) => (
+                      <button
+                        type="button"
+                        className={`fb-chip ${isReservedWord(c.text) ? 'fb-chip--kw' : 'fb-chip--op'}`}
+                        key={c.text}
+                        onClick={() => insertSnippet(c.text)}
+                        title={c.title}
+                        aria-label={`${c.title} (${c.text})`}
+                      >
+                        {c.text}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {model.terms.length > 0 && (
-                <button type="button" className="fb-clear" onClick={clearAll}>
-                  Clear formula
-                </button>
-              )}
+              <details className="fb-ref">
+                <summary>How to write a formula &mdash; reference &amp; examples</summary>
+                <div className="fb-ref__body">
+                  <p className="fb-help">
+                    Refer to a field by its <strong>field key</strong> (shown on each chip).
+                    Use <code>×</code> or <code>*</code>, <code>÷</code> or <code>/</code>,
+                    brackets to control the order, a dot for decimals (<code>1.5</code>) and{' '}
+                    <code>17%</code> for 0.17. A yes/no toggle is <code>1</code> when on and{' '}
+                    <code>0</code> when off; a dropdown is its selected option&rsquo;s value.
+                    Multiplication and division happen before addition and subtraction.
+                  </p>
+                  <table className="fb-ref__table">
+                    <caption className="visually-hidden">Common pricing recipes</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">You want to&hellip;</th>
+                        <th scope="col">Write</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {RECIPES.map((r) => (
+                        <tr key={r.need}>
+                          <td>{r.need}</td>
+                          <td>
+                            <code>{r.formula}</code>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <table className="fb-ref__table">
+                    <caption className="visually-hidden">Functions</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Function</th>
+                        <th scope="col">Does</th>
+                        <th scope="col">Example</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {FORMULA_FUNCTIONS.map((fn) => (
+                        <tr key={fn.name}>
+                          <td>
+                            <code>{fn.signature}</code>
+                          </td>
+                          <td>{fn.description}</td>
+                          <td>
+                            <code>{fn.example}</code>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="fb-help">
+                    The examples use field keys such as <code>area</code>, <code>rate</code>,{' '}
+                    <code>hours</code> and <code>rush</code> &mdash; use your own service&rsquo;s
+                    keys. If the result is zero or negative, visitors see &ldquo;Contact us for a
+                    price&rdquo; instead of a number.
+                  </p>
+                </div>
+              </details>
             </>
           )}
         </div>
@@ -544,8 +715,8 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
           tabIndex={0}
         >
           <p className="fb-help">
-            Enter sample values to verify the formula produces the expected
-            result &mdash; this runs the very same calculation a visitor gets.
+            Enter sample values to verify the formula produces the expected result
+            &mdash; this runs the very same calculation a visitor gets.
           </p>
           {pricingFields.length === 0 ? (
             <p className="fb-note">Add calculator fields to preview a price.</p>
@@ -563,38 +734,37 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
                 ))}
               </div>
               <div className="fb-preview-result">
-                {!hasAllRequired ? (
+                {ownError ? (
+                  <>
+                    <span className="fb-preview-label">Result</span>
+                    <span className="fb-preview-amount fb-contact">Fix the formula first</span>
+                    <span className="fb-preview-hint">({ownError.message})</span>
+                  </>
+                ) : !hasAllRequired ? (
                   <>
                     <span className="fb-preview-label">Estimated total</span>
                     <span className="fb-preview-amount fb-contact">
                       Fill the required fields to see a price
                     </span>
                     <span className="fb-preview-hint">
-                      (visitors see this until every required field has a value
-                      &mdash; matches the live site)
+                      (visitors see this until every required field has a value &mdash;
+                      matches the live site)
                     </span>
                   </>
                 ) : preview.kind === 'price' ? (
                   <>
-                    <span className="fb-preview-label">
-                      Result (incl. adjustments)
-                    </span>
+                    <span className="fb-preview-label">Result</span>
                     <span className="fb-preview-amount">
                       {formatCurrency(preview.total, PREVIEW_LOCALE)}
                     </span>
-                    {preview.usedFormula && (
-                      <span className="fb-preview-tag">via formula</span>
-                    )}
+                    {preview.usedFormula && <span className="fb-preview-tag">via formula</span>}
                   </>
                 ) : (
                   <>
                     <span className="fb-preview-label">Result</span>
-                    <span className="fb-preview-amount fb-contact">
-                      Contact us for a price
-                    </span>
+                    <span className="fb-preview-amount fb-contact">Contact us for a price</span>
                     <span className="fb-preview-hint">
-                      (total is zero, negative, or the formula can&rsquo;t be
-                      evaluated)
+                      (total is zero, negative, or the formula can&rsquo;t be evaluated)
                     </span>
                   </>
                 )}
@@ -603,59 +773,6 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
           )}
         </div>
       </div>
-
-      {/* --- Fixed costs & adjustments ------------------------------------- */}
-      {mode === 'builder' && (
-        <div className="fb-fixed">
-          <div className="fb-fixed-title">Fixed Costs &amp; Adjustments</div>
-          <p className="fb-note">
-            Percentages applied to the subtotal, in order &mdash; VAT, a
-            discount, a surcharge. A flat amount that is always added or
-            subtracted is a &ldquo;Fixed cost&rdquo; term in the composition
-            above.
-          </p>
-          {model.adjustments.map((adj, i) => (
-            <div className="fb-row fb-adj" key={i}>
-              <SignToggle
-                value={adj.sign}
-                onChange={(s) => updateAdjustment(i, { ...adj, sign: s })}
-              />
-              <input
-                className="fb-num"
-                type="number"
-                step="any"
-                value={adj.percent}
-                onChange={(e) =>
-                  updateAdjustment(i, { ...adj, percent: num(e.target.value) })
-                }
-                aria-label="Percentage"
-              />
-              <span className="fb-pct">%</span>
-              <input
-                className="fb-text"
-                type="text"
-                value={adj.label}
-                placeholder="Label (e.g. VAT)"
-                onChange={(e) =>
-                  updateAdjustment(i, { ...adj, label: e.target.value })
-                }
-                aria-label="Adjustment label"
-              />
-              <RowControls
-                index={i}
-                total={model.adjustments.length}
-                onMove={(dir) => moveAdjustment(i, dir)}
-                onRemove={() => removeAdjustment(i)}
-              />
-            </div>
-          ))}
-          <div className="fb-add">
-            <button type="button" onClick={addAdjustment}>
-              + Percentage adjustment
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -663,257 +780,199 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
 export default FormulaBuilder
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// The formula bar: highlighted textarea + autocomplete
 // ---------------------------------------------------------------------------
 
-function RowControls({
-  index,
-  total,
-  onMove,
-  onRemove,
-}: {
-  index: number
-  total: number
-  onMove: (dir: -1 | 1) => void
-  onRemove: () => void
-}) {
-  return (
-    <div className="fb-controls">
-      <button
-        type="button"
-        onClick={() => onMove(-1)}
-        disabled={index === 0}
-        aria-label="Move up"
-        title="Move up"
-      >
-        ↑
-      </button>
-      <button
-        type="button"
-        onClick={() => onMove(1)}
-        disabled={index === total - 1}
-        aria-label="Move down"
-        title="Move down"
-      >
-        ↓
-      </button>
-      <button
-        type="button"
-        className="fb-remove"
-        onClick={onRemove}
-        aria-label="Remove"
-        title="Remove"
-      >
-        ✕
-      </button>
-    </div>
-  )
-}
-
-function FieldSelect({
+function FormulaInput({
+  id,
+  describedBy,
+  error,
+  fields,
+  onChange,
+  onInsert,
+  textareaRef,
   value,
-  fields,
-  onChange,
-  ariaLabel,
 }: {
+  id: string
+  describedBy: string
+  error: ExpressionError | null
+  fields: FormulaFieldRef[]
+  onChange: (text: string) => void
+  onInsert: (snippet: string, range?: [number, number]) => void
+  textareaRef: RefObject<HTMLTextAreaElement | null>
   value: string
-  fields: PricingField[]
-  onChange: (key: string) => void
-  ariaLabel: string
 }) {
-  return (
-    <select
-      className="fb-select"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      aria-label={ariaLabel}
-    >
-      {fields.length === 0 && <option value="">(no fields)</option>}
-      {fields.map((f) => (
-        <option key={f.fieldKey} value={f.fieldKey}>
-          {f.label || f.fieldKey}
-        </option>
-      ))}
-    </select>
-  )
-}
+  const [caret, setCaret] = useState(0)
+  const [ac, setAc] = useState<{ items: Suggestion[]; start: number; active: number } | null>(null)
+  const listId = `${id}-ac`
 
-function TermRow({
-  term,
-  index,
-  total,
-  fields,
-  onChange,
-  onRemove,
-  onMove,
-}: {
-  term: BuilderTerm
-  index: number
-  total: number
-  fields: PricingField[]
-  onChange: (t: BuilderTerm) => void
-  onRemove: () => void
-  onMove: (dir: -1 | 1) => void
-}) {
-  return (
-    <div className="fb-row fb-term">
-      <SignToggle value={term.sign} onChange={(s) => onChange({ ...term, sign: s })} />
+  const tokens = useMemo(() => highlightTokens(value, fields), [value, fields])
 
-      {term.kind === 'field' && (
-        <>
-          <FieldSelect
-            value={term.fieldKey}
-            fields={fields}
-            ariaLabel="Field"
-            onChange={(key) => onChange({ ...term, fieldKey: key })}
-          />
-          <span className="fb-op">×</span>
-          <input
-            className="fb-num"
-            type="number"
-            step="any"
-            value={term.multiplier}
-            onChange={(e) => onChange({ ...term, multiplier: num(e.target.value) })}
-            aria-label="Multiplier"
-          />
-        </>
-      )}
+  // Auto-grow: the textarea is the real control; the highlight layer sits behind it.
+  useLayoutEffect(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    ta.style.height = '0px'
+    ta.style.height = `${ta.scrollHeight}px`
+  }, [value, textareaRef])
 
-      {term.kind === 'fixed' && (
-        <>
-          <span className="fb-op">€</span>
-          <input
-            className="fb-num"
-            type="number"
-            step="any"
-            value={term.amount}
-            onChange={(e) => onChange({ ...term, amount: num(e.target.value) })}
-            aria-label="Fixed amount"
-          />
-          <span className="fb-tag">fixed cost</span>
-        </>
-      )}
-
-      {term.kind === 'group' && (
-        <GroupEditor term={term} fields={fields} onChange={onChange} />
-      )}
-
-      <RowControls index={index} total={total} onMove={onMove} onRemove={onRemove} />
-    </div>
-  )
-}
-
-function GroupEditor({
-  term,
-  fields,
-  onChange,
-}: {
-  term: Extract<BuilderTerm, { kind: 'group' }>
-  fields: PricingField[]
-  onChange: (t: BuilderTerm) => void
-}) {
-  const firstKey = fields[0]?.fieldKey ?? ''
-  const setMember = (i: number, m: GroupMember) => {
-    const members = term.members.slice()
-    members[i] = m
-    onChange({ ...term, members })
+  const refreshCaret = () => {
+    const ta = textareaRef.current
+    if (!ta) return
+    setCaret(ta.selectionStart)
   }
-  const addMember = () =>
-    onChange({
-      ...term,
-      members: [...term.members, { kind: 'field', fieldKey: firstKey, multiplier: 1 }],
-    })
-  const removeMember = (i: number) =>
-    onChange({ ...term, members: term.members.filter((_, j) => j !== i) })
+
+  const refreshAutocomplete = (text: string, pos: number) => {
+    const s = suggestionsFor(text, pos, fields)
+    setAc(s ? { ...s, active: 0 } : null)
+  }
+
+  const accept = (item: Suggestion) => {
+    if (!ac) return
+    onInsert(item.insert, [ac.start, caret])
+    setAc(null)
+  }
+
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!ac) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setAc({ ...ac, active: (ac.active + 1) % ac.items.length })
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setAc({ ...ac, active: (ac.active - 1 + ac.items.length) % ac.items.length })
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      accept(ac.items[ac.active])
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setAc(null)
+    }
+  }
+
+  // Bracket matching: when the caret touches a bracket, light up its partner.
+  const matched = useMemo(() => {
+    const at = tokens.findIndex((t) => t.kind === 'paren' && (t.start === caret || t.end === caret))
+    if (at === -1) return new Set<number>()
+    const other = matchingParen(tokens, at)
+    return new Set(other === -1 ? [tokens[at].start] : [tokens[at].start, tokens[other].start])
+  }, [tokens, caret])
+
+  // Split the text into styled segments: token kind + error range + bracket match.
+  const segments = useMemo(() => {
+    const cuts = new Set<number>([0, value.length])
+    for (const t of tokens) {
+      cuts.add(t.start)
+      cuts.add(t.end)
+    }
+    if (error) {
+      cuts.add(Math.min(error.start, value.length))
+      cuts.add(Math.min(error.end, value.length))
+    }
+    const points = [...cuts].sort((a, b) => a - b)
+    const out: { text: string; className: string; key: number }[] = []
+    for (let i = 0; i + 1 < points.length; i++) {
+      const a = points[i]
+      const b = points[i + 1]
+      if (a === b) continue
+      const tok = tokens.find((t) => t.start <= a && b <= t.end)
+      const classes: string[] = []
+      if (tok) {
+        classes.push(`fb-hl--${tok.kind}`)
+        if (tok.kind === 'paren' && matched.has(tok.start)) classes.push('fb-hl--match')
+      }
+      if (error && a >= error.start && b <= error.end) classes.push('fb-hl--error')
+      out.push({ text: value.slice(a, b), className: classes.join(' '), key: a })
+    }
+    return out
+  }, [value, tokens, error, matched])
+
+  const caretError = error && error.start === error.end ? error.start : null
 
   return (
-    <div className="fb-group">
-      <span className="fb-op">(</span>
-      <div className="fb-group-members">
-        {term.members.map((m, i) => (
-          <div className="fb-member" key={i}>
-            {i > 0 && <span className="fb-op">+</span>}
-            {m.kind === 'field' ? (
-              <>
-                <FieldSelect
-                  value={m.fieldKey}
-                  fields={fields}
-                  ariaLabel="Group field"
-                  onChange={(key) => setMember(i, { ...m, fieldKey: key })}
-                />
-                <span className="fb-op">×</span>
-                <input
-                  className="fb-num"
-                  type="number"
-                  step="any"
-                  value={m.multiplier}
-                  onChange={(e) =>
-                    setMember(i, { ...m, multiplier: num(e.target.value) })
-                  }
-                  aria-label="Group member multiplier"
-                />
-              </>
-            ) : (
-              <input
-                className="fb-num"
-                type="number"
-                step="any"
-                value={m.amount}
-                onChange={(e) => setMember(i, { kind: 'fixed', amount: num(e.target.value) })}
-                aria-label="Group member amount"
-              />
-            )}
-            <button
-              type="button"
-              className="fb-remove fb-remove-sm"
-              onClick={() => removeMember(i)}
-              aria-label="Remove group member"
-              disabled={term.members.length <= 1}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-        <button type="button" className="fb-link" onClick={addMember}>
-          + add to group
-        </button>
-      </div>
-      <span className="fb-op">)</span>
-      <span className="fb-op">×</span>
-      <select
-        className="fb-select fb-factor-type"
-        value={term.factorType}
-        onChange={(e) =>
-          onChange({
-            ...term,
-            factorType: e.target.value as 'constant' | 'field',
-          })
+    <div className={`fb-editor${error ? ' fb-editor--error' : ''}`}>
+      <pre className="fb-hl" aria-hidden="true">
+        {segments.map((s) =>
+          s.className ? (
+            <span className={s.className} key={s.key}>
+              {s.text}
+            </span>
+          ) : (
+            <span key={s.key}>{s.text}</span>
+          ),
+        )}
+        {caretError !== null && caretError >= value.length && <span className="fb-hl--caret" />}
+        {'​'}
+      </pre>
+      <textarea
+        aria-activedescendant={ac ? `${listId}-${ac.active}` : undefined}
+        aria-autocomplete="list"
+        aria-controls={ac ? listId : undefined}
+        aria-describedby={describedBy}
+        aria-invalid={error ? true : undefined}
+        autoCapitalize="off"
+        autoComplete="off"
+        autoCorrect="off"
+        className="fb-input"
+        id={id}
+        onBlur={() => setTimeout(() => setAc(null), 120)}
+        onChange={(e) => {
+          onChange(e.target.value)
+          setCaret(e.target.selectionStart)
+          refreshAutocomplete(e.target.value, e.target.selectionStart)
+        }}
+        onKeyDown={onKeyDown}
+        onSelect={refreshCaret}
+        placeholder={
+          fields.length > 0
+            ? `e.g. ${fieldKeyToText(fields[0].fieldKey)} × 12 + 200`
+            : 'e.g. area × rate + 200'
         }
-        aria-label="Multiply group by"
-      >
-        <option value="constant">number</option>
-        <option value="field">field</option>
-      </select>
-      {term.factorType === 'constant' ? (
-        <input
-          className="fb-num"
-          type="number"
-          step="any"
-          value={term.factorConstant}
-          onChange={(e) => onChange({ ...term, factorConstant: num(e.target.value) })}
-          aria-label="Group multiplier constant"
-        />
-      ) : (
-        <FieldSelect
-          value={term.factorField}
-          fields={fields}
-          ariaLabel="Group multiplier field"
-          onChange={(key) => onChange({ ...term, factorField: key })}
-        />
+        ref={textareaRef}
+        rows={1}
+        spellCheck={false}
+        value={value}
+        wrap="soft"
+      />
+      {ac && (
+        <ul className="fb-ac" id={listId} role="listbox" aria-label="Suggestions">
+          {ac.items.map((item, i) => (
+            <li
+              aria-selected={i === ac.active}
+              className={`fb-ac__item fb-ac__item--${item.kind}${i === ac.active ? ' is-active' : ''}`}
+              id={`${listId}-${i}`}
+              key={`${item.kind}-${item.kind === 'field' ? item.key : item.name}`}
+              onMouseDown={(e) => {
+                e.preventDefault() // keep focus in the textarea
+                accept(item)
+              }}
+              onMouseEnter={() => setAc({ ...ac, active: i })}
+              role="option"
+            >
+              {item.kind === 'field' ? (
+                <>
+                  <code className="fb-ac__key">{fieldKeyToText(item.key)}</code>
+                  <span className="fb-ac__desc">{item.label}</span>
+                </>
+              ) : item.kind === 'function' ? (
+                <>
+                  <code className="fb-ac__key">{item.name}(&hellip;)</code>
+                  <span className="fb-ac__desc">{item.signature}</span>
+                </>
+              ) : (
+                <code className="fb-ac__key">{item.name}</code>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )
 }
+
+// ---------------------------------------------------------------------------
+// Preview inputs
+// ---------------------------------------------------------------------------
 
 function PreviewInput({
   field,
@@ -930,19 +989,17 @@ function PreviewInput({
     <label className={`fb-preview-field${missing ? ' fb-missing' : ''}`}>
       <span>
         {field.label || field.fieldKey}
-        {field.required && <span className="fb-req" aria-hidden="true"> *</span>}
+        {field.required && (
+          <span className="fb-req" aria-hidden="true">
+            {' '}
+            *
+          </span>
+        )}
       </span>
       {field.type === 'toggle' ? (
-        <input
-          type="checkbox"
-          checked={value === true}
-          onChange={(e) => onChange(e.target.checked)}
-        />
+        <input type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} />
       ) : field.type === 'dropdown' ? (
-        <select
-          value={value === undefined ? '' : String(value)}
-          onChange={(e) => onChange(e.target.value)}
-        >
+        <select value={value === undefined ? '' : String(value)} onChange={(e) => onChange(e.target.value)}>
           {field.options.map((o, i) => (
             <option key={i} value={o.value}>
               {o.label || o.value}

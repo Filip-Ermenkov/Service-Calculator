@@ -132,3 +132,38 @@ describe('verify-migrations — readMigrationNames()', () => {
     expect(readMigrationNames(path.join(os.tmpdir(), 'does-not-exist-bulbau'))).toEqual([])
   })
 })
+
+// ---------------------------------------------------------------------------
+// src/lib/dbGuard.ts — the boot-time refusal that keeps schema `push` local.
+// ---------------------------------------------------------------------------
+import { isLocalDatabaseUrl, remotePushProblem } from '../../src/lib/dbGuard'
+
+describe('dbGuard — push mode may only target a local database', () => {
+  const neon =
+    'postgresql://neondb_owner:x@ep-damp-haze-asa0laff.c-4.eu-central-1.aws.neon.tech/neondb?sslmode=require'
+  const docker = 'postgresql://bulbau:bulbau_dev_only@localhost:5431/bulbau'
+
+  it('recognises local and non-local hosts', () => {
+    expect(isLocalDatabaseUrl(docker)).toBe(true)
+    expect(isLocalDatabaseUrl('postgresql://a:b@127.0.0.1:5432/db')).toBe(true)
+    expect(isLocalDatabaseUrl('postgresql://a:b@postgres:5432/db')).toBe(true) // compose service name
+    expect(isLocalDatabaseUrl('')).toBe(true) // unset → the adapter reports its own error
+    expect(isLocalDatabaseUrl(neon)).toBe(false)
+    expect(isLocalDatabaseUrl('postgresql://a:b@db.example.com/db')).toBe(false)
+  })
+
+  it('refuses push mode against a remote database, with the fix in the message', () => {
+    const problem = remotePushProblem({ databaseUrl: neon, push: true })
+    expect(problem).toMatch(/Refusing to start/)
+    expect(problem).toMatch(/ep-damp-haze-asa0laff/)
+    expect(problem).toMatch(/localhost:5431/)
+    expect(problem).toMatch(/NODE_ENV=production DATABASE_URL=<direct url> npm run migrate/)
+  })
+
+  it('allows: local dev, production/migrate mode (push off), or the explicit override', () => {
+    expect(remotePushProblem({ databaseUrl: docker, push: true })).toBeNull()
+    expect(remotePushProblem({ databaseUrl: neon, push: false })).toBeNull()
+    expect(remotePushProblem({ databaseUrl: neon, push: true, override: 'true' })).toBeNull()
+    expect(remotePushProblem({ databaseUrl: neon, push: true, override: 'yes' })).not.toBeNull()
+  })
+})

@@ -6,6 +6,7 @@ import {
   revalidateContentAfterChange,
   revalidateContentAfterDelete,
 } from '@/lib/revalidate'
+import { orderNewDocumentsFirst } from '@/lib/orderable'
 import { translateCollectionAfterChange } from '@/lib/translation/hook'
 
 /**
@@ -71,12 +72,22 @@ export const Projects: CollectionConfig = {
     defaultColumns: ['title', 'serviceName', 'completionDate', 'statusBadge', 'rowActions'],
     group: 'Content',
     components: {
-      beforeListTable: ['/components/admin/ListCardHeader#ListCardHeader'],
+      beforeListTable: [
+        '/components/admin/ListOrderBanner#ListOrderBanner',
+        '/components/admin/ListCardHeader#ListCardHeader',
+      ],
     },
   },
-  // Public Projects grid is "sorted by completion date, newest first, by
-  // default" (FUNCTIONALITY.md §3.2).
-  defaultSort: '-completionDate',
+  // Drag-and-drop ordering (Payload's fractional-index `_order`, added
+  // 2026-09-14 with migration `20260914_*_projects_media_orderable`). The public
+  // Projects grid follows this order (src/lib/content.ts `getProjects`), so the
+  // admin can curate the portfolio. FUNCTIONALITY.md §3.2's "newest first, by
+  // default" is preserved two ways: the migration backfilled existing projects
+  // by completion date (newest = first), and `orderNewDocumentsFirst` inserts
+  // every new project at the top. The drag handle only appears while the list
+  // is sorted by `_order`, which is why there is no other `defaultSort` here —
+  // Payload defaults it to `_order` for an orderable collection.
+  orderable: true,
   access: {
     read: readPublishedOrVerified,
     create: requireTotpVerified(() => true),
@@ -87,7 +98,7 @@ export const Projects: CollectionConfig = {
     drafts: true,
   },
   hooks: {
-    beforeChange: [syncServiceNameSnapshot],
+    beforeChange: [orderNewDocumentsFirst, syncServiceNameSnapshot],
     // Auto-translate EN → FR/DE on save (Phase 5) before revalidation.
     afterChange: [translateCollectionAfterChange, revalidateContentAfterChange],
     afterDelete: [revalidateContentAfterDelete],
@@ -118,7 +129,10 @@ export const Projects: CollectionConfig = {
               type: 'text',
               required: true,
               localized: true,
-              admin: { width: '50%' },
+              admin: {
+                width: '50%',
+                components: { Cell: '/components/admin/TitleCell#TitleCell' },
+              },
             },
             {
               name: 'completionDate',

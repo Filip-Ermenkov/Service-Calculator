@@ -143,6 +143,33 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
     await expect(objectExists(filename)).resolves.toBe(false)
   })
 
+  it('puts a newer upload BEFORE an older one in the drag order (library stays newest-first)', async () => {
+    // Media is `orderable` since 2026-09-14; src/lib/orderable.ts inserts each
+    // new upload at the top so the library's default `_order` view still reads
+    // newest-first (Payload's own default would append it at the bottom).
+    const older = await payload.create({
+      collection: 'media',
+      data: { alt: 'Order test — older' },
+      file: { data: onePixelPng, mimetype: 'image/png', name: 'media-int-order-a.png', size: onePixelPng.length },
+    })
+    createdMediaIds.push(older.id)
+    const newer = await payload.create({
+      collection: 'media',
+      data: { alt: 'Order test — newer' },
+      file: { data: onePixelPng, mimetype: 'image/png', name: 'media-int-order-b.png', size: onePixelPng.length },
+    })
+    createdMediaIds.push(newer.id)
+
+    const a = (older as { _order?: string | null })._order ?? ''
+    const b = (newer as { _order?: string | null })._order ?? ''
+    expect(a.length).toBeGreaterThan(0)
+    expect(b < a).toBe(true)
+
+    const listed = await payload.find({ collection: 'media', sort: '_order', depth: 0, limit: 100, overrideAccess: true })
+    const pos = (id: number | string) => listed.docs.findIndex((d) => d.id === id)
+    expect(pos(newer.id)).toBeLessThan(pos(older.id))
+  })
+
   it('rejects a non-image upload (SVG can carry <script>; served same-origin it is stored XSS)', async () => {
     // src/collections/Media.ts restricts `upload.mimeTypes` to raster images.
     // Payload validates the mime type server-side on create, so the rejected

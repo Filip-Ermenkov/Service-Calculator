@@ -48,13 +48,12 @@
      5. Primitives — type, buttons, links, badges, cards
      6. Form controls
      7. Tables (shared) + responsive card mode
-     8. Collection list views
+     8. Collection list views (one design for every list, incl. Services)
      9. Document editors
     10. Dashboard
-    11. Services manager
-    12. Translations shell
-    13. Auth (login / forgot / reset / MFA)
-    14. Utilities, accessibility, motion, print
+    11. Translations shell
+    12. Auth (login / forgot / reset / MFA)
+    13. Utilities, accessibility, motion, print
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap');
@@ -305,8 +304,17 @@ body {
   }
 }
 @media (min-width: 1441px) {
-  /* Cap the measure so forms and tables stay readable on 2K/4K panels. */
+  /* Cap the measure so forms and tables stay readable on 2K/4K panels.
+     `width: 100%` is load-bearing, not decorative: on DOCUMENT views the gutter
+     (`.document-fields__edit`) is a flex ITEM of `.document-fields__main`, and
+     in flexbox an auto inline margin cancels `align-self: stretch` — the item
+     then shrinks to its content width. Without the explicit width every editor
+     (services, projects, careers, media, both globals, the account page)
+     collapsed into a ~280px column with ~630px of empty margin either side on
+     any screen wider than 1440px, i.e. a phone layout on a desktop monitor.
+     List views were never affected because their gutter is an ordinary block. */
   .gutter {
+    width: 100%;
     max-width: var(--admin-max-w);
     margin-inline: auto;
   }
@@ -971,12 +979,11 @@ button:focus-visible,
 
 /* -- Badges ---------------------------------------------------------------- */
 /* One shared badge look: Payload's `.pill`, list cells (`.abadge`), the
-   dashboard (`.adash-badge`), the Services screen (`.asvc-badge`) and calculator
+   dashboard (`.adash-badge`) and calculator
    row headers (`.cfrow__badge`) are all the prototype's `.badge`. */
 .pill,
 .abadge,
 .adash-badge,
-.asvc-badge,
 .cfrow__badge {
   display: inline-flex;
   align-items: center;
@@ -992,7 +999,6 @@ button:focus-visible,
 }
 .abadge::before,
 .adash-badge::before,
-.asvc-badge::before,
 .cfrow__badge::before {
   content: '';
   width: 5px;
@@ -1002,7 +1008,6 @@ button:focus-visible,
 }
 .abadge--green,
 .adash-badge--project,
-.asvc-badge--published,
 .cfrow__badge--green,
 .pill--style-success {
   background: var(--bulbau-green-bg);
@@ -1010,7 +1015,6 @@ button:focus-visible,
 }
 .abadge--yellow,
 .adash-badge--career,
-.asvc-badge--draft,
 .cfrow__badge--yellow,
 .pill--style-warning {
   background: var(--bulbau-amber-bg);
@@ -1032,8 +1036,7 @@ button:focus-visible,
 
 /* -- Cards ----------------------------------------------------------------- */
 /* The prototype's `.admin-card`: white, one hairline, sharp corners. */
-.adash-card,
-.asvc-card {
+.adash-card {
   background: var(--theme-elevation-0);
   border: var(--hairline);
 }
@@ -1062,7 +1065,6 @@ button:focus-visible,
 
 /* A card header row: title left, meta/actions right. */
 .adash-card__head,
-.asvc-cardhead,
 .alist-head {
   display: flex;
   align-items: center;
@@ -1074,13 +1076,11 @@ button:focus-visible,
 }
 @media (min-width: 769px) {
   .adash-card__head,
-  .asvc-cardhead,
   .alist-head {
     padding: var(--s-4) var(--s-5);
   }
 }
 .adash-card__head h2,
-.asvc-cardtitle,
 .alist-head__title {
   margin: 0;
   font-family: var(--font-body);
@@ -1250,15 +1250,13 @@ button:focus-visible,
    ========================================================================== */
 
 .table,
-.adash-recent__table,
-.asvc-table {
+.adash-recent__table {
   width: 100%;
   border-collapse: collapse;
   background: var(--theme-elevation-0);
 }
 .table thead th,
-.adash-recent__table thead th,
-.asvc-table thead th {
+.adash-recent__table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -1275,8 +1273,7 @@ button:focus-visible,
   color: var(--theme-elevation-600);
 }
 .table tbody td,
-.adash-recent__table tbody td,
-.asvc-table tbody td {
+.adash-recent__table tbody td {
   padding: var(--s-4);
   border-bottom: var(--hairline);
   font-size: var(--fs-0);
@@ -1284,42 +1281,35 @@ button:focus-visible,
   vertical-align: middle;
 }
 .table tbody tr:last-child td,
-.adash-recent__table tbody tr:last-child td,
-.asvc-table tbody tr:last-child td {
+.adash-recent__table tbody tr:last-child td {
   border-bottom: none;
 }
 .table tbody tr,
-.adash-recent__table tbody tr,
-.asvc-table tbody tr {
+.adash-recent__table tbody tr {
   transition: background var(--t-fast) var(--ease);
 }
 .table tbody tr:hover td,
-.adash-recent__table tbody tr:hover td,
-.asvc-table tbody tr:hover td {
+.adash-recent__table tbody tr:hover td {
   background: var(--theme-elevation-50);
 }
 .table tbody td a {
   font-weight: 600;
 }
 /* An orange rail marks the hovered row — a clear target in a dense list. */
-.table tbody tr td:first-child,
-.asvc-table tbody tr td:first-child {
+.table tbody tr td:first-child {
   box-shadow: inset 3px 0 0 transparent;
   transition: box-shadow var(--t-fast) var(--ease);
 }
-.table tbody tr:hover td:first-child,
-.asvc-table tbody tr:hover td:first-child {
+.table tbody tr:hover td:first-child {
   box-shadow: inset 3px 0 0 var(--bulbau-orange);
 }
 
 /* -- Phone: table → stacked record cards ---------------------------------- */
 @media (max-width: 768px) {
-  .adash-recent__table,
-  .asvc-table {
+  .adash-recent__table {
     display: block;
   }
-  .adash-recent__table thead,
-  .asvc-table thead {
+  .adash-recent__table thead {
     /* Visually hidden, still announced to assistive tech. */
     position: absolute;
     width: 1px;
@@ -1330,24 +1320,18 @@ button:focus-visible,
   }
   .adash-recent__table tbody,
   .adash-recent__table tr,
-  .adash-recent__table td,
-  .asvc-table tbody,
-  .asvc-table tr,
-  .asvc-table td {
+  .adash-recent__table td {
     display: block;
     width: auto;
   }
-  .adash-recent__table tbody tr,
-  .asvc-table tbody tr {
+  .adash-recent__table tbody tr {
     padding: var(--s-4);
     border-bottom: var(--hairline);
   }
-  .adash-recent__table tbody tr:last-child,
-  .asvc-table tbody tr:last-child {
+  .adash-recent__table tbody tr:last-child {
     border-bottom: none;
   }
-  .adash-recent__table tbody td,
-  .asvc-table tbody td {
+  .adash-recent__table tbody td {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -1358,8 +1342,7 @@ button:focus-visible,
   }
   /* The label comes from the cell's own data-label, so the markup stays a
      single semantic table at every size. */
-  .adash-recent__table tbody td[data-label]::before,
-  .asvc-table tbody td[data-label]::before {
+  .adash-recent__table tbody td[data-label]::before {
     content: attr(data-label);
     flex: 0 0 38%;
     font-family: var(--font-display);
@@ -1369,42 +1352,41 @@ button:focus-visible,
     text-transform: uppercase;
     color: var(--theme-elevation-500);
   }
-  /* The record's identity heads the card — full width, larger, no label. The
-     cell marks itself with `data-primary` rather than relying on :first-child,
-     because a table can lead with a control column (the Services screen's drag
-     handle) that is not the record's name. */
-  .adash-recent__table tbody td[data-primary],
-  .asvc-table tbody td[data-primary] {
+  /* The record's identity heads the card — full width, larger, no label. */
+  .adash-recent__table tbody td[data-primary] {
     display: block;
     padding-top: 0;
     padding-bottom: var(--s-3);
     margin-bottom: var(--s-2);
     border-bottom: 1px dashed var(--theme-elevation-150);
   }
-  .adash-recent__table tbody td[data-primary]::before,
-  .asvc-table tbody td[data-primary]::before {
+  .adash-recent__table tbody td[data-primary]::before {
     display: none;
   }
-  .adash-recent__table tbody tr:hover td,
-  .asvc-table tbody tr:hover td {
+  .adash-recent__table tbody tr:hover td {
     background: transparent;
-  }
-  /* Columns that carry a control rather than data have no place in a stacked
-     card — the drag handle is desktop-only pointer affordance. */
-  .asvc-table thead th.asvc-th-handle,
-  .asvc-table tbody td.asvc-handle {
-    display: none;
   }
 }
 
 /* ============================================================================
-   8. COLLECTION LIST VIEWS
+   8. COLLECTION LIST VIEWS — /prototype/admin/services.html for EVERY list
    ----------------------------------------------------------------------------
-   Payload's native list keeps doing all the work — search, sort, pagination,
-   column controls, bulk selection. These rules give it the prototype's shape:
-   the search row, the "All Projects (8)" card header (ListCardHeader.tsx) and
-   the table read as ONE bordered card, with status pills and an Actions column
-   of text links (StatusBadgeCell.tsx / RowActionsCell.tsx).
+   One list design for Services, Projects, Careers and Media, and it is
+   Payload's native list view for all four (since 2026-09-14 — the bespoke
+   Services table was retired). Payload keeps doing the work: search, sort,
+   pagination, column controls, bulk selection (`cell-_select` + the
+   `.list-selection` bar), and drag ordering for `orderable` collections
+   (`cell-_dragHandle`, keyboard-accessible via dnd-kit). These rules give it
+   the prototype's Services-screen shape:
+
+     [+ Create New]                              ← .list-header (title in top bar)
+     ⓘ order banner                              ← .alist-banner  (ListOrderBanner)
+     ┌ search · columns · filters ──────────────┐ ← .list-controls
+     │ All Services (3)      Drag rows to reorder│ ← .alist-head   (ListCardHeader)
+     │ ⠿ ☐ Title / Last edited · … · Status · … │ ← .table
+     └───────────────────────────────────────────┘
+     1–3 of 3 · Per page                          ← .page-controls
+     Home page display settings                   ← .alist-settings (Services only)
    ========================================================================== */
 
 /* The page title lives in the top bar; keep the h1 for assistive tech only. */
@@ -1420,32 +1402,170 @@ button:focus-visible,
 .list-header {
   padding-top: var(--s-5);
 }
+@media (min-width: 769px) {
+  .list-header {
+    padding-top: var(--s-6);
+  }
+}
 .list-header__content {
   grid-template-columns: 1fr;
   gap: var(--s-3);
 }
 @media (min-width: 601px) {
   .list-header__content {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: auto 1fr;
+    align-items: center;
   }
 }
 .list-header__title-actions,
 .list-header__actions {
   margin-bottom: 0;
 }
-/* With the title hidden the create button is the only thing left in the row —
-   let it sit hard right, like the prototype's topbar action. */
+/* With the title hidden the create button is the only thing left in its half —
+   it sits hard right, like the prototype's "+ New Service". The bulk-selection
+   bar (Payload renders it into `.list-header__actions` once rows are ticked)
+   takes the other half. */
 .list-header__title-and-actions {
   justify-content: flex-start;
 }
 @media (min-width: 601px) {
+  .list-header__content {
+    grid-template-columns: 1fr auto;
+  }
   .list-header__title-and-actions {
+    order: 2;
     justify-content: flex-end;
+  }
+  .list-header__actions {
+    order: 1;
   }
 }
 
-/* Stitch the three sibling blocks into one card. `:has()` scopes this to the
-   lists that opted in via `beforeListTable`. */
+/* "Create New" / "Bulk Upload" — the prototype's solid orange action button,
+   condensed uppercase. (Payload's own pill classes are painted by §5.) */
+.list-header .btn,
+.list-header .btn:hover {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  min-height: 42px;
+  margin: 0;
+  padding: var(--s-2) var(--s-4);
+  border: 2px solid var(--bulbau-orange);
+  border-radius: 0;
+  background: var(--bulbau-orange);
+  color: #fff;
+  font-size: var(--fs--1);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  box-shadow: none;
+}
+.list-header .btn:hover {
+  background: var(--bulbau-orange-hover);
+  border-color: var(--bulbau-orange-hover);
+}
+.list-header .btn .btn__content {
+  color: inherit;
+}
+/* A "+" before the create label, as on the prototype. */
+.list-create-new-doc__create-new-button .btn__label::before {
+  content: '+';
+  margin-inline-end: var(--s-1);
+  font-weight: 800;
+}
+/* Media's second button (Bulk Upload) — outlined so the primary stays primary. */
+.list-header .btn:not(.list-create-new-doc__create-new-button) {
+  background: var(--theme-elevation-0);
+  color: var(--bulbau-orange);
+}
+.list-header .btn:not(.list-create-new-doc__create-new-button):hover {
+  background: var(--bulbau-orange);
+  color: #fff;
+}
+
+/* -- Bulk-selection bar (multi-select) ------------------------------------- */
+/* "2 selected — Select all (8) — Edit · Delete · Publish · Unpublish". Payload
+   renders plain text and text-buttons; this makes it read as one status strip
+   in the prototype's voice, with the destructive action in red. */
+.list-selection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-3);
+  min-height: 42px;
+  padding: 0 var(--s-4);
+  background: var(--bulbau-orange-bg);
+  border: 1px solid var(--bulbau-orange-bg-strong);
+  border-inline-start: 3px solid var(--bulbau-orange);
+  font-size: var(--fs--1);
+  color: var(--theme-elevation-700);
+}
+.list-selection > span:first-child {
+  font-weight: 700;
+  color: var(--theme-elevation-900);
+}
+.list-selection__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.list-header .list-selection .btn,
+.list-header .list-selection .btn:hover {
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--bulbau-orange);
+  font-size: var(--fs--1);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  box-shadow: none;
+}
+.list-header .list-selection .btn:hover {
+  text-decoration: underline;
+}
+.list-header .list-selection .delete-documents__toggle,
+.list-header .list-selection .delete-documents__toggle:hover {
+  color: var(--bulbau-red-fg);
+}
+
+/* -- Order banner (ListOrderBanner.tsx) ------------------------------------ */
+/* Payload renders `beforeListTable` AFTER the search controls, so the banner
+   sits inside the card as a hint band between the toolbar and the "All X (n)"
+   header rather than floating above the card as the prototype drew it. It is
+   painted to belong there: same hairlines, no side accent, no gap. */
+.alist-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: var(--theme-elevation-50);
+  border: var(--hairline);
+  border-top: 0;
+  border-bottom: 0;
+  font-size: var(--fs-0);
+  line-height: 1.6;
+  color: var(--theme-elevation-600);
+}
+@media (min-width: 769px) {
+  .alist-banner {
+    padding: var(--s-3) var(--s-5);
+  }
+}
+.alist-banner svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--theme-elevation-500);
+}
+
+/* -- The card: controls + header + table stitched into one box -------------- */
+/* `:has()` scopes this to the lists that opted in via `beforeListTable`. */
 .collection-list:has(.alist-head) .list-controls,
 .alist-head {
   background: var(--theme-elevation-0);
@@ -1454,16 +1574,26 @@ button:focus-visible,
   margin-bottom: 0;
 }
 .collection-list:has(.alist-head) .list-controls {
-  padding: var(--s-4);
+  margin-top: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border-bottom: var(--hairline);
 }
 @media (min-width: 769px) {
   .collection-list:has(.alist-head) .list-controls {
-    padding: var(--s-4) var(--s-5);
+    padding: var(--s-3) var(--s-5);
   }
 }
 .alist-head {
-  border-top: 0;
+  border-top: 0; /* the toolbar above already draws the divider */
   border-bottom: var(--hairline);
+}
+/* …unless the banner band sits in between, which has no bottom line of its own. */
+.alist-banner + .alist-head {
+  border-top: var(--hairline);
+}
+.alist-head__hint {
+  font-size: var(--fs--1);
+  color: var(--theme-elevation-500);
 }
 .collection-list:has(.alist-head) .collection-list__tables {
   margin-top: 0;
@@ -1482,14 +1612,12 @@ button:focus-visible,
   border: var(--hairline);
   box-shadow: var(--bulbau-shadow-sm);
 }
-.collection-list__page-info {
-  padding-top: var(--s-4);
-  font-size: var(--fs--1);
-  color: var(--theme-elevation-500);
-}
 
-/* Search row: full width on a phone, inline from tablet up. */
-.list-controls__wrap {
+/* Search row: the prototype has no search on the Services screen, but every
+   list keeps Payload's — it is what makes a 200-file media library usable. It
+   reads as the card's toolbar: quiet input, quiet toggles, one line from tablet up. */
+.list-controls__wrap,
+.search-bar {
   display: flex;
   flex-wrap: wrap;
   gap: var(--s-3);
@@ -1508,6 +1636,69 @@ button:focus-visible,
 .search-filter__input,
 .collection-list__search-input input {
   padding-block: var(--s-3);
+  border-radius: 0;
+}
+.search-bar__actions {
+  display: flex;
+  gap: var(--s-2);
+}
+.list-controls__toggle-columns,
+.list-controls__toggle-where {
+  font-family: var(--font-display);
+  font-size: var(--fs--2);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* -- Table columns ---------------------------------------------------------- */
+/* Drag handle (orderable collections): a narrow grip column, grey until hover. */
+.table th#heading-_dragHandle,
+.table td.cell-_dragHandle {
+  width: 34px;
+  padding-inline: var(--s-2);
+  color: var(--theme-elevation-400);
+}
+.table td.cell-_dragHandle:hover {
+  color: var(--theme-elevation-700);
+}
+/* Bulk-select checkbox column. */
+.table th#heading-_select,
+.table td.cell-_select {
+  width: 40px;
+  padding-inline: var(--s-2);
+}
+/* Title cell (TitleCell.tsx): bold link + quiet "Last edited" sub-line. */
+.acell-title__link,
+.table tbody td.cell-title > a,
+.table tbody td.cell-filename > a {
+  display: block;
+  font-size: var(--fs-1);
+  font-weight: 700;
+  color: var(--theme-elevation-900);
+  text-decoration: none;
+}
+.acell-title__link:hover,
+.table tbody td.cell-title > a:hover,
+.table tbody td.cell-filename > a:hover {
+  color: var(--bulbau-orange);
+}
+.acell-sub {
+  margin-top: 2px;
+  font-size: var(--fs--1);
+  color: var(--theme-elevation-450);
+}
+/* Summary columns (ServiceSummaryCells.tsx) and any plain-text column. */
+.acell-meta {
+  font-size: var(--fs-0);
+  color: var(--theme-elevation-600);
+}
+/* Sort arrows on column headers stay quiet until hovered. */
+.sort-column__buttons {
+  opacity: 0.55;
+}
+.table th:hover .sort-column__buttons {
+  opacity: 1;
 }
 
 /* Actions column (RowActionsCell.tsx) — the prototype's `.action-link` set. */
@@ -1557,6 +1748,106 @@ button:focus-visible,
    which pushes the whole page sideways at middling widths. */
 .table td:has(.arow) {
   white-space: normal;
+}
+
+/* -- Pagination footer ------------------------------------------------------ */
+.page-controls,
+.collection-list__page-info {
+  padding-top: var(--s-4);
+  font-size: var(--fs--1);
+  color: var(--theme-elevation-500);
+}
+
+/* -- Home-page display settings (HomeCardLimitForm.tsx, Services only) ------ */
+/* The prototype's second card under the Services table. It renders in the
+   `afterList` slot — its own Gutter after the list's — so the list gutter's
+   bottom padding would otherwise open a 64px hole between the pagination row
+   and this card; hand the bottom padding to the card's gutter instead. */
+.collection-list:has(.alist-settings) > .collection-list__wrap {
+  padding-bottom: 0;
+}
+.alist-settings {
+  margin-top: var(--s-5);
+  padding: var(--s-5);
+  background: var(--theme-elevation-0);
+  border: var(--hairline);
+}
+.alist-settings__label {
+  margin: 0 0 var(--s-4);
+  font-family: var(--font-body);
+  font-size: var(--fs--2);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--theme-elevation-500);
+}
+.alist-settings__row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--s-3);
+}
+@media (min-width: 601px) {
+  .alist-settings__row {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+}
+.alist-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.alist-field__label {
+  font-family: var(--font-display);
+  font-size: var(--fs--1);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--theme-elevation-600);
+}
+.alist-select {
+  width: 100%;
+  padding: var(--s-3);
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 0;
+  background: var(--theme-input-bg, var(--theme-elevation-0));
+  font-size: var(--fs-0);
+  color: var(--theme-elevation-800);
+}
+@media (min-width: 601px) {
+  .alist-select {
+    width: auto;
+    min-width: 240px;
+  }
+}
+.alist-select:focus {
+  outline: none;
+  border-color: var(--bulbau-orange);
+  box-shadow: var(--bulbau-ring);
+}
+.alist-save {
+  min-height: 42px;
+  padding: var(--s-2) var(--s-5);
+  background: var(--bulbau-orange);
+  border: 2px solid var(--bulbau-orange);
+  color: #fff;
+  cursor: pointer;
+  font-size: var(--fs--1);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+.alist-save:hover:not(:disabled) {
+  background: var(--bulbau-orange-hover);
+  border-color: var(--bulbau-orange-hover);
+}
+.alist-save:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* -- Phone: Payload's list table → stacked record cards --------------------
@@ -1612,6 +1903,12 @@ button:focus-visible,
   .collection-list .table tbody td.cell-completionDate::before {
     content: 'Completed';
   }
+  .collection-list .table tbody td.cell-homeCard::before {
+    content: 'Home page card';
+  }
+  .collection-list .table tbody td.cell-calculatorSummary::before {
+    content: 'Calculator';
+  }
   .collection-list .table tbody td.cell-statusBadge::before,
   .collection-list .table tbody td.cell-status::before,
   .collection-list .table tbody td.cell-_status::before {
@@ -1626,6 +1923,9 @@ button:focus-visible,
   .collection-list .table tbody td.cell-createdAt::before {
     content: 'Created';
   }
+  .collection-list .table tbody td.cell-alt::before {
+    content: 'Alt text';
+  }
   .collection-list .table tbody td.cell-mimeType::before {
     content: 'Type';
   }
@@ -1634,10 +1934,11 @@ button:focus-visible,
   }
   /* The title cell is the record's identity: full width, larger, no label. The
      `:first-child` fallback covers a collection whose first column is something
-     else — but never the bulk-select checkbox, which is a control, not a name. */
+     else — but never the bulk-select checkbox or the drag handle, which are
+     controls, not a name. */
   .collection-list .table tbody td.cell-title,
   .collection-list .table tbody td.cell-filename,
-  .collection-list .table tbody td:first-child:not(.cell-_select) {
+  .collection-list .table tbody td:first-child:not(.cell-_select):not(.cell-_dragHandle) {
     display: block;
     padding-top: 0;
     padding-bottom: var(--s-3);
@@ -1648,7 +1949,7 @@ button:focus-visible,
   }
   .collection-list .table tbody td.cell-title::before,
   .collection-list .table tbody td.cell-filename::before,
-  .collection-list .table tbody td:first-child:not(.cell-_select)::before {
+  .collection-list .table tbody td:first-child:not(.cell-_select):not(.cell-_dragHandle)::before {
     display: none;
   }
   .collection-list .table tbody td.cell-_select {
@@ -1660,6 +1961,13 @@ button:focus-visible,
     font-weight: inherit;
   }
   .collection-list .table tbody td.cell-_select::before {
+    display: none;
+  }
+  /* The drag handle is a desktop pointer affordance — a stacked card has no
+     column for it (Payload's own touch fallback is the sort controls) — so the
+     "Drag rows to reorder" hint goes with it. */
+  .collection-list .table tbody td.cell-_dragHandle,
+  .alist-head__hint {
     display: none;
   }
   .collection-list .table tbody tr:hover td {
@@ -1859,9 +2167,16 @@ button:focus-visible,
 }
 
 /* Payload stacks a `row`'s fields on a VIEWPORT query, which misses the case
-   that actually matters here: a narrow content column inside a wide window. */
+   that actually matters here: a narrow content column inside a wide window.
+   ROW-gap only. Payload sizes a two-up row as `flex: 0 1 calc(50% - base/2)`
+   per field with `margin-inline: base/4` on each, so the horizontal spacing
+   already comes from margins and there is NO column gap to tune. Setting the
+   shorthand `gap` here added a 16px column-gap on top of those margins, which
+   made 2 × (50% − 12px) + margins + 16px exceed the row — the second field
+   wrapped under the first at half width on EVERY desktop width (title/status,
+   phone/email, …), which is what read as a "mobile layout" on a PC. */
 .asec .row__fields {
-  gap: var(--s-4);
+  row-gap: var(--s-4);
 }
 @container svc-section (max-width: 32rem) {
   .asec .row__fields > * {
@@ -2222,8 +2537,7 @@ button:focus-visible,
   white-space: nowrap;
 }
 /* Empty states wear the hazard hatch — unmistakably "nothing here yet". */
-.adash-recent__empty,
-.asvc-empty {
+.adash-recent__empty {
   padding: var(--s-6) var(--s-5);
   background-image: var(--bulbau-hatch);
   text-align: center;
@@ -2352,294 +2666,7 @@ button:focus-visible,
 }
 
 /* ============================================================================
-   11. SERVICES MANAGER (ServicesManager.tsx) — /prototype/admin/services.html
-   ========================================================================== */
-
-.asvc {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-4);
-  padding-top: var(--s-5);
-}
-@media (min-width: 769px) {
-  .asvc {
-    gap: var(--s-5);
-    padding-top: var(--s-6);
-  }
-}
-
-/* Action row — the title itself lives in the top bar. */
-.asvc-top {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--s-3);
-}
-.asvc-pagetitle {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-.asvc-new {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--s-2);
-  min-height: 42px;
-  padding: var(--s-2) var(--s-4);
-  background: var(--bulbau-orange);
-  border: 2px solid var(--bulbau-orange);
-  color: #fff;
-  font-size: var(--fs--1);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-decoration: none;
-  transition:
-    background var(--t-fast) var(--ease),
-    border-color var(--t-fast) var(--ease);
-}
-.asvc-new:hover {
-  background: var(--bulbau-orange-hover);
-  border-color: var(--bulbau-orange-hover);
-}
-.asvc-new svg {
-  width: 13px;
-  height: 13px;
-  flex-shrink: 0;
-}
-@media (max-width: 480px) {
-  .asvc-new {
-    flex: 1;
-  }
-}
-
-/* Reorder hint banner */
-.asvc-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--s-3);
-  padding: var(--s-4);
-  background: var(--theme-elevation-50);
-  border: var(--hairline);
-  border-inline-start: 3px solid var(--theme-elevation-300);
-  font-size: var(--fs-0);
-  line-height: 1.6;
-  color: var(--theme-elevation-600);
-}
-.asvc-banner svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: var(--theme-elevation-500);
-}
-
-.asvc-hint {
-  font-size: var(--fs--1);
-  color: var(--theme-elevation-500);
-}
-
-.asvc-th-handle {
-  width: 34px;
-  padding-inline: var(--s-2);
-}
-.asvc-handle {
-  width: 34px;
-  padding-inline: var(--s-2) !important;
-  color: var(--theme-elevation-400);
-  cursor: grab;
-}
-.asvc-handle:active {
-  cursor: grabbing;
-}
-.asvc-handle svg {
-  display: block;
-  width: 16px;
-  height: 16px;
-}
-.asvc-row--over td {
-  background: var(--bulbau-orange-bg) !important;
-  box-shadow: inset 0 2px 0 0 var(--bulbau-orange);
-}
-.asvc-name {
-  display: block;
-  font-size: var(--fs-1);
-  font-weight: 700;
-  color: var(--theme-elevation-900);
-}
-.asvc-sub {
-  margin-top: 2px;
-  font-size: var(--fs--1);
-  color: var(--theme-elevation-450);
-}
-.asvc-meta {
-  font-size: var(--fs-0);
-  color: var(--theme-elevation-600);
-}
-.asvc-draftflag {
-  color: var(--bulbau-orange);
-  font-weight: 600;
-}
-.asvc-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--s-1);
-  flex-wrap: wrap;
-}
-.asvc-confirm {
-  font-size: var(--fs--1);
-  color: var(--theme-elevation-600);
-}
-.asvc-sep {
-  color: var(--theme-elevation-300);
-}
-.asvc-link {
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: var(--fs--1);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-decoration: none;
-  color: var(--bulbau-orange);
-  transition: opacity var(--t-fast) var(--ease);
-}
-.asvc-link:hover {
-  opacity: 0.75;
-  text-decoration: underline;
-}
-.asvc-link:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.asvc-link--gray {
-  color: var(--theme-elevation-500);
-}
-.asvc-link--red {
-  color: var(--bulbau-red-fg);
-}
-
-/* (The reorder handle is hidden on a phone by the stacked-table rules in §7 —
-   there is no drag-and-drop on touch here and a stacked card has no column for
-   it.) */
-
-/* Home-page display settings */
-.asvc-settings {
-  padding: var(--s-5);
-}
-.asvc-settings__label {
-  margin-bottom: var(--s-4);
-  font-size: var(--fs--2);
-  font-weight: 700;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--theme-elevation-500);
-}
-.asvc-settings__row {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--s-3);
-}
-@media (min-width: 601px) {
-  .asvc-settings__row {
-    flex-direction: row;
-    align-items: flex-end;
-  }
-}
-.asvc-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-2);
-}
-.asvc-field__label {
-  font-family: var(--font-display);
-  font-size: var(--fs--1);
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--theme-elevation-600);
-}
-.asvc-select {
-  width: 100%;
-  padding: var(--s-3);
-  border: 1px solid var(--theme-elevation-150);
-  border-radius: 0;
-  background: var(--theme-input-bg, var(--theme-elevation-0));
-  font-size: var(--fs-0);
-  color: var(--theme-elevation-800);
-}
-@media (min-width: 601px) {
-  .asvc-select {
-    width: auto;
-    min-width: 240px;
-  }
-}
-.asvc-select:focus {
-  outline: none;
-  border-color: var(--bulbau-orange);
-  box-shadow: var(--bulbau-ring);
-}
-.asvc-save {
-  min-height: 42px;
-  padding: var(--s-2) var(--s-5);
-  background: var(--bulbau-orange);
-  border: 2px solid var(--bulbau-orange);
-  color: #fff;
-  cursor: pointer;
-  font-size: var(--fs--1);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  transition:
-    background var(--t-fast) var(--ease),
-    border-color var(--t-fast) var(--ease);
-}
-.asvc-save:hover:not(:disabled) {
-  background: var(--bulbau-orange-hover);
-  border-color: var(--bulbau-orange-hover);
-}
-.asvc-save:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-/* Toast — fixed on a phone so it is seen without scrolling back. */
-.asvc-toast {
-  align-self: flex-start;
-  padding: var(--s-3) var(--s-4);
-  border: 1px solid;
-  font-size: var(--fs-0);
-}
-.asvc-toast--ok {
-  background: var(--bulbau-green-bg);
-  color: var(--bulbau-green-fg);
-  border-color: var(--bulbau-green-br);
-}
-.asvc-toast--err {
-  background: var(--bulbau-red-bg);
-  color: var(--bulbau-red-fg);
-  border-color: var(--bulbau-red-br);
-}
-@media (max-width: 768px) {
-  .asvc-toast {
-    position: fixed;
-    left: var(--s-4);
-    right: var(--s-4);
-    bottom: var(--s-4);
-    z-index: 50;
-    align-self: auto;
-    box-shadow: var(--bulbau-shadow);
-  }
-}
-
-/* ============================================================================
-   12. TRANSLATIONS — shell-level rules
+   11. TRANSLATIONS — shell-level rules
    (the screen's own stylesheet is src/components/admin/TranslationManager.scss)
    ========================================================================== */
 
@@ -2653,7 +2680,7 @@ button:focus-visible,
 }
 
 /* ============================================================================
-   13. AUTH — login, forgot / reset password, MFA
+   12. AUTH — login, forgot / reset password, MFA
    ----------------------------------------------------------------------------
    The prototype's login is a sharp white card floating on the black, grid-ruled
    backdrop, with the wordmark above it and a "back to website" link below.
@@ -3076,7 +3103,7 @@ button:focus-visible,
 }
 
 /* ============================================================================
-   14. UTILITIES, ACCESSIBILITY, MOTION, PRINT
+   13. UTILITIES, ACCESSIBILITY, MOTION, PRINT
    ========================================================================== */
 
 /* The public site's screen-reader helper name, so shared markup works here. */

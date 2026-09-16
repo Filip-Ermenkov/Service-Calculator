@@ -60,7 +60,7 @@ const SECTIONS: Section[] = [
   {
     label: 'Content',
     items: [
-      { href: `${ADMIN}/services`, label: 'Services', icon: icons.services, activePrefixes: [`${ADMIN}/collections/services`] },
+      { href: `${ADMIN}/collections/services`, label: 'Services', icon: icons.services },
       { href: `${ADMIN}/collections/projects`, label: 'Projects', icon: icons.projects },
       { href: `${ADMIN}/collections/career-listings`, label: 'Careers', icon: icons.careers },
       { href: `${ADMIN}/globals/company-info`, label: 'About & Company Info', icon: icons.company },
