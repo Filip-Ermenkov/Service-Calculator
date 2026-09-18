@@ -26,19 +26,15 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Function"
     }
+    "RateLimits": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
     "SiteUrl": {
       "type": "sst.sst.Secret"
       "value": string
     }
     "TotpEncryptionKey": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
-    "UpstashRedisRestToken": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
-    "UpstashRedisRestUrl": {
       "type": "sst.sst.Secret"
       "value": string
     }

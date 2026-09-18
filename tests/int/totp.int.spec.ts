@@ -106,11 +106,11 @@ describe('otpauth URI label carries the environment outside production (src/lib/
 })
 
 describe('TOTP rate limiting — in-memory fallback (src/lib/totp/rateLimit.ts)', () => {
-  // These tests rely on UPSTASH_REDIS_REST_URL/TOKEN being unset in this
-  // environment (true for local dev and CI per .env.example / ci.yml), so
-  // checkTotpRateLimit exercises the in-memory limiter, not real Upstash.
+  // These tests rely on RATE_LIMIT_TABLE being unset in this environment (true
+  // for local dev and CI per .env.example / ci.yml), so checkTotpRateLimit
+  // exercises the in-memory limiter, not the DynamoDB store.
   beforeAll(() => {
-    expect(process.env.UPSTASH_REDIS_REST_URL).toBeUndefined()
+    expect(process.env.RATE_LIMIT_TABLE).toBeUndefined()
   })
 
   it('allows attempts under the limit and blocks once exceeded', async () => {

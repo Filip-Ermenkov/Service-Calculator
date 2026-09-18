@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 import { SAMPLE_SERVICE_PATH_EN } from '../helpers/sampleContent'
 
@@ -241,13 +241,37 @@ test.describe('Public site — live price calculator + quote (Phase 3/4)', () =>
 // flow (validation → mocked success) and the server defences (rate limit,
 // honeypot) are what's proven here; real Turnstile is verified in the manual guide.
 test.describe('Public site — contact form (Phase 6)', () => {
-  test('the contact page renders the form and is linked from the nav', async ({ page }) => {
+  /**
+   * Open the contact page and wait until React has hydrated the form. The form's
+   * submit path is entirely client-side, so it renders with the button disabled
+   * and flags `data-hydrated` once interactive (src/components/site/ContactForm.tsx).
+   * Filling before that point is a race the dev server's first compile of the
+   * page can lose: a controlled input filled pre-hydration is reset to '' when
+   * React takes over (seen once as "Your name" arriving empty at the server).
+   */
+  async function openContactForm(page: Page) {
     const res = await page.goto(`${BASE}/en/contact`)
+    await expect(page.locator('form.contact-form')).toHaveAttribute('data-hydrated', 'true')
+    return res
+  }
+
+  test('the contact page renders the form and is linked from the nav', async ({ page, request }) => {
+    // The server HTML ships the submit button DISABLED: without JavaScript the
+    // form has no submit path, and a click before hydration would otherwise be
+    // a native submit that reloads the page and discards what was typed.
+    const html = await (await request.get(`${BASE}/en/contact`)).text()
+    const submit = /<button[^>]*type="submit"[^>]*>/i.exec(html)?.[0] ?? ''
+    expect(submit).not.toBe('')
+    expect(submit).toContain('disabled')
+    expect(html).not.toContain('data-hydrated')
+
+    const res = await openContactForm(page)
     expect(res?.status()).toBeLessThan(400)
     await expect(page.getByLabel(/Your name/i)).toBeVisible()
     await expect(page.getByLabel(/Email address/i)).toBeVisible()
     await expect(page.getByLabel(/Message/i)).toBeVisible()
-    await expect(page.getByRole('button', { name: /Send message/i })).toBeVisible()
+    // …and once hydrated it is live.
+    await expect(page.getByRole('button', { name: /Send message/i })).toBeEnabled()
   })
 
   test('client-side validation blocks an empty/invalid submit without a round-trip', async ({
@@ -258,7 +282,7 @@ test.describe('Public site — contact form (Phase 6)', () => {
       posted = true
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' })
     })
-    await page.goto(`${BASE}/en/contact`)
+    await openContactForm(page)
     await page.getByRole('button', { name: /Send message/i }).click()
     // Scope to the form's own alert — Next renders a global (empty) route
     // announcer with role="alert" too, so an unscoped getByRole is ambiguous.
@@ -274,7 +298,7 @@ test.describe('Public site — contact form (Phase 6)', () => {
       expect(body?.message).toBeTruthy()
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' })
     })
-    await page.goto(`${BASE}/en/contact`)
+    await openContactForm(page)
     await page.getByLabel(/Your name/i).fill('Jane Tester')
     await page.getByLabel(/Email address/i).fill('jane@example.com')
     await page.getByLabel(/Message/i).fill('I would like a quote for a heat pump.')

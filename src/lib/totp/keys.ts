@@ -3,7 +3,10 @@ import { hkdfSync } from 'crypto'
 /**
  * Single source of key material for everything TOTP-related that needs a
  * secret: encrypting `totpSecret` at rest, and signing the short-lived
- * "second factor verified" step-up cookie (see stepUpToken.ts).
+ * "second factor verified" step-up cookie (see stepUpToken.ts) — plus, since
+ * 2026-09-18, the keyed hash that pseudonymises rate-limit buckets before they
+ * reach the shared DynamoDB counter table (src/lib/rateLimit.ts). One root
+ * secret, three independent HKDF subkeys.
  *
  * Deliberately a *separate* env var from PAYLOAD_SECRET (which Payload uses
  * for its own JWT signing) rather than reusing it — key separation so a
@@ -12,12 +15,12 @@ import { hkdfSync } from 'crypto'
  * name. Generate with the same `openssl rand -base64 32` convention already
  * used for PAYLOAD_SECRET (see .env.example).
  *
- * HKDF (RFC 5869) derives two independent subkeys from the one root secret
- * — one for AES-256-GCM encryption, one for HMAC signing — rather than
- * using the same raw key material for two different cryptographic
- * purposes, which is the safer, current-best-practice pattern (using one
- * key for two algorithms risks subtle cross-purpose weaknesses even when
- * neither algorithm is broken on its own).
+ * HKDF (RFC 5869) derives independent subkeys from the one root secret —
+ * one for AES-256-GCM encryption, one for HMAC cookie signing, one for the
+ * rate-limit HMAC — rather than using the same raw key material for
+ * different cryptographic purposes, which is the safer, current-best-practice
+ * pattern (using one key for two algorithms risks subtle cross-purpose
+ * weaknesses even when neither algorithm is broken on its own).
  */
 
 function getRootKey(): Buffer {
@@ -56,4 +59,14 @@ export function getEncryptionKey(): Buffer {
 
 export function getSigningKey(): Buffer {
   return derive('bulbau-totp-stepup-cookie-signing-v1', 32)
+}
+
+/**
+ * Keyed-hash subkey for pseudonymising rate-limit bucket keys (visitor IPs,
+ * reset-request emails, user ids) before they are written to the shared
+ * DynamoDB counter table. Rotating the root secret merely re-buckets in-flight
+ * counters (the windows are minutes long), so no migration is ever needed.
+ */
+export function getRateLimitBucketKey(): Buffer {
+  return derive('bulbau-rate-limit-bucket-hmac-v1', 32)
 }

@@ -51,13 +51,6 @@ export default $config({
     // set before deploying, or `sst deploy` will fail — that hard failure is the
     // point: it makes "2FA has no key on this stage" impossible to ship silently.
     const totpEncryptionKey = new sst.Secret('TotpEncryptionKey')
-    // Rate limiting for the 2FA verify endpoint (src/lib/totp/rateLimit.ts).
-    // Given a default of '' so they're OPTIONAL: if unset, the limiter falls back
-    // to its in-memory limiter (fine for a single warm instance pre-launch). Set
-    // real Upstash values before production, where multiple Lambda instances make
-    // the in-memory fallback unsafe (it can't share counters across instances).
-    const upstashRedisRestUrl = new sst.Secret('UpstashRedisRestUrl', '')
-    const upstashRedisRestToken = new sst.Secret('UpstashRedisRestToken', '')
     // Public site origin + search-indexing gate (Phase 2). Both OPTIONAL with
     // safe defaults: an unset SiteUrl falls back to the production domain for
     // canonical/OG/sitemap URLs (src/lib/seo.ts), and indexing stays OFF unless
@@ -87,6 +80,32 @@ export default $config({
 
     const media = new sst.aws.Bucket('Media', {
       access: 'cloudfront',
+    })
+
+    // Shared rate-limit counters (src/lib/rateLimit.ts). Every limiter in the
+    // app — TOTP verify/enrol, forgot-password, /api/quote, /api/contact —
+    // needs a counter that ALL Lambda instances see: a per-process counter is
+    // multiplied by the account's concurrency and reset on every cold start,
+    // which is what both stages silently ran on until 2026-09-18 (the Upstash
+    // Redis this replaces was never given credentials). DynamoDB rather than
+    // Upstash for the same reasons AWS Translate replaced DeepL: in-account and
+    // in-region (the keys are visitor IPs — personal data — and are stored
+    // HMAC-pseudonymised, encrypted at rest, expiring by TTL), execution-role
+    // auth (no secret to set or rotate), no third-party free tier to lose, and
+    // cents per month at this traffic (one consistent read + one conditional
+    // write per check, on-demand billing).
+    //
+    // Item shape: pk = `<policy prefix>#<hmac>`, sk = `w#<window index>`,
+    // hits (N), expiresAt (N, epoch seconds — the TTL attribute). Point-in-time
+    // recovery is switched off: the table holds only minutes-old counters, so
+    // there is nothing worth restoring and nothing worth paying to snapshot.
+    const rateLimits = new sst.aws.Dynamo('RateLimits', {
+      fields: { pk: 'string', sk: 'string' },
+      primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+      ttl: 'expiresAt',
+      transform: {
+        table: { pointInTimeRecovery: { enabled: false } },
+      },
     })
 
     // Isolated PDF-rendering function (Phase 4 — TECHSPEC §6.5/§13). Kept SEPARATE
@@ -158,7 +177,7 @@ export default $config({
       warm: 1,
       // Linking `pdf` grants the Web function permission to invoke it; its name
       // is passed explicitly as PDF_FUNCTION_NAME (read by src/lib/pdf/render.ts).
-      link: [media, databaseUrl, payloadSecret, totpEncryptionKey, upstashRedisRestUrl, upstashRedisRestToken, siteUrl, allowIndexing, emailSender, turnstileSecretKey, turnstileSiteKey, pdf],
+      link: [media, databaseUrl, payloadSecret, totpEncryptionKey, siteUrl, allowIndexing, emailSender, turnstileSecretKey, turnstileSiteKey, pdf],
       // AWS Translate auto-translation (Phase 5 — src/lib/translation/*). The
       // Next/Payload server function calls translate:TranslateText; it has no
       // resource ARNs, so the resource must be "*". No secret is involved —
@@ -191,6 +210,14 @@ export default $config({
           actions: ['ses:SendEmail'],
           resources: ['arn:aws:ses:eu-central-1:*:identity/*'],
         },
+        // Shared rate-limit counters (src/lib/rateLimit.ts): exactly the two
+        // calls the limiter makes, on exactly this table. Linking the table
+        // would grant `dynamodb:*`; the explicit grant keeps the runtime role at
+        // the least privilege every other statement here observes.
+        {
+          actions: ['dynamodb:GetItem', 'dynamodb:UpdateItem'],
+          resources: [rateLimits.arn],
+        },
       ],
       environment: {
         DATABASE_URL: databaseUrl.value,
@@ -211,11 +238,13 @@ export default $config({
         // widget doesn't render (local/CI/any un-provisioned stage).
         TURNSTILE_SECRET_KEY: turnstileSecretKey.value,
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: turnstileSiteKey.value,
-        // 2FA (see src/lib/totp/*). TOTP_ENCRYPTION_KEY is required; the Upstash
-        // pair is optional (empty => in-memory rate-limit fallback).
+        // 2FA (see src/lib/totp/*). TOTP_ENCRYPTION_KEY is required (it also
+        // derives the rate-limit pseudonymisation key).
         TOTP_ENCRYPTION_KEY: totpEncryptionKey.value,
-        UPSTASH_REDIS_REST_URL: upstashRedisRestUrl.value,
-        UPSTASH_REDIS_REST_TOKEN: upstashRedisRestToken.value,
+        // The shared rate-limit counter table (src/lib/rateLimit.ts). Set here
+        // automatically on every deployed stage — no secret. Unset locally / in
+        // CI ⇒ the exact in-memory limiter (one process, so it is correct there).
+        RATE_LIMIT_TABLE: rateLimits.name,
         // AWS Translate auto-translation (Phase 5). 'true' switches the on-save
         // EN→FR/DE hook ON for this deployed stage (the role has the permission
         // above). Unset locally/CI ⇒ the hook is a no-op and FR/DE fall back to
@@ -314,8 +343,8 @@ export default $config({
     })
     // Throttles on the WEB function were previously unmonitored — an omission,
     // since this is the function that actually faces public traffic and the
-    // account still runs on the DEFAULT concurrency limit of 10 (see
-    // docs/PROGRESS.md → "Upstash + Lambda-quota"). Under a traffic spike this
+    // account still runs on the DEFAULT concurrency limit of 10 (the launch-list
+    // quota increase in docs/PROGRESS.md). Under a traffic spike this
     // is the first thing that breaks, and visitors just see errors.
     opsAlarm('web-lambda-throttles', {
       description:

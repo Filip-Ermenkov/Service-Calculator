@@ -67,9 +67,6 @@ export interface LeafRef {
   set(value: unknown): void
 }
 
-/** Property names that would alter the prototype chain rather than a field. */
-const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
-
 /**
  * Resolve a registry path against a concrete document object, returning a
  * get/set handle for every leaf it addresses. Missing intermediate objects/arrays
@@ -94,7 +91,15 @@ export function resolveLeaves(root: unknown, path: string): LeafRef[] {
     // can't reach this walker in practice — but a `set()` through `__proto__`
     // would be prototype pollution, and a walker that structurally refuses it
     // needs no such argument. Only own, data properties are addressable.
-    if (UNSAFE_KEYS.has(key)) return
+    //
+    // Three inline comparisons, not a `Set` lookup, on purpose: CodeQL's
+    // `js/prototype-polluting-assignment` query recognises exactly this
+    // equality check against the three literals as a sanitiser (its own
+    // documented remediation), whereas a `Set.has()` is opaque to its taint
+    // tracking — alert #2 on the assignment below stayed open from 2026-08-10
+    // to 2026-09-18 behind a `Set` that was functionally correct. A guard the
+    // scanner can prove is worth more than one it has to be told about.
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') return
     const isLast = idx === segments.length - 1
     const container = current as Record<string, unknown>
 

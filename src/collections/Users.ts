@@ -53,7 +53,7 @@ export const RESET_PASSWORD_EXPIRATION_MS = 60 * 60 * 1000
  * one admin and a way to run up sending cost (OWASP Forgot Password Cheat Sheet:
  * "rate-limit reset requests"). 5 per 15 minutes is far above any honest use.
  * Applied per client IP AND per requested address, both via the shared limiter
- * (Upstash on deployed stages, in-memory locally/CI), before the account lookup —
+ * (the DynamoDB counters on deployed stages, in-memory locally/CI), before the account lookup —
  * so a limited caller learns nothing about whether the address exists.
  */
 export const FORGOT_PASSWORD_RATE_LIMIT: RateLimitPolicy = {

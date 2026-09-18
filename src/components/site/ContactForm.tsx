@@ -16,10 +16,13 @@
  * `role="alert"` status region, and `aria-busy` on the submit button.
  */
 
-import { useState, type FormEvent } from 'react'
+import { useState, useSyncExternalStore, type FormEvent } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 
 import { TurnstileWidget, isTurnstileEnabled } from '@/components/site/TurnstileWidget'
+
+/** A store that never changes: `useSyncExternalStore` only needs its snapshots. */
+const subscribeToNothing = () => () => {}
 
 type Status =
   | 'idle'
@@ -42,6 +45,21 @@ export function ContactForm({ phone, email }: { phone?: string | null; email?: s
   const [honeypot, setHoneypot] = useState('') // must stay empty (hidden)
   const [status, setStatus] = useState<Status>('idle')
   const [invalidFields, setInvalidFields] = useState<string[]>([])
+
+  // The form only works once React has hydrated it: `handleSubmit` is the whole
+  // submit path (there is no server action behind the <form>), so a click in
+  // the pre-hydration window would be a native submit — a page reload that loses
+  // everything typed. Keep the button disabled until then, and expose the state
+  // (`data-hydrated`) so the e2e suite can wait for it instead of racing the
+  // dev server's first compile of the page. `useSyncExternalStore` with a server
+  // snapshot of `false` is React's own idiom for "am I past hydration?": the
+  // server HTML and the hydration render both see `false`, the first client
+  // render after hydration sees `true` — no effect, no extra state, no mismatch.
+  const hydrated = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  )
 
   const turnstileOn = isTurnstileEnabled()
   const [token, setToken] = useState<string | null>(null)
@@ -150,7 +168,7 @@ export function ContactForm({ phone, email }: { phone?: string | null; email?: s
               : null
 
   return (
-    <form className="contact-form" onSubmit={handleSubmit} noValidate>
+    <form className="contact-form" onSubmit={handleSubmit} noValidate data-hydrated={hydrated || undefined}>
       <div className="form-field">
         <label className="form-label" htmlFor="contact-name">
           {t('nameLabel')} <span className="form-required" aria-hidden="true">*</span>
@@ -257,7 +275,7 @@ export function ContactForm({ phone, email }: { phone?: string | null; email?: s
       <button
         type="submit"
         className="btn btn-primary"
-        disabled={status === 'submitting'}
+        disabled={!hydrated || status === 'submitting'}
         aria-busy={status === 'submitting' || undefined}
         style={{ marginTop: '1rem' }}
       >

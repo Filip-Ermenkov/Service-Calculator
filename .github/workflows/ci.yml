@@ -56,11 +56,11 @@ jobs:
       PAYLOAD_SECRET: ci-only-secret-not-for-production
       # 2FA (TOTP) secret encryption + step-up cookie signing — see
       # src/lib/totp/keys.ts. CI-only value, unrelated to any real secret.
-      # No UPSTASH_REDIS_REST_URL/TOKEN here deliberately: absent, the rate
-      # limiter (src/lib/totp/rateLimit.ts) falls back to an in-memory
-      # limiter, which is exactly the right behavior for CI (same pattern as
-      # S3Mock standing in for real S3, below) — real Upstash credentials are
-      # only required in staging/production.
+      # No RATE_LIMIT_TABLE here deliberately: absent, the rate limiter
+      # (src/lib/rateLimit.ts) uses its exact in-memory sliding log, which is
+      # the right behaviour for a single-process CI run (same pattern as S3Mock
+      # standing in for real S3, below) and what the e2e 429 assertions rely on.
+      # Deployed stages get the shared DynamoDB table from sst.config.ts.
       TOTP_ENCRYPTION_KEY: Y2ktb25seS10b3RwLWtleS1ub3QtZm9yLXByb2R1Y3Rpb24tMzJieXRlcyE=
       S3_BUCKET: bulbau-ci-test
       S3_ENDPOINT: http://localhost:9090
@@ -316,7 +316,7 @@ jobs:
           PAYLOAD_SECRET: migrate-only-no-token-ops
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: eu-central-1
@@ -393,7 +393,7 @@ jobs:
           PAYLOAD_SECRET: migrate-only-no-token-ops
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: eu-central-1

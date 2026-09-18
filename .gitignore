@@ -8,6 +8,11 @@ node_modules/
 .next/
 out/
 next-env.d.ts
+# Rewritten by `next dev` on every start (Next 16.3's agent notice pointing at
+# node_modules/next/dist/docs). Tool output, not project documentation — the
+# project's own guidance lives in docs/ and README.md.
+AGENTS.md
+CLAUDE.md
 
 # SST / IaC
 .sst/

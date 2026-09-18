@@ -1,9 +1,15 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
-import tsconfigPaths from 'vite-tsconfig-paths'
 
 export default defineConfig({
-  plugins: [tsconfigPaths(), react()],
+  plugins: [react()],
+  resolve: {
+    // Resolve the `@/*` / `@payload-config` aliases from tsconfig.json. Vite
+    // 8 does this natively; the `vite-tsconfig-paths` plugin that used to do it
+    // was dropped with the vitest 5 upgrade (2026-09-18) — vitest itself warns
+    // that the plugin is now redundant.
+    tsconfigPaths: true,
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],

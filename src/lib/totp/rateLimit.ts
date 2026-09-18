@@ -6,8 +6,8 @@ import { checkRateLimit, __resetRateLimitForTests, type RateLimitPolicy } from '
  * `auth.maxLoginAttempts`/`auth.lockTime` on the Users collection — this
  * covers brute-forcing a 6-digit code once past the password step).
  *
- * The limiter itself (Upstash-or-in-memory sliding window) now lives in the
- * shared `@/lib/rateLimit` module so the public `/api/quote` endpoint can reuse
+ * The limiter itself (a DynamoDB sliding window on deployed stages, in-memory
+ * locally/CI) lives in the shared `@/lib/rateLimit` module so the public `/api/quote` endpoint can reuse
  * the exact same proven implementation with its own policy. This file keeps the
  * TOTP-specific policy (5 attempts / 5 minutes, prefix `bulbau-totp`) and the
  * long-standing public API (`checkTotpRateLimit`, `__resetInMemoryRateLimitForTests`)
