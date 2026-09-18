@@ -4,7 +4,7 @@
 aws_account_id = "847321857537"       # service-calculator-production
 aws_region     = "eu-central-1"
 domain_name    = "bulbau.lu"
-alert_email    = "f.ermenkov@gmail.com"
+alert_email    = "ops@example.com"   # the inbox that receives budget + alarm mail (must confirm the AWS subscription emails)
 
 # Cost guardrails (USD)
 daily_budget_limit   = "1"

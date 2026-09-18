@@ -1,8 +1,34 @@
-import type { GlobalConfig } from 'payload'
+import type { GlobalConfig, TextFieldValidation } from 'payload'
+import { text as validateText } from 'payload/shared'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
 import { revalidateGlobalAfterChange } from '@/lib/revalidate'
 import { translateGlobalAfterChange } from '@/lib/translation/hook'
+
+/**
+ * The social-profile fields are rendered straight into `<a href>` on every public
+ * page (header/footer/About/Contact), so they must be absolute `https://` URLs:
+ * a bare `facebook.com/bulbau` would become a broken same-site link
+ * (`/en/facebook.com/bulbau`), and anything that is not `https:` — a mistyped
+ * scheme, or a `javascript:` value from a compromised admin session — must never
+ * reach an `href`. Optional: blank clears the link. Payload's own text rules run
+ * first so `required`/length behaviour stays exactly as the field declares.
+ */
+export const validateHttpsUrl: TextFieldValidation = (value, options) => {
+  const base = validateText(value, options)
+  if (base !== true) return base
+  const raw = (value ?? '').trim()
+  if (raw === '') return true
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    return 'Enter the full address, starting with https:// (e.g. https://www.facebook.com/yourpage).'
+  }
+  if (url.protocol !== 'https:') return 'The address must start with https://.'
+  if (!url.hostname.includes('.')) return 'Enter the full address, e.g. https://www.facebook.com/yourpage.'
+  return true
+}
 
 /**
  * Single source of truth for the company's contact details and About Us copy.
@@ -120,13 +146,15 @@ export const CompanyInfo: GlobalConfig = {
               name: 'facebookUrl',
               label: 'Facebook Profile URL',
               type: 'text',
-              admin: { width: '50%' },
+              validate: validateHttpsUrl,
+              admin: { width: '50%', placeholder: 'https://www.facebook.com/…' },
             },
             {
               name: 'instagramUrl',
               label: 'Instagram Profile URL',
               type: 'text',
-              admin: { width: '50%' },
+              validate: validateHttpsUrl,
+              admin: { width: '50%', placeholder: 'https://www.instagram.com/…' },
             },
           ],
         },

@@ -10,7 +10,11 @@ README covers day-to-day commands only.
 domain, `www` → apex, manual-approval `deploy-production` job) but **not yet
 publicly launched** — search indexing stays off until the launch flip. Staging:
 `https://d20kjuz86nwvyp.cloudfront.net`. Latest deployed commit on both stages:
-`71561dd` (shared DynamoDB rate limiting + dependency sweep).
+`71561dd` (shared DynamoDB rate limiting + dependency sweep); `c88598c` (media
+served by CloudFront straight from S3 at `/media/*`, migration #5) is on
+**staging** with production awaiting approval, and the commit carrying these
+docs adds five hygiene fixes. Remaining proofs: `docs/PROGRESS.md` →
+"Immediate next steps", step 1.
 
 **Every planned feature is built** (TECHSPEC §12, Phases 0–6): the admin panel
 with mandatory 2FA and a working password reset, the content model with
@@ -85,6 +89,11 @@ Rules that bite:
   is an exact in-memory sliding log (one process). Deployed stages get a shared
   DynamoDB table from `sst.config.ts` automatically — never set the variable by
   hand.
+- **Media URLs are `/media/<file>` on every stage** — the URL path is the S3
+  key (`src/lib/media/publicUrl.ts`). Live, CloudFront serves them straight from
+  the bucket; locally, the `S3_ENDPOINT` in `.env` also switches on a
+  `next.config.ts` rewrite that proxies `/media/*` to S3Mock, so uploads render
+  on the dev server too. Payload's old `/api/media/file/<file>` route is off.
 
 ## Testing
 
@@ -113,10 +122,11 @@ npm run test          # both
 
 **Media limits.** `Media` accepts JPEG/PNG/WebP up to **4 MB** — one constant,
 `MEDIA_MAX_FILE_BYTES` in `src/collections/Media.ts`, enforced on the multipart
-path, the direct-to-S3 presigned-URL path and by a `beforeValidate` hook. It is a
-correctness limit: media is served through the *buffered* Web Lambda (6 MB
-response cap after base64), so a larger photo uploads fine and then 502s for
-visitors. Details and the planned CDN-origin follow-up: `docs/TECHSPEC.md` §6.2.
+path, the direct-to-S3 presigned-URL path and by a `beforeValidate` hook. It
+used to be a correctness limit (media went through the *buffered* Web Lambda,
+6 MB cap after base64); since media is served by CloudFront from S3 it is a
+page-weight guard until `next/image` resizes uploads. Details:
+`docs/TECHSPEC.md` §6.2.
 
 **Health endpoint.** `GET /api/health` returns `200 {"status":"ok",…}` (or
 `503 "degraded"` when a required runtime secret is missing), `Cache-Control:
@@ -220,7 +230,9 @@ Things that need **no** secret because they ride the Lambda execution role:
 auto-translation** (AWS Translate, `TRANSLATE_ENABLED='true'` on every deployed
 stage), **on-demand CloudFront invalidation** (the distribution id is written to
 SSM after deploy and read at runtime), **SES sending** (the identity is
-Terraform-managed) and **S3 media**.
+Terraform-managed) and **S3 media** (uploads via the role; delivery via a
+CloudFront origin access control on the same distribution — no key, no public
+bucket).
 
 GitHub **Environment** secrets (repo settings): on `staging` —
 `AWS_DEPLOY_ROLE_ARN` (OIDC deploy role) and `STAGING_DATABASE_URL_UNPOOLED`
@@ -239,7 +251,8 @@ plus a **Required reviewers** protection rule (what pauses the production job).
   `admin/importMap.js` is generated. GraphQL is disabled.
 - `src/app/(frontend)/` — only the bare `/ → /<locale>` redirect.
 - `src/lib/` — pricing engine, PDF, email (SES), translation, rate limiting,
-  observability, security headers, TOTP.
+  observability, security headers (+ their CloudFront projection for `/media/*`),
+  media URL contract (`media/publicUrl.ts`), TOTP.
 - `prototype/` — the static, client-approved design reference.
 - `infra/aws/` — the deploy role's trust + permission JSON (Terraform-managed);
   `infra/terraform/` — the foundational stack; `sst.config.ts` at the root — the

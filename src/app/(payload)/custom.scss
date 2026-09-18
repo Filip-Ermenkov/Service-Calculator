@@ -56,7 +56,11 @@
     13. Utilities, accessibility, motion, print
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap');
+/* Typefaces: Inter + Barlow Condensed are SELF-HOSTED via next/font in
+   src/app/(payload)/layout.tsx, which puts `--font-inter` / `--font-barlow` on
+   <html> (the same variables the public site defines). There is deliberately no
+   `@import url(https://fonts.googleapis.com/…)` here any more: it was the one
+   runtime request from the admin to a third party, gone since 2026-09-18. */
 
 /* ============================================================================
    1. TOKENS
@@ -155,9 +159,9 @@
 
   /* -- Type -------------------------------------------------------------- */
   --font-body:
-    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
-  --font-display: 'Barlow Condensed', 'Arial Narrow', var(--font-body);
+    var(--font-inter, 'Inter'), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-display: var(--font-barlow, 'Barlow Condensed'), 'Arial Narrow', var(--font-body);
 
   /* Fluid modular scale (major third), clamped so it never gets silly on a
      4K panel or unreadable on a 360px phone. */

@@ -12,9 +12,10 @@
  *
  * SECURITY: this is an unlocalized `/api/*` route, so `src/proxy.ts` does NOT gate
  * it (the matcher excludes `/api`). It authenticates itself: a valid Payload
- * session AND a valid TOTP step-up cookie (the same second factor the admin panel
- * requires) — mirroring the boundary in src/access/requireTotpVerified.ts. Without
- * both it returns 401/403 and never touches content.
+ * session, 2FA enrolled AND a valid TOTP step-up cookie for that user — the
+ * `isFullyVerified` helper, i.e. the exact boundary in
+ * src/access/requireTotpVerified.ts. Without all three it returns 401/403 and
+ * never touches content.
  *
  * WRITE SAFETY: the target-locale document is read with `fallbackLocale: false`
  * (so untranslated sibling leaves come back absent, never as EN copies), a single
@@ -37,7 +38,7 @@ import {
   isTranslationConfigured,
 } from '@/lib/translation/provider'
 import { resolveLeaves, TRANSLATABLE_FIELDS } from '@/lib/translation/registry'
-import { isStepUpVerified } from '@/lib/totp/requestHelpers'
+import { isFullyVerified } from '@/access/publicRead'
 
 export const dynamic = 'force-dynamic'
 
@@ -98,7 +99,10 @@ export async function POST(request: Request): Promise<Response> {
   const headers = await getHeaders()
   const { user } = await payload.auth({ headers })
   if (!user) return bad(401, 'unauthenticated')
-  if (!isStepUpVerified(headers, String(user.id))) return bad(403, 'step_up_required')
+  // The SAME three checks as `requireTotpVerified` on every collection (a user,
+  // 2FA enrolled, a valid step-up cookie for that user) — via the shared
+  // helper, so this route can never drift from the collections' boundary.
+  if (!isFullyVerified({ user, headers })) return bad(403, 'step_up_required')
 
   // ── Resolve the value to write ──
   let value: string

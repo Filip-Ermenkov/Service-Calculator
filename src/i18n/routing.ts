@@ -19,6 +19,18 @@ export const routing = defineRouting({
   locales: ['en', 'fr', 'de'],
   defaultLocale: 'en',
   localePrefix: 'always',
+  // The one cookie the public site sets (the remembered language — strictly
+  // functional, no consent needed, a session cookie by next-intl's default).
+  // `Secure` is cookie hygiene rather than a secret to protect: a cookie that
+  // is only ever needed over HTTPS should never travel over HTTP (OWASP Session
+  // Management cheat sheet). Production served `NEXT_LOCALE=en; Path=/;
+  // SameSite=lax` without it until 2026-09-18. Gated on NODE_ENV so a `next dev`
+  // server reached over plain http from another device on the LAN (not
+  // `localhost`, which browsers treat as secure) still remembers the language.
+  localeCookie: {
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  },
 })
 
 export type Locale = (typeof routing.locales)[number]

@@ -6,6 +6,8 @@
 >
 > **Live as of 2026-09-18 (two releases that day):** (1) the site's **abuse limits now hold under load** — the caps on quote downloads, contact messages, password-reset requests and wrong authenticator codes are counted in one shared place instead of per server instance, so a burst of requests is refused exactly where the limit says (before, a fast enough burst slipped through); the counters are stored anonymised and expire within minutes. (2) The contact form's **Send button stays inactive until the page is fully interactive**, so an early click can no longer reload the page and lose the message. (3) A review closed four gaps no feature had asked for: an **unpublished Legal Notice draft could be read** through the website's raw data interface — now impossible before the admin publishes (§2.5); someone holding only the admin **password**, without the authenticator code, could read unpublished drafts through the version history — the second factor is now required there too (§5.1); **photos are capped at 4 MB** with a clear message in the admin — a larger photo used to upload "successfully" and then fail to display (§5.3–5.5) — and are cached at the edge; an unused query interface was switched off. All third-party software updates are applied and every automated security-scan finding is resolved. **Since 2026-09-16/17:** the **admin's "Forgot your password?" really sends an email** (§5.1); the admin login cannot be replayed from another website; the Careers page's "Contact Us" button goes to the Contact page. **Both the test and live databases were rebuilt from empty on 2026-09-16** — the live site's content (services, projects, company details) has to be re-entered.
 >
+> **Since then (2026-09-18, night — on the test site, live site pending approval):** photos are now delivered to visitors **directly from the storage bucket through the content-delivery network** rather than through the application server — faster, cached at the edge, and no longer subject to the server's response-size ceiling (the 4 MB upload limit stays as a sensible page-weight guard until automatic resizing arrives). Four small tidy-ups came with it: the admin panel no longer fetches its typefaces from Google at runtime (nothing leaves the site for a third party), the language-preference cookie is marked secure, the Facebook/Instagram fields in Company Info insist on a full `https://` address so a typo can no longer produce a broken link, and two admin-only interfaces re-check the authenticator step exactly like every other admin operation.
+>
 > **What still stands between the site and a public launch — none of it development work:** the company's real registered legal details entered and published (a safeguard prevents publishing placeholders — §2.5); the client's `office@bulbau.lu` mailbox connected to the domain, so the contact form has somewhere to deliver; AWS "production access" for email so the emailed quote can reach any visitor's address (until then only pre-verified addresses receive it); and the "make it findable by search engines" switch, flipped last.
 
 ---
@@ -359,7 +361,7 @@ This is the most flexible and powerful section of the admin panel. Services are 
 - Hero image upload.
 - Published / Draft toggle. Draft services are not visible to visitors.
 
-> **Photos, everywhere in the admin (2026-09-18):** JPEG, PNG or WebP, **at most 4 MB each** — the admin sees the file's size and the limit if a photo is larger. A photo above that size used to upload without complaint and then not display for visitors, so this is a safeguard, not a restriction on quality (a full-width 1600 px photo is well under 1 MB).
+> **Photos, everywhere in the admin (2026-09-18):** JPEG, PNG or WebP, **at most 4 MB each** — the admin sees the file's size and the limit if a photo is larger. A photo above that size used to upload without complaint and then not display for visitors; that failure mode is gone now that photos are delivered straight from storage, and the limit stays as a page-weight guard (a full-width 1600 px photo is well under 1 MB) until automatic resizing is added.
 
 **Home Page Card**
 - Separate card photo (may differ from the hero image).
@@ -443,6 +445,8 @@ This section is split into two parts.
   - Instagram profile URL.
 - These values are used across the entire site wherever contact details appear (header, footer, About Us page, service page disclaimer, PDF quotes).
 - Changing any of these fields updates every location where they appear.
+
+> **Built.** The Facebook and Instagram fields accept only a full address starting with `https://` (e.g. `https://www.facebook.com/yourpage`); leaving one blank hides that link everywhere.
 
 ---
 
