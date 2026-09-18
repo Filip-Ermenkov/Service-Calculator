@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 import { isFullyVerified } from './access/publicRead'
 import { Users } from './collections/Users'
 import { MEDIA_MAX_FILE_BYTES, Media } from './collections/Media'
+import { MEDIA_S3_PREFIX, mediaPublicUrl } from './lib/media/publicUrl'
 import { Services } from './collections/Services'
 import { Projects } from './collections/Projects'
 import { CareerListings } from './collections/CareerListings'
@@ -161,8 +162,8 @@ export default buildConfig({
     disable: true,
   },
   // One media file may be at most MEDIA_MAX_FILE_BYTES (see src/collections/
-  // Media.ts for why this is a CORRECTNESS limit: media is served through the
-  // buffered Web Lambda, whose 6 MB response cap turns a large photo into a 502).
+  // Media.ts for the rationale — since media is served by CloudFront straight
+  // from S3 this is a page-weight guard, no longer the Lambda 6 MB ceiling).
   // `limits.fileSize` is busboy's cap on the multipart path (local/S3Mock and any
   // server-side upload) — `abortOnLimit` makes it a 413 instead of a silently
   // truncated file — and @payloadcms/storage-s3 reads the SAME option when it
@@ -225,7 +226,29 @@ export default buildConfig({
   plugins: [
     s3Storage({
       collections: {
-        media: true,
+        media: {
+          // Every object lives under `media/` and is served at `/media/<file>`
+          // — the public URL path IS the S3 key (src/lib/media/publicUrl.ts).
+          // That one rule is what lets a CloudFront `/media/*` behaviour serve
+          // the bucket directly (sst.config.ts) and a local `next dev` serve the
+          // identical URLs through one rewrite to S3Mock (next.config.ts). The
+          // plugin records the prefix on each document (`prefix` column, added
+          // by migration 20260918_*_media_prefix) so a future prefix change never
+          // strands old files.
+          prefix: MEDIA_S3_PREFIX,
+          // Payload's own file route (`/api/media/file/<name>`) is switched
+          // off: it proxied every byte through the BUFFERED Web Lambda (6 MB
+          // response cap → a >4.5 MB photo 502'd for visitors) and cost one
+          // invocation + an S3 round-trip per image view. Media `read` is
+          // public anyway, so there is no access control to lose — CloudFront
+          // + S3 with an origin access control is the serving path now.
+          disablePayloadAccessControl: true,
+          // The `url` Payload stores/returns for a file. Relative on purpose:
+          // correct on every stage (bulbau.lu, the staging CloudFront host,
+          // localhost) with nothing to configure, and Next resolves it against
+          // `metadataBase` wherever an absolute URL is required (Open Graph).
+          generateFileURL: ({ filename, prefix }) => mediaPublicUrl({ filename, prefix }),
+        },
       },
       bucket: process.env.S3_BUCKET || '',
       // Real AWS (staging/production, and local dev pointed at a real

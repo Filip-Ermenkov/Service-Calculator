@@ -78,9 +78,89 @@ export default $config({
     const turnstileSecretKey = new sst.Secret('TurnstileSecretKey', '')
     const turnstileSiteKey = new sst.Secret('TurnstileSiteKey', '')
 
+    // Shared, pure definitions (SST's documented way to reuse app code in the
+    // config is a dynamic import inside run()): the media URL contract and the
+    // security-header set, so the CloudFront pieces below cannot drift from what
+    // the app itself serves. See src/lib/media/publicUrl.ts.
+    const { MEDIA_CACHE_CONTROL, MEDIA_CDN_PATH_PATTERN } = await import(
+      './src/lib/media/publicUrl'
+    )
+    const { cloudfrontResponseHeadersConfig } = await import(
+      './src/lib/security/cloudfrontResponseHeaders'
+    )
+    const accountId = aws.getCallerIdentityOutput().accountId
+
+    // Uploaded media. Objects live under `media/` and are served by CloudFront
+    // STRAIGHT FROM THIS BUCKET at `/media/<file>` (the `/media/*` behaviour on
+    // the Web distribution, below) — not through the Web Lambda, whose buffered
+    // 6 MB response cap used to turn any photo over ~4.5 MB into a 502.
+    //
+    // The bucket policy is written out explicitly instead of SST's `access:
+    // "cloudfront"` shorthand for two reasons. (1) The shorthand grants
+    // `s3:GetObject` to the CloudFront service principal with NO condition, so
+    // any distribution in ANY AWS account could be pointed at this bucket; the
+    // `aws:SourceArn` condition below pins it to distributions in this account
+    // (AWS's own OAC guidance). It cannot be pinned to the ONE distribution: the
+    // Bucket component gates its outputs on the policy, so a policy that named
+    // the distribution would depend on a distribution whose origin depends on
+    // the bucket — a cycle. This account is single-app, so "any of ours" is
+    // exact enough. (2) `s3:ListBucket` on the bucket itself lets S3 answer a
+    // missing key with 404 instead of 403 — the honest status for a deleted or
+    // mistyped image, and what crawlers and the admin UI expect.
     const media = new sst.aws.Bucket('Media', {
-      access: 'cloudfront',
+      policy: [
+        {
+          actions: ['s3:GetObject'],
+          principals: [{ type: 'service', identifiers: ['cloudfront.amazonaws.com'] }],
+          paths: ['*'],
+          conditions: [
+            {
+              test: 'ArnLike',
+              variable: 'aws:SourceArn',
+              values: [$interpolate`arn:aws:cloudfront::${accountId}:distribution/*`],
+            },
+          ],
+        },
+        {
+          actions: ['s3:ListBucket'],
+          principals: [{ type: 'service', identifiers: ['cloudfront.amazonaws.com'] }],
+          paths: [''],
+          conditions: [
+            {
+              test: 'ArnLike',
+              variable: 'aws:SourceArn',
+              values: [$interpolate`arn:aws:cloudfront::${accountId}:distribution/*`],
+            },
+          ],
+        },
+      ],
     })
+
+    // Origin access control: CloudFront signs its S3 requests (SigV4), so the
+    // bucket stays fully private and only the distribution can read it. OAC is
+    // the current mechanism; origin access identities are legacy.
+    const mediaOac = new aws.cloudfront.OriginAccessControl('MediaOriginAccessControl', {
+      name: `bulbau-lu-${$app.stage}-media`,
+      description: 'CloudFront -> media bucket (SigV4-signed reads)',
+      originAccessControlOriginType: 's3',
+      signingBehavior: 'always',
+      signingProtocol: 'sigv4',
+    })
+
+    // Responses from S3 carry none of the headers the Next server adds, so the
+    // media behaviour gets the SAME security-header set (HSTS, nosniff, CSP, …)
+    // from the one source of truth in src/lib/security/headers.ts, plus the
+    // browser Cache-Control. The edge TTL itself is the cache policy's job.
+    const mediaHeaders = new aws.cloudfront.ResponseHeadersPolicy('MediaResponseHeaders', {
+      name: `bulbau-lu-${$app.stage}-media`,
+      comment: 'Security headers + browser caching for /media/* (served from S3)',
+      ...cloudfrontResponseHeadersConfig([{ key: 'Cache-Control', value: MEDIA_CACHE_CONTROL }]),
+    })
+
+    /** Origin id of the media bucket inside the Web distribution. */
+    const MEDIA_ORIGIN_ID = 'media'
+    /** CloudFront's managed "CachingOptimized" policy: 1-day default TTL, no query/cookie/header keys, gzip+brotli. */
+    const CACHING_OPTIMIZED_POLICY_ID = '658327ea-f89d-4fab-a63d-7e88639e58f6'
 
     // Shared rate-limit counters (src/lib/rateLimit.ts). Every limiter in the
     // app — TOTP verify/enrol, forgot-password, /api/quote, /api/contact —
@@ -175,6 +255,41 @@ export default $config({
       // spike notes). Costs a small, fixed number of extra invocations every
       // few minutes; free-tier covers it at this traffic level.
       warm: 1,
+      // Serve `/media/*` from the media bucket at the edge. The Nextjs component
+      // builds ONE default behaviour (a CloudFront Function + KV store routes
+      // assets vs. server); this adds a second, path-matched behaviour that goes
+      // straight to S3 with the origin access control above — the request never
+      // reaches the Lambda. Path pattern, cache policy and methods mirror what
+      // SST's own Router uses for a bucket route. `transform.cdn` mutates the
+      // Cdn args in place (SST's `transform()` contract); the arrays are wrapped
+      // with `$util.all` because the origin domain and the policy ids are
+      // Outputs that resolve after apply starts.
+      transform: {
+        cdn: (cdnArgs) => {
+          cdnArgs.origins = $util
+            .all([$output(cdnArgs.origins), media.nodes.bucket.bucketRegionalDomainName, mediaOac.id])
+            .apply(([origins, domainName, originAccessControlId]) => [
+              ...origins,
+              { originId: MEDIA_ORIGIN_ID, domainName, originAccessControlId },
+            ])
+          cdnArgs.orderedCacheBehaviors = $util
+            .all([$output(cdnArgs.orderedCacheBehaviors ?? []), mediaHeaders.id])
+            .apply(([behaviors, responseHeadersPolicyId]) => [
+              ...behaviors,
+              {
+                pathPattern: MEDIA_CDN_PATH_PATTERN,
+                targetOriginId: MEDIA_ORIGIN_ID,
+                viewerProtocolPolicy: 'redirect-to-https',
+                // Read-only static objects: no OPTIONS (same-origin, no CORS).
+                allowedMethods: ['GET', 'HEAD'],
+                cachedMethods: ['GET', 'HEAD'],
+                compress: true,
+                cachePolicyId: CACHING_OPTIMIZED_POLICY_ID,
+                responseHeadersPolicyId,
+              },
+            ])
+        },
+      },
       // Linking `pdf` grants the Web function permission to invoke it; its name
       // is passed explicitly as PDF_FUNCTION_NAME (read by src/lib/pdf/render.ts).
       link: [media, databaseUrl, payloadSecret, totpEncryptionKey, siteUrl, allowIndexing, emailSender, turnstileSecretKey, turnstileSiteKey, pdf],
@@ -417,6 +532,10 @@ export default $config({
     return {
       url: web.url,
       mediaBucket: media.name,
+      // Where visitors fetch media from — the site origin + the CDN path
+      // (src/lib/media/publicUrl.ts); printed so a deploy log shows the
+      // behaviour went live alongside the site URL.
+      mediaUrl: $interpolate`${web.url}${MEDIA_CDN_PATH_PATTERN.slice(0, -1)}`,
       pdfFunction: pdf.name,
       cdnDistributionIdParam,
       // Printed by `sst deploy` — the value infra/terraform's optional CloudFront

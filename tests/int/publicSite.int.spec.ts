@@ -66,8 +66,8 @@ describe('mediaProps (src/lib/content.ts)', () => {
 
   it('maps a populated upload to render props', () => {
     expect(
-      mediaProps({ url: '/api/media/file/x.jpg', alt: 'A roof', width: 800, height: 600 } as never),
-    ).toEqual({ url: '/api/media/file/x.jpg', alt: 'A roof', width: 800, height: 600 })
+      mediaProps({ url: '/media/x.jpg', alt: 'A roof', width: 800, height: 600 } as never),
+    ).toEqual({ url: '/media/x.jpg', alt: 'A roof', width: 800, height: 600 })
   })
 })
 

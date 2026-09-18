@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 // with tests/int/securityHeaders.int.spec.ts. Relative import (not the `@/`
 // alias) so Next's config loader resolves it without the tsconfig path mapping.
 import { securityHeaders } from './src/lib/security/headers'
+import { MEDIA_PUBLIC_PATH, MEDIA_S3_PREFIX } from './src/lib/media/publicUrl'
 
 const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
@@ -54,11 +55,36 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    // Where `next/image` may load same-origin sources from: the media CDN path
+    // (src/lib/media/publicUrl.ts). Not used by any page yet — the CMS `<img>`
+    // → `next/image` switch is the follow-up slice — but the allow-list must
+    // name the path media actually lives at, not the retired Payload file route.
     localPatterns: [
       {
-        pathname: '/api/media/file/**',
+        pathname: `${MEDIA_PUBLIC_PATH}/**`,
       },
     ],
+  },
+  // LOCAL DEV / CI ONLY: serve `/media/*` from the S3Mock container so the public
+  // URLs Payload stores (`/media/<file>`, the same on every stage) resolve on a
+  // `next dev` server too. On a deployed stage this rewrite does not exist —
+  // `S3_ENDPOINT` is unset there — and it would never be reached anyway, because
+  // CloudFront answers `/media/*` from the bucket before the request could hit
+  // the Lambda (sst.config.ts). Next applies these `afterFiles` rewrites before
+  // dynamic routes, so `/media/x.jpg` is proxied to S3Mock rather than falling
+  // into the `[locale]` segment; `src/proxy.ts` skips dotted paths, so next-intl
+  // never sees it either. The bucket prefix in the destination keeps "URL path
+  // == S3 key" literally true (object `media/x.jpg` ⇄ URL `/media/x.jpg`).
+  async rewrites() {
+    const endpoint = process.env.S3_ENDPOINT?.replace(/\/$/, '')
+    const bucket = process.env.S3_BUCKET
+    if (!endpoint || !bucket) return []
+    return [
+      {
+        source: `${MEDIA_PUBLIC_PATH}/:path*`,
+        destination: `${endpoint}/${bucket}/${MEDIA_S3_PREFIX}/:path*`,
+      },
+    ]
   },
   webpack: (webpackConfig) => {
     webpackConfig.resolve.extensionAlias = {

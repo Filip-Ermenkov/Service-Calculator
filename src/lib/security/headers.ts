@@ -44,6 +44,30 @@ export interface SecurityHeader {
 }
 
 /**
+ * The individual values, exported separately from the assembled `securityHeaders`
+ * list because two very different consumers must emit the SAME policy:
+ *   • `next.config.ts` / `src/proxy.ts` — every response the Next server sends.
+ *   • `sst.config.ts` → `src/lib/security/cloudfrontResponseHeaders.ts` — the
+ *     CloudFront response-headers policy on the `/media/*` behaviour, where S3
+ *     answers and no Next code runs (see src/lib/media/publicUrl.ts). CloudFront
+ *     takes HSTS/Referrer-Policy/X-Frame-Options as structured fields, not a
+ *     header string, hence the parts.
+ * Change a value here and both surfaces move together; `securityHeaders.int` and
+ * `cloudfrontResponseHeaders` tests pin that they agree.
+ */
+export const HSTS_MAX_AGE_SECONDS = 63072000 // 2 years, the OWASP-recommended max-age
+export const HSTS_INCLUDE_SUBDOMAINS = true
+/** `preload` is a launch-day decision on the real domain — see the HSTS entry below. */
+export const HSTS_PRELOAD = false
+export const REFERRER_POLICY = 'strict-origin-when-cross-origin'
+export const FRAME_OPTIONS = 'SAMEORIGIN'
+export const STRICT_TRANSPORT_SECURITY = [
+  `max-age=${HSTS_MAX_AGE_SECONDS}`,
+  ...(HSTS_INCLUDE_SUBDOMAINS ? ['includeSubDomains'] : []),
+  ...(HSTS_PRELOAD ? ['preload'] : []),
+].join('; ')
+
+/**
  * The enforce-safe Content-Security-Policy (no nonce required). See the module
  * doc-comment for why `script-src`/`style-src`/`default-src` are intentionally
  * absent (a nonce-based, report-only-first follow-up).
@@ -88,17 +112,14 @@ export const securityHeaders: SecurityHeader[] = [
   // *.cloudfront.net host (which cannot be HSTS-preloaded) — add `preload` at
   // launch on the real `bulbau.lu` custom domain. Browsers ignore HSTS on plain
   // HTTP and on localhost, so sending it in dev/CI is harmless.
-  {
-    key: 'Strict-Transport-Security',
-    value: 'max-age=63072000; includeSubDomains',
-  },
+  { key: 'Strict-Transport-Security', value: STRICT_TRANSPORT_SECURITY },
   // Stop MIME-type sniffing (defends against content-type confusion attacks).
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   // Send only the origin cross-site, and nothing on HTTPS→HTTP downgrades.
-  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Referrer-Policy', value: REFERRER_POLICY },
   // Legacy clickjacking defence for browsers predating CSP `frame-ancestors`
   // (which is the authoritative control, set in the CSP below).
-  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'X-Frame-Options', value: FRAME_OPTIONS },
   // Explicitly disable the deprecated, buggy legacy XSS auditor and rely on CSP
   // instead — current OWASP guidance (`X-XSS-Protection: 0`).
   { key: 'X-XSS-Protection', value: '0' },

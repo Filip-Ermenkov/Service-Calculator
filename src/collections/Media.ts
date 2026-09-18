@@ -10,8 +10,8 @@ import { revalidateContentAfterChange, revalidateContentAfterDelete } from '@/li
  * project or job listing (the admin copy says "PNG or JPG"), so nothing
  * legitimate is lost — and it closes the classic stored-XSS vector: an SVG
  * (which can carry <script>) or an HTML/PDF file uploaded by a compromised
- * admin session would otherwise be served back from the same origin via
- * /api/media/file/<name>. Enforced by Payload on the multipart path
+ * admin session would otherwise be served back from the same origin at
+ * /media/<name>. Enforced by Payload on the multipart path
  * (`upload.mimeTypes` → checkFileRestrictions) AND by `enforceMediaFileLimits`
  * below, which also covers the direct-to-S3 client-upload path where Payload
  * never sees the bytes.
@@ -21,15 +21,17 @@ export const MEDIA_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as con
 /**
  * Hard cap on one media file: 4 MB.
  *
- * WHY 4 MB (and why a cap at all — it is a correctness limit, not taste):
- * media bytes are served by the Next/Payload Web function (`/api/media/file/…`
- * → S3 → response), and that Lambda runs OpenNext's BUFFERED wrapper
- * (`streaming: false` in the OpenNext output SST builds). A buffered Lambda
- * response is hard-capped at 6 MB *after* base64 encoding — so anything over
- * ~4.5 MB on disk is not "slow", it is a 502 for every visitor while the admin
- * panel reports the upload as a success (the file went to S3 directly). 4 MB
- * keeps the encoded response under the cap with margin, and is already far
- * larger than any web image should be (a 1600 px hero JPEG is ~300 KB).
+ * WHY 4 MB. Until 2026-09-18 this was a CORRECTNESS limit: media bytes were
+ * proxied through the Next/Payload Web function, which OpenNext builds BUFFERED
+ * (6 MB response cap after base64), so a photo over ~4.5 MB uploaded "fine" and
+ * then 502'd for every visitor. Media is now served by CloudFront straight from
+ * the S3 bucket (src/lib/media/publicUrl.ts, sst.config.ts), so that ceiling is
+ * gone. The cap stays as a PAGE-WEIGHT guard: nothing resizes an upload yet
+ * (no `sharp`, no `next/image` — the next slice), so whatever the admin uploads
+ * is exactly what every visitor downloads, and 4 MB is already >10× what a
+ * 1600 px hero JPEG needs (~300 KB). Revisit the number together with
+ * `next/image`, which makes large originals acceptable by serving resized
+ * variants.
  *
  * Enforced in THREE places, one number:
  *   1. `upload.limits.fileSize` in src/payload.config.ts — busboy rejects an
@@ -109,11 +111,12 @@ export const Media: CollectionConfig = {
   hooks: {
     beforeValidate: [enforceMediaFileLimits],
     beforeChange: [orderNewDocumentsFirst],
-    // A replaced or deleted file must reach the edge: media responses are CDN-
-    // cacheable (see `modifyResponseHeaders` below), and a content page that
-    // embeds the image is not re-rendered by a media-only edit, so purge on any
-    // change exactly like the content collections do. One `/*` invalidation per
-    // media save is well inside CloudFront's 1,000 free paths/month.
+    // A replaced or deleted file must reach the edge: `/media/*` is cached by
+    // CloudFront for a day (the CachingOptimized policy on the media behaviour
+    // in sst.config.ts), and a content page that embeds the image is not
+    // re-rendered by a media-only edit, so purge on any change exactly like the
+    // content collections do. One `/*` invalidation per media save is well
+    // inside CloudFront's 1,000 free paths/month.
     afterChange: [revalidateContentAfterChange],
     afterDelete: [revalidateContentAfterDelete],
   },
@@ -136,17 +139,10 @@ export const Media: CollectionConfig = {
   ],
   upload: {
     mimeTypes: [...MEDIA_MIME_TYPES],
-    // Media bytes are streamed through the Web Lambda from S3 with NO cache
-    // headers by default, so CloudFront re-fetched every image on every request
-    // (one Lambda invocation + an S3 HEAD + an S3 GET per image view) and
-    // browsers revalidated on every navigation. Images are immutable-ish content:
-    // let the edge keep them for a day and browsers for an hour; a replacement or
-    // deletion purges the edge through the hooks above, so the day never shows a
-    // stale file. `Vary: Accept-Encoding` is irrelevant for already-compressed
-    // image bytes, so nothing else is needed for a correct cache key.
-    modifyResponseHeaders: ({ headers }) => {
-      headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400')
-      return headers
-    },
+    // No `modifyResponseHeaders`: Payload's file route is disabled for this
+    // collection (`disablePayloadAccessControl` in src/payload.config.ts) —
+    // CloudFront serves `/media/*` from S3, and the browser `Cache-Control` and
+    // the security headers on those responses come from the response-headers
+    // policy in sst.config.ts (src/lib/security/cloudfrontResponseHeaders.ts).
   },
 }

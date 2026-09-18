@@ -10,11 +10,12 @@
  * file for type detection", valid PNGs included. These are server-side Local-API
  * tests with no DOM; `node` is the correct environment.
  */
-import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { GetObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getPayload, Payload } from 'payload'
 import { REST_GET } from '@payloadcms/next/routes'
 import config from '@/payload.config'
 import { MEDIA_MAX_FILE_BYTES } from '@/collections/Media'
+import { MEDIA_PUBLIC_PATH, MEDIA_S3_PREFIX, mediaPublicUrl } from '@/lib/media/publicUrl'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -56,6 +57,14 @@ const s3Client = new S3Client({
 })
 
 const bucket = process.env.S3_BUCKET || ''
+
+/**
+ * Every media object lives under the collection prefix (src/lib/media/publicUrl.ts):
+ * the S3 key for `roof.jpg` is `media/roof.jpg`, and that key IS the public URL
+ * path. Tests look objects up by their stored filename through this helper so the
+ * prefix contract is asserted on every existence check, not just once.
+ */
+const keyFor = (filename: string) => `${MEDIA_S3_PREFIX}/${filename}`
 
 async function objectExists(key: string): Promise<boolean> {
   try {
@@ -118,9 +127,52 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
     expect(doc.filesize).toBe(onePixelPng.length)
     expect(doc.mimeType).toBe('image/png')
 
-    // The real assertion: the object actually exists in S3, not just in the
-    // Postgres row.
-    await expect(objectExists(doc.filename as string)).resolves.toBe(true)
+    // The real assertion: the object actually exists in S3 — under the
+    // collection prefix — not just in the Postgres row. A root-level object
+    // would be unreachable at the edge (CloudFront's `/media/*` behaviour maps
+    // the URL path 1:1 onto the key).
+    await expect(objectExists(keyFor(doc.filename as string))).resolves.toBe(true)
+    await expect(objectExists(doc.filename as string)).resolves.toBe(false)
+  })
+
+  it('stores the prefix and a public URL whose path equals the S3 key (the CDN contract)', async () => {
+    // src/lib/media/publicUrl.ts is what CloudFront (sst.config.ts) and the local
+    // S3Mock rewrite (next.config.ts) both rely on: `/media/<file>` must be
+    // exactly `/` + the object key. The `url` Payload persists is produced by
+    // the storage plugin's generateFileURL on create (beforeChange) and again
+    // on every read (afterRead); both are covered — the create result and a
+    // fresh access-controlled read.
+    const doc = await payload.create({
+      collection: 'media',
+      data: { alt: 'URL contract case' },
+      context: { disableRevalidate: true },
+      file: { data: onePixelPng, mimetype: 'image/png', name: 'media int url contract.png', size: onePixelPng.length },
+    })
+    createdMediaIds.push(doc.id)
+    const filename = doc.filename as string
+
+    expect((doc as { prefix?: string | null }).prefix).toBe(MEDIA_S3_PREFIX)
+    expect(doc.url).toBe(mediaPublicUrl({ filename, prefix: MEDIA_S3_PREFIX }))
+    expect(doc.url).toBe(`${MEDIA_PUBLIC_PATH}/${encodeURIComponent(filename)}`)
+    // Relative, so it is correct on bulbau.lu, the staging CloudFront host and
+    // localhost alike; Next resolves it against metadataBase where an absolute
+    // URL is needed (Open Graph).
+    expect(doc.url!.startsWith('/')).toBe(true)
+    // URL path === object key: decode the URL and the object must be there.
+    const keyFromUrl = decodeURIComponent(doc.url!.slice(1))
+    expect(keyFromUrl).toBe(keyFor(filename))
+    await expect(objectExists(keyFromUrl)).resolves.toBe(true)
+
+    // The bytes S3 holds under that key are the uploaded bytes, with the
+    // Content-Type the edge will serve.
+    const stored = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: keyFromUrl }))
+    expect(stored.ContentType).toBe('image/png')
+    expect(Buffer.from(await stored.Body!.transformToByteArray()).equals(onePixelPng)).toBe(true)
+
+    // Public (access-controlled) read regenerates the same URL from the stored
+    // prefix — what the site's data layer and the REST API hand to pages.
+    const read = await payload.findByID({ collection: 'media', id: doc.id, overrideAccess: false })
+    expect(read.url).toBe(doc.url)
   })
 
   it('deletes the file from S3 when the Media doc is deleted', async () => {
@@ -135,16 +187,16 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
         size: onePixelPng.length,
       },
     })
-    const filename = doc.filename as string
+    const key = keyFor(doc.filename as string)
 
-    await expect(objectExists(filename)).resolves.toBe(true)
+    await expect(objectExists(key)).resolves.toBe(true)
 
     await payload.delete({ collection: 'media', id: doc.id, context: { disableRevalidate: true } })
 
     // Not tracked for afterAll cleanup — it's already gone, and re-deleting
     // a Media doc whose S3 object no longer exists is exactly the failure
     // mode this test would catch.
-    await expect(objectExists(filename)).resolves.toBe(false)
+    await expect(objectExists(key)).resolves.toBe(false)
   })
 
   it('puts a newer upload BEFORE an older one in the drag order (library stays newest-first)', async () => {
@@ -177,13 +229,13 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
   })
 
   it(`rejects a file over the ${MEDIA_MAX_FILE_BYTES / (1024 * 1024)} MB cap before it reaches S3`, async () => {
-    // Media bytes are served through the BUFFERED Web Lambda, whose 6 MB
-    // response cap (after base64) turns a large photo into a 502 for visitors —
-    // so the cap is a correctness limit, enforced by Media's beforeValidate hook
-    // on every upload path (src/collections/Media.ts). The Local API is the one
-    // path busboy's `upload.limits` and the presigned-URL check don't cover, so
-    // this is the hook's own proof. A real PNG header keeps Payload's type sniff
-    // and dimension read happy; the padding is what makes it oversized.
+    // The cap is a page-weight guard now that media is served from S3 by
+    // CloudFront (it used to be the buffered Web Lambda's 6 MB ceiling — see
+    // src/collections/Media.ts), enforced by Media's beforeValidate hook on
+    // every upload path. The Local API is the one path busboy's `upload.limits`
+    // and the presigned-URL check don't cover, so this is the hook's own proof.
+    // A real PNG header keeps Payload's type sniff and dimension read happy;
+    // the padding is what makes it oversized.
     const oversized = Buffer.concat([onePixelPng, Buffer.alloc(MEDIA_MAX_FILE_BYTES + 1 - onePixelPng.length)])
     expect(oversized.length).toBe(MEDIA_MAX_FILE_BYTES + 1)
     // Unique per run: a local re-run after a failed attempt must not be fooled
@@ -200,7 +252,7 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
       name: 'ValidationError',
       data: { errors: [{ path: 'file', message: expect.stringMatching(/limit is 4 MB/) }] },
     })
-    await expect(objectExists(oversizedName)).resolves.toBe(false)
+    await expect(objectExists(keyFor(oversizedName))).resolves.toBe(false)
 
     // Exactly at the cap is still allowed (the bound is inclusive).
     const atCap = Buffer.concat([onePixelPng, Buffer.alloc(MEDIA_MAX_FILE_BYTES - onePixelPng.length)])
@@ -214,15 +266,19 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
     expect(ok.filesize).toBe(MEDIA_MAX_FILE_BYTES)
   })
 
-  it('serves files with a CDN/browser Cache-Control and streams the real S3 bytes', async () => {
-    // Drives the REAL file route (`GET /api/media/file/<name>`, the same
-    // REST_GET handler Next mounts) so the `modifyResponseHeaders` contract is
-    // proven on the response CloudFront actually sees — not on config alone.
+  it("Payload's own file route is switched off — media is not proxied through the app any more", async () => {
+    // `disablePayloadAccessControl` (src/payload.config.ts) removes the
+    // `/api/media/file/<name>` handler: that route streamed every byte through
+    // the buffered Web Lambda (6 MB cap) and is exactly what the CloudFront
+    // `/media/*` behaviour replaces. Drive the REAL REST handler so the proof is
+    // on the mounted route, not on config. With no handler and no local
+    // `staticDir`, Payload falls through to its disk lookup and answers the
+    // uniform "Something went wrong." — never the bytes.
     const doc = await payload.create({
       collection: 'media',
-      data: { alt: 'Cache header case' },
+      data: { alt: 'File route is off' },
       context: { disableRevalidate: true },
-      file: { data: onePixelPng, mimetype: 'image/png', name: 'media-int-test-cache.png', size: onePixelPng.length },
+      file: { data: onePixelPng, mimetype: 'image/png', name: 'media-int-test-route-off.png', size: onePixelPng.length },
     })
     createdMediaIds.push(doc.id)
 
@@ -232,11 +288,10 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
       new Request(`http://localhost:3000/api/media/file/${encodeURIComponent(filename)}`),
       { params: Promise.resolve({ slug: ['media', 'file', filename] }) },
     )
-    expect(res.status).toBe(200)
-    expect(res.headers.get('content-type')).toBe('image/png')
-    expect(res.headers.get('cache-control')).toBe('public, max-age=3600, s-maxage=86400')
+    expect(res.status).not.toBe(200)
+    expect(res.headers.get('content-type') ?? '').not.toContain('image/png')
     const body = Buffer.from(await res.arrayBuffer())
-    expect(body.equals(onePixelPng)).toBe(true)
+    expect(body.equals(onePixelPng)).toBe(false)
   })
 
   it('rejects a non-image upload (SVG can carry <script>; served same-origin it is stored XSS)', async () => {
@@ -252,6 +307,6 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
         file: { data: svg, mimetype: 'image/svg+xml', name: 'media-int-test-reject.svg', size: svg.length },
       }),
     ).rejects.toThrow()
-    await expect(objectExists('media-int-test-reject.svg')).resolves.toBe(false)
+    await expect(objectExists(keyFor('media-int-test-reject.svg'))).resolves.toBe(false)
   })
 })

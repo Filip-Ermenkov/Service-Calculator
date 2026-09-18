@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
   CONTENT_SECURITY_POLICY,
+  HSTS_MAX_AGE_SECONDS,
   PERMISSIONS_POLICY,
   securityHeaders,
 } from '@/lib/security/headers'
+import { cloudfrontResponseHeadersConfig } from '@/lib/security/cloudfrontResponseHeaders'
+import { MEDIA_CACHE_CONTROL } from '@/lib/media/publicUrl'
 
 // Pure coverage for the security-header set (AWS Well-Architected — Security;
 // OWASP Secure Headers). Asserts the exact keys/values that next.config.ts
@@ -76,5 +79,76 @@ describe('security headers — shared module', () => {
     for (const feature of ['camera=()', 'microphone=()', 'geolocation=()', 'payment=()']) {
       expect(pp).toContain(feature)
     }
+  })
+})
+
+// The same header set, projected into a CloudFront response-headers policy for
+// the `/media/*` behaviour (src/lib/security/cloudfrontResponseHeaders.ts):
+// those responses come from S3 and never pass through Next, so this mapping is
+// the only thing standing between an image response and a bare header set. The
+// assertions below tie every field back to the `securityHeaders` list, so a
+// change to one surface that is not mirrored on the other fails here.
+describe('security headers — CloudFront response-headers-policy projection (/media/*)', () => {
+  const projected = cloudfrontResponseHeadersConfig([
+    { key: 'Cache-Control', value: MEDIA_CACHE_CONTROL },
+  ])
+  const custom = (key: string) =>
+    projected.customHeadersConfig.items.find((h) => h.header.toLowerCase() === key.toLowerCase())
+
+  it('carries the structured headers with the exact values Next serves', () => {
+    const sec = projected.securityHeadersConfig
+    // HSTS: the structured form must reassemble to the literal header string.
+    const hsts = sec.strictTransportSecurity
+    const reassembled = [
+      `max-age=${hsts.accessControlMaxAgeSec}`,
+      ...(hsts.includeSubdomains ? ['includeSubDomains'] : []),
+      ...(hsts.preload ? ['preload'] : []),
+    ].join('; ')
+    expect(reassembled).toBe(headerValue('Strict-Transport-Security'))
+    expect(hsts.accessControlMaxAgeSec).toBe(HSTS_MAX_AGE_SECONDS)
+
+    expect(sec.contentTypeOptions).toEqual({ override: true }) // → X-Content-Type-Options: nosniff
+    expect(sec.frameOptions.frameOption).toBe(headerValue('X-Frame-Options'))
+    expect(sec.referrerPolicy.referrerPolicy).toBe(headerValue('Referrer-Policy'))
+    expect(sec.contentSecurityPolicy.contentSecurityPolicy).toBe(headerValue('Content-Security-Policy'))
+    // `protection: false` is CloudFront's spelling of `X-XSS-Protection: 0`.
+    expect(headerValue('X-XSS-Protection')).toBe('0')
+    expect(sec.xssProtection.protection).toBe(false)
+  })
+
+  it('every header CloudFront cannot take structurally rides along as a custom header', () => {
+    for (const key of [
+      'Permissions-Policy',
+      'Cross-Origin-Opener-Policy',
+      'X-Permitted-Cross-Domain-Policies',
+    ]) {
+      expect(custom(key)?.value).toBe(headerValue(key))
+    }
+    // …and the structured ones are NOT duplicated as custom headers (CloudFront
+    // rejects that at deploy time).
+    for (const key of [
+      'Strict-Transport-Security',
+      'X-Content-Type-Options',
+      'X-Frame-Options',
+      'Referrer-Policy',
+      'X-XSS-Protection',
+      'Content-Security-Policy',
+    ]) {
+      expect(custom(key)).toBeUndefined()
+    }
+  })
+
+  it('adds the browser Cache-Control for media and overrides whatever the origin sends', () => {
+    expect(custom('Cache-Control')?.value).toBe(MEDIA_CACHE_CONTROL)
+    for (const item of projected.customHeadersConfig.items) expect(item.override).toBe(true)
+    for (const field of Object.values(projected.securityHeadersConfig)) {
+      expect((field as { override: boolean }).override).toBe(true)
+    }
+  })
+
+  it('nothing in the projection is lost or invented: header count matches the source set + extras', () => {
+    const structuredCount = Object.keys(projected.securityHeadersConfig).length
+    const customCount = projected.customHeadersConfig.items.length
+    expect(structuredCount + customCount).toBe(securityHeaders.length + 1)
   })
 })

@@ -360,3 +360,53 @@ test.describe('Admin panel stays separate from the public site', () => {
     await expect(page).toHaveURL(/\/admin(\/|$|\?)/)
   })
 })
+
+// Media delivery (TECHSPEC §6.2, src/lib/media/publicUrl.ts). The public URL of
+// an upload is `/media/<file>` — the same string on every stage — and on a
+// deployed stage CloudFront answers it straight from the S3 bucket. This dev
+// server stands in for CloudFront with one rewrite to S3Mock (next.config.ts), so
+// what is proven here is the URL contract end to end on a REAL server: the page
+// renders the stored `url`, and that URL returns the image bytes. CI seeds one
+// project with a photo (npm run seed:ci); locally an unseeded DB skips.
+test.describe('Public site — media is served at /media/* (Phase 7, media CDN)', () => {
+  test('the seeded project photo is rendered from /media/ and that URL serves the image', async ({
+    page,
+    request,
+  }) => {
+    await page.goto(`${BASE}/en/projects`)
+    const img = page.locator('.projects-grid img').first()
+    test.skip((await img.count()) === 0, 'no seeded project photo in this environment (empty DB)')
+
+    const src = await img.getAttribute('src')
+    expect(src).toBeTruthy()
+    // The contract: relative, under /media/, never Payload's retired file route.
+    expect(src!).toMatch(/^\/media\/[^/]+\.(png|jpe?g|webp)$/)
+    expect(src!).not.toContain('/api/media/file/')
+
+    // The browser actually got pixels (a broken image has naturalWidth 0).
+    await expect
+      .poll(async () => img.evaluate((el) => (el as HTMLImageElement).naturalWidth))
+      .toBeGreaterThan(0)
+
+    // And the URL itself answers with the image — through the dev server, which
+    // proxies /media/* to S3Mock exactly as CloudFront proxies it to S3.
+    const res = await request.get(`${BASE}${src}`)
+    expect(res.status()).toBe(200)
+    expect(res.headers()['content-type']).toMatch(/^image\/png/)
+    expect((await res.body()).length).toBeGreaterThan(0)
+  })
+
+  test("Payload's file route no longer proxies media through the app", async ({ page, request }) => {
+    await page.goto(`${BASE}/en/projects`)
+    const img = page.locator('.projects-grid img').first()
+    test.skip((await img.count()) === 0, 'no seeded project photo in this environment (empty DB)')
+    const filename = (await img.getAttribute('src'))!.split('/').pop()!
+
+    // The route that used to stream every byte through the (buffered, 6 MB-capped)
+    // Web Lambda is switched off (disablePayloadAccessControl); it must not hand
+    // the image out any more.
+    const res = await request.get(`${BASE}/api/media/file/${filename}`)
+    expect(res.status()).not.toBe(200)
+    expect(res.headers()['content-type'] ?? '').not.toMatch(/^image\//)
+  })
+})
