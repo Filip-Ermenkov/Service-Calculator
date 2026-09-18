@@ -6,21 +6,11 @@ the same app. See `docs/FUNCTIONALITY.md` (the "what") and
 `docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
 day-to-day commands.
 
-**Status (2026-09-16):** **The site is LIVE in production at `https://bulbau.lu`** (custom domain, apex + `www`→apex redirect, valid ACM cert; deployed via the manual-approval `deploy-production` CI job) but is **not yet publicly launched** — search indexing stays off until the Phase 7 launch flip.
+**Status (2026-09-17):** live in production at `https://bulbau.lu` (custom domain, `www` → apex, manual-approval `deploy-production` job) but **not yet publicly launched** — search indexing stays off until the launch flip. Staging: `https://d20kjuz86nwvyp.cloudfront.net`.
 
-**Every planned feature (§12 roadmap Phases 0–6) is built**: the admin panel with mandatory 2FA, the full content model, per-deploy migrations, the public trilingual site (`/en|/fr|/de`), the real-time price calculator + shared `src/lib/pricing/` evaluator, the admin **formula bar** (any pricing formula — `(area × rate + 200) × (1 + 17%)`, `if(…)`, `min`/`max`/`ceil`… — compiled to JSONLogic, invalid formulas cannot be published), PDF quote generation (Download **and** email-the-quote via SES), EN→FR/DE auto-translation via AWS Translate, the Translation Management admin screen, the `/contact` page with Cloudflare Turnstile, on-demand CloudFront invalidation, OWASP security headers, and CI axe (WCAG 2.2 AA) + Lighthouse gates.
+**Every planned feature is built** (TECHSPEC §12, Phases 0–6): the admin panel with mandatory 2FA and a working password reset, the content model with per-deploy migrations, the trilingual public site (`/en|/fr|/de`), the real-time price calculator with the admin **formula bar**, PDF quotes (download and email via SES), EN→FR/DE auto-translation with a Translation Management screen, the `/contact` page with Cloudflare Turnstile, on-demand CloudFront invalidation, OWASP security headers, failure-visibility alarms, and CI axe (WCAG 2.2 AA) + Lighthouse gates. **Phase 7 (hardening + launch) is in progress**; `docs/PROGRESS.md` → "Current state" / "Immediate next steps" is the source of truth for what is left.
 
-**Phase 7 (hardening + launch) has started.** Landed since 2026-09-07:
-
-- **A bespoke admin panel** (`984be35`) — branded login/sidebar, a custom dashboard, and a dedicated Services screen with drag ordering. It also shipped the **Home-page service-card limit** (a `HomeSettings` global), which `FUNCTIONALITY.md` §3.1 had specified but nothing had implemented, plus `unit`/`defaultOn` on calculator fields. **Adds the third migration** (`20260825_173608`).
-- **Failure visibility** (`7e02c94`) — the app previously had **no way to tell you it was broken**: `src/lib/content.ts` never throws, so a database outage rendered the whole site as blank pages with HTTP 200, and the `AWS/Lambda Errors` metric only counts handlers that actually *threw*. Now every silent-degradation path emits an `OPS_ALERT` line that a CloudWatch metric filter turns into an alarm, there is a `GET /api/health` liveness endpoint, and the Web/Pdf alarms are auto-wired in `sst.config.ts` instead of targeting hand-copied function names. Opt-in Route 53 uptime + CloudFront 5xx alarms live in `infra/terraform/uptime.tf`.
-- **A critical security patch** (`9df17ec`) — Next → **16.3.4** (two critical RCE advisories), `sharp` → 0.35.4, Payload → **3.89.0**. Triaging it also closed a real gap: `unlock` was the one access operation on `Users` not behind the 2FA step-up, so a stolen password could clear the login lockout. Note that the Payload advisory is **not** actually fixed by the version bump — see `docs/PROGRESS.md`.
-- **Fail-closed migrations** (`060db5b`, 2026-09-14) — the CI `payload migrate` step had been a **silent no-op on staging for six weeks**: with Payload's dev-push marker in the ledger (written by a local `.env` pointed at staging) the command prompts and exits 0. `scripts/verify-migrations.mjs` (`npm run migrate:verify [-- --pre]`) now brackets the apply and fails on a marker or an unapplied migration; `src/lib/dbGuard.ts` (2026-09-16) makes `npm run dev`/`test:int` **refuse to start** against any non-local database. Same commit: logout clears the 2FA step-up cookie, one CloudFront-aware client-IP helper, JSON-LD escaping, image-only uploads.
-- **One list design for every collection + the formula bar** (2026-09-14, uncommitted at the time of writing) — the bespoke Services screen was removed; Services, Projects, Careers and Media use Payload's native list, restyled, with **multi-select and drag ordering**. Projects and Media became `orderable` → **the fourth migration** (`20260914_165124_projects_media_orderable`, with a newest-first backfill); the public Projects order now follows the admin's drag order. The structured Formula Builder was replaced by a **formula bar** (free-form expression, highlighting, autocomplete, plain-language errors; stored value still plain JSONLogic; a broken formula is refused on Publish). Two desktop layout bugs in the admin (document views collapsing to a narrow column above 1440 px; two-column rows wrapping) were fixed. 2FA enrolment reuses a pending secret and labels non-production authenticator entries with the host.
-
-**⚠️ None of the above is confirmed deployed, and the databases are about to be reset.** Decision (2026-09-16): wipe the staging and production Neon branches (`DROP SCHEMA public CASCADE; CREATE SCHEMA public;` on each branch's direct URL) and let the deploy job apply all **four** migrations from empty — the project is pre-launch and holds no data worth keeping. Runbook: `docs/PROGRESS.md` → "Immediate next steps" step 0. After it, `npx cross-env DATABASE_URL="<direct url>" npm run migrate:verify` must print ✅ with four rows on each branch.
-
-**Remaining launch blockers are external, not development work:** published `LegalInfo` details, an SES-verified mailbox + `EmailSender` (⚠️ **until it is set the contact form cannot deliver at all** — `/api/contact` returns 502 and the visitor is shown an error telling them to phone or email instead, so no message is lost silently, but every enquiry through the form fails), production Turnstile keys, and the indexing flip. Web analytics was evaluated and **deliberately left out of scope** (see below) — the site stays cookieless with no consent banner.
+**Both databases were reset from empty on 2026-09-16** and rebuilt by CI from the four committed migrations — production content has to be re-entered. Remaining launch blockers are external, not development work: the client's published `LegalInfo` details, the `office@bulbau.lu` mailbox in DNS (then verified as the contact-form destination), and SES production access for the email-quote path. Web analytics was evaluated and **deliberately left out of scope** — the site stays cookieless with no consent banner.
 
 Visit `http://localhost:3000` (redirects to `/en`); the admin panel stays at `/admin` (unlocalized). **`docs/PROGRESS.md` is the source of truth for progress and next steps.**
 
@@ -81,6 +71,14 @@ code at `/admin/totp-verify`. See `docs/TECHSPEC.md` §6.6 and §7 for the
 design (custom TOTP endpoints + a step-up cookie layered on top of
 Payload's own password auth, since Payload doesn't ship 2FA natively) and
 rate-limiting/lockout notes.
+
+**Forgot password** (`/admin/forgot`) emails a single-use, one-hour reset link
+through the same SES path as the site's other mail (`src/lib/email/payloadEmailAdapter.ts`).
+Locally `EMAIL_SENDER` is unset, so the adapter **prints the email — link included —
+to the dev-server terminal** instead of sending; copy the link to complete the flow.
+The link is built from Payload's `serverURL` (`src/lib/serverUrl.ts` — `http://localhost:3000`
+locally, the `SiteUrl` secret on a stage), never from the request's Host header, and
+that same origin is the only one Payload accepts the admin session cookie from.
 
 **If you change a collection, a field, or a plugin that contributes admin
 UI** (like `@payloadcms/storage-s3`'s upload handler), run
@@ -189,7 +187,19 @@ npx cross-env NODE_ENV=production DATABASE_URL="<stage DIRECT url>" npm run migr
 
 `NODE_ENV=production` keeps Drizzle push OFF (so `payload migrate` applies only the tracked files), and without it the app refuses to start against a non-local database anyway (`src/lib/dbGuard.ts`). A running dev server keeps the connection it started with — changing `.env` does not switch databases until you restart it.
 
-**CI enforces this, fail-closed (since 2026-09-14).** Both deploy jobs run `migrate:verify -- --pre` → `timeout 600s npm run migrate </dev/null` → `migrate:verify`: `payload migrate` is interactive and, on a database carrying Payload's dev-push marker (`payload_migrations` row `dev`, batch `-1`), prompts and exits **0 having applied nothing** — which is exactly what every staging deploy did from 2026-08-01 to 2026-09-14. The pre-flight refuses the marker, the timeout can't hang, and the post-check fails unless every committed migration is recorded. (A brand-new database with no ledger table passes the pre-flight, which is what lets a stage be reset from empty — see `docs/TECHSPEC.md` §10.5 "Resetting a stage's database".) The `verify` job additionally runs a schema-drift guard (`migrate:create --skip-empty`, the equivalent of Django's `makemigrations --check`): if you change a collection/field/global and forget to commit a migration, the build fails with a clear message rather than silently shipping code against a schema staging never got. Locally, `push` keeps your dev DB in sync so you won't notice the gap — the guard is what catches it before merge. If it fails, run `npm run migrate:create`, commit the generated `.ts`/`.json`, and push. (Details: `docs/TECHSPEC.md` §10.5 / `docs/PROGRESS.md`.) The same job also runs a **generated-artifact drift guard**: it regenerates `payload-types.ts` + `admin/importMap.js` and fails on any diff, so stale types or a stale import map (a runtime-only admin breakage) can't ship — if it fails, run `npm run generate:types` and `npm run generate:importmap`, commit, and push.
+**CI enforces this, fail-closed.** Both deploy jobs run `migrate:verify -- --pre` →
+`timeout 600s npm run migrate </dev/null` → `migrate:verify`: `payload migrate` is
+interactive and, on a database carrying Payload's dev-push marker (`payload_migrations`
+row `dev`, batch `-1`), prompts and exits **0 having applied nothing** — the pre-flight
+refuses the marker, the timeout can't hang, and the post-check fails unless every
+committed migration is recorded. A brand-new database (no ledger table) passes the
+pre-flight, which is how both stages were rebuilt from empty on 2026-09-16. The `verify`
+job additionally runs a **schema-drift guard** (`migrate:create --skip-empty` — if you
+change a collection and forget to commit a migration, the build fails; run
+`npm run migrate:create`, commit the `.ts`/`.json`, push) and a **generated-artifact
+drift guard** (regenerates `payload-types.ts` + `admin/importMap.js` and fails on any
+diff; run `npm run generate:types` / `generate:importmap` and commit). Details:
+`docs/TECHSPEC.md` §10.5.
 
 **Neon note:** run migrations against the **direct (unpooled)** connection
 string — the one **without** `-pooler` in the hostname. DDL breaks through
@@ -220,52 +230,48 @@ and import runbook. **Applied and live as of 2026-07-31** — the zone is create
 DNS is delegated at EuroDNS, and the Neon project + deploy role are imported
 (file = live).
 
-**Where alarms live (changed 2026-09-10).** The per-stage Lambda alarms are now defined in
-`sst.config.ts`, wired to the real functions **by reference**. They used to sit in Terraform
-targeting function names hand-copied into `terraform.tfvars` — which rots silently, because
-any change that forces Lambda replacement renames the function and the alarms then watch
-nothing while sitting permanently green. The `web_function_name`/`pdf_function_name`
-variables are gone; delete them from your own `terraform.tfvars`.
+**Where alarms live.** The per-stage Lambda alarms and the `OPS_ALERT` log-metric alarm
+are defined in `sst.config.ts`, wired to the real functions by reference (hand-copied
+function names in Terraform went stale silently). Terraform keeps the account-level SNS
+topic, AWS Budgets, and — enabled via `manage_uptime_monitoring` — the Route 53 health
+check on `/api/health` and the CloudFront 5xx alarm in `uptime.tf`, which must live there
+because those metrics exist only in us-east-1 (a second SNS topic that needs its own
+subscription confirmation). Apply order after an alarm change: deploy SST first, then
+`terraform apply`.
 
-What stays in Terraform is the account-level SNS topic, AWS Budgets, and — opt-in via
-`manage_uptime_monitoring` — the Route 53 health check and CloudFront 5xx alarm in
-`uptime.tf`. Those cannot move: CloudFront and Route 53 publish metrics **only to
-us-east-1**, an alarm can only notify a topic in its own region, and the deploy role is
-scoped to eu-central-1. That second us-east-1 SNS topic needs **its own** subscription
-confirmation email.
-
-⚠️ **Apply order matters:** deploy SST **first**, then `terraform apply` — otherwise the plan
-destroys the three superseded hand-named alarms before their replacements exist.
-
-> **AWS account (2026-07-27):** the app runs in its **own dedicated account
-> `847321857537`** (`service-calculator-production`), migrated there from the
-> shared `acc-test` account. `AWS_DEPLOY_ROLE_ARN` (the `staging` GitHub
-> Environment secret) points at that account's `gh-actions-bulbau-staging-deploy`
-> role. See `docs/PROGRESS.md` → "AWS account migration" and `infra/aws/README.md`.
-> **CI audit gate:** the blocking dependency audit is scoped to production deps
-> (`npm audit --omit=dev --audit-level=high`), with a non-blocking full-tree
-> audit for visibility — see that same PROGRESS section for why.
+> **AWS account:** the app runs alone in the dedicated account `847321857537`
+> (`service-calculator-production`); both GitHub Environments' `AWS_DEPLOY_ROLE_ARN`
+> point at its Terraform-managed `gh-actions-bulbau-staging-deploy` role (see
+> `infra/aws/README.md`). **CI audit gate:** `npm audit --omit=dev --audit-level=high`
+> blocks (the code that ships); a full-tree audit runs non-blocking for visibility.
 
 Secrets are never stored in this repo or in GitHub Actions secrets directly
-for app-level config — they're SST secrets, scoped per stage. All four of the
-first block are required before the first deploy; the Upstash pair is optional
-(unset ⇒ in-memory rate-limit fallback, fine pre-launch):
+for app-level config — they're SST secrets, scoped per stage (`--stage staging`
+or `--stage production`):
 
 ```bash
+# Required before the first deploy of a stage
 npx sst secret set DatabaseUrl   "postgresql://...-pooler..." --stage staging   # POOLED (runtime)
 npx sst secret set PayloadSecret "$(openssl rand -base64 32)"  --stage staging
-npx sst secret set TotpEncryptionKey "$(openssl rand -base64 32)" --stage staging  # required — 2FA breaks without it
-# Optional (recommended before production):
+npx sst secret set TotpEncryptionKey "$(openssl rand -base64 32)" --stage staging  # 2FA breaks without it
+# Required per stage since 2026-09-16 — the stage's own origin. It is Payload's
+# `serverURL`: the origin in password-reset links and the ONLY origin the admin
+# session cookie is accepted from (CSRF allowlist), plus canonical/hreflang/OG
+# URLs and the authenticator-entry label. Production falls back to
+# https://bulbau.lu if unset; staging has no safe fallback (the config logs a warning).
+npx sst secret set SiteUrl "https://d20kjuz86nwvyp.cloudfront.net" --stage staging
+npx sst secret set SiteUrl "https://bulbau.lu"                    --stage production
+# Email (SES) — the verified From address for quote emails, the contact-form
+# relay and the admin password reset. Unset ⇒ every send is a no-op (see .env.example).
+npx sst secret set EmailSender "info@bulbau.lu" --stage staging
+# Cloudflare Turnstile (contact form + email-quote spam check); unset ⇒ no-op.
+npx sst secret set TurnstileSecretKey "<secret key>" --stage staging
+npx sst secret set TurnstileSiteKey   "<site key>"   --stage staging   # NEXT_PUBLIC_* ⇒ inlined at build, so redeploy
+# Recommended before launch (unset ⇒ in-memory rate-limit fallback that under-counts across Lambda instances):
 npx sst secret set UpstashRedisRestUrl   "https://xxx.upstash.io" --stage staging
 npx sst secret set UpstashRedisRestToken "your-upstash-token"     --stage staging
-# Optional public-site config (safe defaults if unset — see src/lib/seo.ts):
-#   SiteUrl        — the stage's canonical origin (canonical tags, hreflang, OG,
-#                    sitemap). On staging set it to the CloudFront URL for accurate
-#                    canonicals; unset ⇒ falls back to the production domain.
-#   AllowIndexing  — set to "true" ONLY on production at launch; otherwise search
-#                    engines are told noindex (keeps the staging URL out of search).
-npx sst secret set SiteUrl       "https://<new-account-cloudfront-domain>" --stage staging   # the OLD d2mj4ke0wr57lb.cloudfront.net URL is dead post-migration (new account = new distribution)
-# npx sst secret set AllowIndexing "true" --stage production   # production launch only
+# Launch only:
+# npx sst secret set AllowIndexing "true" --stage production
 ```
 
 **CMS auto-translation (EN → FR/DE) needs NO secret.** It uses **AWS Translate**,
@@ -321,9 +327,8 @@ for manual approval):
 - `PRODUCTION_DATABASE_URL_UNPOOLED` — the **direct** Neon URL of the production
   branch, used by the production migrate step.
 
-Production SST secrets are set the same way as staging but `--stage production`
-(`DatabaseUrl` is the production branch's **pooled** URL). Leave `AllowIndexing`
-unset until the launch flip.
+Production uses the same secrets with `--stage production` (`DatabaseUrl` is the
+production branch's **pooled** URL). Leave `AllowIndexing` unset until the launch flip.
 
 ## Project structure
 

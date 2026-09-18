@@ -6,18 +6,7 @@ therefore are deliberately **not** owned by the removable SST app stage
 `sst.config.ts` refers to when it says standalone Terraform for non-SST-native
 resources "lives in `infra/`".
 
-> **Status: APPLIED and live (2026-07-31).** The zone + delegation set, budgets, and
-> SNS are created; DNS is delegated at EuroDNS (`dig NS bulbau.lu` resolves); the
-> Neon project and deploy role are imported (`manage_neon` + `manage_deploy_role` are
-> both `true` in the live, gitignored `terraform.tfvars`); and — since the `production`
-> stage went live — the CloudWatch Lambda alarms were switched on here too. **⚠️ Those
-> alarms MOVED OUT of this layer on 2026-09-10** (see "Where alarms live" below); the
-> `web_function_name` / `pdf_function_name` variables are gone, and applying this layer
-> after an SST deploy will **destroy the three superseded hand-named alarms**. Everything
-> else this layer manages is active. The deploy role's inline policy also
-> gained ACM (us-east-1) + Route 53 statements during the production stand-up (pushed
-> via `terraform apply`, since `iam.tf` sources `infra/aws/*.json` via `file()`). The
-> runbook below remains the reference for a fresh clone / disaster recovery.
+> **Status (2026-09-17): applied and live.** The zone + delegation set, budgets and the eu-central-1 SNS topic are created; DNS is delegated at EuroDNS; the Neon project and the deploy role are imported (`manage_neon`, `manage_deploy_role` = `true` in the live, gitignored `terraform.tfvars`); the **SES sending identity is applied** (`manage_ses = true` — `_dmarc.bulbau.lu`, `mail.bulbau.lu` MX/SPF and the DKIM CNAMEs resolve publicly, and the site sends from `info@bulbau.lu`); the live tfvars also has `manage_uptime_monitoring = true` with `cloudfront_distribution_id = E1O15XCT0NNBSD` (production). Deploy-policy edits go live with `terraform apply` (`iam.tf` sources `infra/aws/*.json`). **Still to do here:** the root-domain DNS for the client's Google Workspace mailbox `office@bulbau.lu` (MX, root SPF, Google DKIM, site verification — a new gated file, same pattern as `ses.tf`; needs values from the Workspace admin console), and re-running `terraform plan` from a credentialed session to confirm no drift. The runbook below is for a fresh clone / disaster recovery.
 
 ## What it manages
 
@@ -26,10 +15,10 @@ resources "lives in `infra/`".
 | Route 53 **reusable delegation set** (stable nameservers) | `dns.tf` | new (safe create) | first pass |
 | Route 53 **public hosted zone** for `bulbau.lu` | `dns.tf` | new (safe create) | first pass |
 | **AWS Budgets** (daily + monthly cost alarms → email) | `budget.tf` | new (safe create) | first pass |
-| **SNS** ops topic + email subscription | `observability.tf` | new (safe create) | first pass |
 | **SNS ops-alert topic** (`bulbau-lu-ops-alerts`) | `observability.tf` | new (safe create) | ✅ live |
-| **Route 53 uptime check + CloudFront 5xx alarm** (us-east-1) | `uptime.tf` | new, opt-in | ⏳ not yet enabled (`manage_uptime_monitoring = false`) |
-| ~~CloudWatch Lambda alarms~~ | ~~`observability.tf`~~ | — | ➡️ **moved to `sst.config.ts` 2026-09-10** |
+| **SES domain identity** + DKIM/MAIL-FROM/SPF/DMARC records | `ses.tf` | new, opt-in (`manage_ses`) | ✅ applied |
+| **Route 53 uptime check + CloudFront 5xx alarm** (us-east-1) | `uptime.tf` | new, opt-in | enabled in the live tfvars (`manage_uptime_monitoring = true`) |
+| ~~CloudWatch Lambda alarms~~ | ~~`observability.tf`~~ | — | ➡️ **in `sst.config.ts`** (wired by reference) |
 | **Neon project** (existing DB) | `neon.tf` | import-only, `prevent_destroy` | after import |
 | **GitHub-Actions deploy role + policy** (existing) | `iam.tf` | import-only, `prevent_destroy` | after import |
 
@@ -118,7 +107,7 @@ terraform plan   # a clean plan proves file == live; a 1st-plan inline-policy
 shows no destroy/replace of the imported resource. `prevent_destroy` is a
 backstop, not a substitute for reading the plan.
 
-## Where alarms live (changed 2026-09-10 — read before applying)
+## Where alarms live
 
 **The per-stage Lambda alarms are no longer here.** They are defined in `sst.config.ts` and
 wired to the real functions **by reference**, so they cannot go stale.
@@ -135,11 +124,9 @@ Lambda is a per-stage, disposable resource.
 `pdf_function_name` lines — the variables no longer exist. (Terraform only *warns* about
 undeclared variables in a tfvars file, so a stale copy will not fail the apply.)
 
-**⚠️ APPLY ORDER.** Deploy the SST stage **first**, then `terraform apply`. The plan will
-show **3 destroys** — `bulbau-lu-web-lambda-errors`, `bulbau-lu-pdf-lambda-errors`,
-`bulbau-lu-pdf-lambda-throttles` — which are the superseded hand-named alarms. Applying in
-the other order leaves a window with no Lambda alarms at all. If the plan wants to destroy
-anything else — especially the hosted zone, the Neon project or the deploy role — **stop**.
+**⚠️ APPLY ORDER** for any future alarm change: deploy the SST stage **first**, then
+`terraform apply`. If a plan ever wants to destroy the hosted zone, the Neon project or the
+deploy role — **stop**.
 
 Verify the replacements exist after the deploy:
 
@@ -206,33 +193,7 @@ alarm and confirm the email arrives — remembering that `bulbau-lu-site-unreach
 
 ## Not managed here (pointers, so you don't go looking)
 
-- **Phase 6 contact form + Cloudflare Turnstile (2026-08-06)** added no Terraform.
-  Turnstile is a Cloudflare service (no AWS resource); its keys are SST secrets
-  (`TurnstileSecretKey`/`TurnstileSiteKey`), and the contact-form relay reuses the
-  existing SES sending identity (below) — so nothing here changed.
-- **Phase 4b email — SES sending identity** IS managed here (`ses.tf`, behind the
-  `manage_ses` gate: domain identity + Easy DKIM + custom MAIL FROM `mail.bulbau.lu`
-  + SPF + DMARC). It must be applied (`manage_ses=true` → `terraform apply`) and the
-  `EmailSender` secret set before the email-quote path (and, for spam-free
-  deliverability, the contact form) sends for real. See `docs/PROGRESS.md`.
-- **Phase 5 translation (2026-08-02)** added no Terraform. AWS Translate needs no
-  new resource; the runtime `translate:TranslateText` permission rides on the SST
-  **server-function** role (via `sst.config.ts`'s `permissions:` prop), not the
-  Terraform-managed deploy role, and it needs no secret. The 30s Lambda
-  `server.timeout` is also an SST/`sst.config.ts` setting.
-- **Phase 5 part 2 — Translation Management admin screen (2026-08-06)** added no
-  Terraform and no infra of any kind. It is pure app code inside the existing Web
-  function (a custom `/admin/translations` Payload Root View + a `POST /api/admin/translations`
-  write route) reusing the existing DB access, the Phase 5 part 1 Translate
-  permission, and the existing revalidate/CDN path — migration-free, no new secret,
-  no new resource. Deployed as commit `e3121af`. See `docs/PROGRESS.md` → "Phase 5 part 2".
-- **CloudFront on-demand invalidation — DONE 2026-08-04, and (as predicted) entirely
-  app/SST-side, NOT in this Terraform layer.** The runtime `cloudfront:CreateInvalidation`
-  + `ssm:GetParameter` permissions ride on the SST **server-function** role (via
-  `sst.config.ts`'s `permissions:` prop), and the distribution ID is wired via an
-  **SST-managed** SSM parameter (`/bulbau-lu/<stage>/web-cdn-distribution-id`, created
-  after the Nextjs component to break the SST #5990 cycle) — chosen deliberately as
-  SST-owned, not Terraform-owned, because it is a per-stage, disposable value that
-  must be recreated with the stage. So this Terraform layer is **unchanged** by that
-  slice; the committed deploy-policy JSON also needed no edit. See `docs/PROGRESS.md`
-  → "On-demand CloudFront invalidation".
+- **Everything per-stage and disposable** is in `sst.config.ts`: the Lambda functions, CloudFront, S3, the app's Route 53 *records* (zone looked up by id), the SSM parameter carrying the CloudFront distribution id, the per-stage alarms + `OPS_ALERT` metric filter, and every runtime IAM permission (`translate:TranslateText`, `ssm:GetParameter`, `cloudfront:CreateInvalidation`, `ses:SendEmail`), granted to the Web function's execution role via `permissions:`/`link:`.
+- **SST secrets** (`DatabaseUrl`, `PayloadSecret`, `TotpEncryptionKey`, `SiteUrl`, `EmailSender`, `TurnstileSecretKey`/`TurnstileSiteKey`, Upstash, `AllowIndexing`) live in SSM under the `sst-*` prefix — set with `npx sst secret set`, see the root README.
+- **Cloudflare Turnstile** is a Cloudflare-side widget; no AWS resource.
+- **The Google Workspace mailbox DNS** is the one remaining foundational item that *belongs* here and is not yet authored (see the status note above).
