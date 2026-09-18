@@ -38,7 +38,9 @@ const SECURITY_HEADERS = [
 ]
 
 test.describe('Admin account recovery + CSRF allowlist', () => {
-  test.beforeAll(async () => {
+  test.beforeAll(async ({}, testInfo) => {
+    // The seed boots Payload in this worker (see admin.e2e.spec.ts).
+    testInfo.setTimeout(testInfo.timeout + 90_000)
     await seedEnrolledTestUser(email, password, secret)
   })
 

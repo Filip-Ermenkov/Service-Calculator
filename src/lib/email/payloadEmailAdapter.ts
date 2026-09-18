@@ -81,27 +81,108 @@ export function toAddressList(value: IncomingMessage['to']): string[] {
  * block boundaries become line breaks, tags are dropped, the handful of entities
  * the templates emit are decoded. Deliberately small; it only has to serve mail
  * this app generates, not arbitrary HTML.
+ *
+ * Implemented as a one-pass tokenizer rather than a chain of regex `replace`
+ * calls (the 2026-09-18 rewrite). The previous chain was flagged by CodeQL —
+ * `js/incomplete-multi-character-sanitization` (a `<style…</style>` regex is not
+ * a sanitizer: `<sty<style>le>` survives one pass) and `js/double-escaping`
+ * (decoding `&amp;` before `&lt;` turns `&amp;lt;` into `<`). Neither was
+ * reachable with our own templates, but a single left-to-right walk that skips
+ * `<head>`/`<style>`/`<script>` containers structurally and decodes entities
+ * exactly once, in one alternation, has no such edge at all — and is no longer
+ * a pattern a scanner has to reason about.
  */
 export function plainTextFromHtml(html: string): string {
-  return html
-    .replace(/<head[\s\S]*?<\/head>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<a\b[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href: string, label: string) => {
-      const text = label.replace(/<[^>]+>/g, '').trim()
-      return text && text !== href ? `${text} (${href})` : href
-    })
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|h[1-6]|li|tr|table)>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  /** Containers whose entire content is dropped, not just their tags. */
+  const DROP_CONTAINERS = new Set(['head', 'style', 'script', 'title'])
+  /** Closing tags that end a block → a line break in the text rendering. */
+  const BLOCK_CLOSERS = new Set(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'tr', 'table'])
+
+  let out = ''
+  let i = 0
+  // Link state: while inside <a href="…">, buffer the label so it can be
+  // rendered as `label (href)` (or just the href when the label IS the href).
+  let linkHref: string | null = null
+  let linkLabel = ''
+
+  const emit = (text: string) => {
+    if (linkHref !== null) linkLabel += text
+    else out += text
+  }
+
+  while (i < html.length) {
+    const lt = html.indexOf('<', i)
+    if (lt === -1) {
+      emit(html.slice(i))
+      break
+    }
+    emit(html.slice(i, lt))
+    const gt = html.indexOf('>', lt + 1)
+    if (gt === -1) {
+      // An unterminated `<`: nothing after it can be a tag; drop the remainder.
+      break
+    }
+    const raw = html.slice(lt + 1, gt).trim()
+    i = gt + 1
+
+    const isClosing = raw.startsWith('/')
+    const name = (isClosing ? raw.slice(1) : raw).split(/[\s/]/, 1)[0].toLowerCase()
+
+    if (!isClosing && DROP_CONTAINERS.has(name)) {
+      // Skip everything up to and including the matching close tag (case-
+      // insensitive), or to the end if it never closes.
+      const closeAt = html.toLowerCase().indexOf(`</${name}`, i)
+      if (closeAt === -1) break
+      const closeEnd = html.indexOf('>', closeAt)
+      i = closeEnd === -1 ? html.length : closeEnd + 1
+      continue
+    }
+
+    if (name === 'a') {
+      if (!isClosing) {
+        const href =
+          /\bhref\s*=\s*"([^"]*)"/i.exec(raw)?.[1] ?? /\bhref\s*=\s*'([^']*)'/i.exec(raw)?.[1] ?? ''
+        linkHref = href
+        linkLabel = ''
+      } else if (linkHref !== null) {
+        const label = linkLabel.trim()
+        out += label && label !== linkHref ? `${label} (${linkHref})` : linkHref || label
+        linkHref = null
+        linkLabel = ''
+      }
+      continue
+    }
+
+    if (name === 'br') {
+      emit('\n')
+      continue
+    }
+    if (isClosing && BLOCK_CLOSERS.has(name)) {
+      emit('\n')
+      continue
+    }
+    // Any other tag (opening or closing) contributes nothing to the text.
+  }
+  // A link that never closed: keep its text rather than losing it.
+  if (linkHref !== null) out += linkLabel.trim() || linkHref
+
+  const ENTITY: Record<string, string> = {
+    '&nbsp;': ' ',
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+  }
+  return (
+    out
+      // One pass, one alternation: every entity is decoded exactly once, so a
+      // literal `&amp;lt;` in the source correctly becomes `&lt;` in the text.
+      .replace(/&(?:nbsp|amp|lt|gt|quot|#39);/g, (m) => ENTITY[m] ?? m)
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  )
 }
 
 /** Payload's attachment shape → the SES helper's (only the first is forwarded — Payload sends none today). */

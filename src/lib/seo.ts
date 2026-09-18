@@ -26,7 +26,15 @@ export const IS_INDEXABLE = process.env.NEXT_PUBLIC_ALLOW_INDEXING === 'true'
  * hreflang + canonical for a page. `path` is the locale-independent pathname
  * (e.g. '' for home, '/projects', '/services/12'); this expands it to a
  * canonical for the current locale plus `<link rel="alternate" hreflang>` for
- * every locale and an `x-default` pointing at the default locale (TECHSPEC §6.11).
+ * every locale and an `x-default` (TECHSPEC §6.11).
+ *
+ * `x-default` is the UNPREFIXED path (`/`, `/projects`): that URL is the one
+ * next-intl's proxy language-negotiates (Accept-Language → 307 to `/en|/fr|/de`),
+ * which is exactly what Google defines x-default as — the page for visitors no
+ * listed language matches. It also makes the HTML tags agree with the `Link:`
+ * header next-intl adds to every response (which already said `x-default` = the
+ * unprefixed URL); until 2026-09-18 the two contradicted each other (`/en` in
+ * the HTML, `/` in the header), leaving crawlers to pick one.
  */
 export function buildAlternates(
   locale: Locale,
@@ -35,7 +43,7 @@ export function buildAlternates(
   const clean = path === '/' ? '' : path
   const languages: Record<string, string> = {}
   for (const l of routing.locales) languages[l] = `/${l}${clean}`
-  languages['x-default'] = `/${routing.defaultLocale}${clean}`
+  languages['x-default'] = clean || '/'
   return { canonical: `/${locale}${clean}`, languages }
 }
 

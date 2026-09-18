@@ -6,7 +6,7 @@ the same app. See `docs/FUNCTIONALITY.md` (the "what") and
 `docs/TECHSPEC.md` (the "how") for the full spec — this README only covers
 day-to-day commands.
 
-**Status (2026-09-17):** live in production at `https://bulbau.lu` (custom domain, `www` → apex, manual-approval `deploy-production` job) but **not yet publicly launched** — search indexing stays off until the launch flip. Staging: `https://d20kjuz86nwvyp.cloudfront.net`.
+**Status (2026-09-18):** live in production at `https://bulbau.lu` (custom domain, `www` → apex, manual-approval `deploy-production` job) but **not yet publicly launched** — search indexing stays off until the launch flip. Staging: `https://d20kjuz86nwvyp.cloudfront.net`. The 2026-09-18 commit (pre-launch integrity hardening + the full Dependabot/CodeQL sweep — `docs/PROGRESS.md` → first slice-log entry) is awaiting its staging → production run.
 
 **Every planned feature is built** (TECHSPEC §12, Phases 0–6): the admin panel with mandatory 2FA and a working password reset, the content model with per-deploy migrations, the trilingual public site (`/en|/fr|/de`), the real-time price calculator with the admin **formula bar**, PDF quotes (download and email via SES), EN→FR/DE auto-translation with a Translation Management screen, the `/contact` page with Cloudflare Turnstile, on-demand CloudFront invalidation, OWASP security headers, failure-visibility alarms, and CI axe (WCAG 2.2 AA) + Lighthouse gates. **Phase 7 (hardening + launch) is in progress**; `docs/PROGRESS.md` → "Current state" / "Immediate next steps" is the source of truth for what is left.
 
@@ -19,8 +19,12 @@ Visit `http://localhost:3000` (redirects to `/en`); the admin panel stays at `/a
 
 - Node.js 20.9+ (24.x LTS recommended; CI runs on 24)
 - npm 10+
-- A Postgres database — either Docker Compose (below) or a personal Neon
-  branch (recommended, see `docs/TECHSPEC.md` §10.1)
+- A **Postgres 18** database — either Docker Compose (below) or a personal Neon
+  branch (recommended, see `docs/TECHSPEC.md` §10.1). Neon, docker-compose and
+  the CI service container are all on 18 since 2026-09-18; a `pgdata` volume
+  created by the previous `postgres:17-alpine` image will not start under 18 —
+  recreate it (`docker compose down -v && docker compose up -d`; local data is
+  disposable, re-seed with `ALLOW_CONTENT_SEED=true npm run seed:ci`).
 
 ## Local development
 
@@ -112,7 +116,7 @@ npx playwright install chromium
 ```
 
 ```bash
-npm run lint         # ESLint (0 errors expected; ~15 known warnings)
+npm run lint         # ESLint (0 errors expected; ~19 known warnings)
 npm run typecheck    # tsc --noEmit
 npm run test:int     # Vitest — integration tests against DATABASE_URL
 npm run test:e2e     # Playwright — needs `npm run build && npm start` or `next dev` running
@@ -123,6 +127,20 @@ npm run test         # both of the above
 animation before scanning (`tests/e2e/accessibility.e2e.spec.ts`) — do not "simplify" that
 away: without it the scan samples colours mid-fade and the result is non-deterministic,
 which is how a passing build and a failing build could differ by nothing but render timing.
+
+### Media limits (why an upload can be refused)
+
+`Media` accepts JPEG, PNG or WebP up to **4 MB** per file — one constant,
+`MEDIA_MAX_FILE_BYTES` in `src/collections/Media.ts`, enforced on the multipart
+path (busboy, 413), on the direct-to-S3 presigned-URL path deployed stages use
+(the plugin re-checks it and S3 enforces the signed `content-length`) and by a
+`beforeValidate` hook on every path including the Local API. It is a
+*correctness* limit, not taste: media bytes are served through the Web Lambda,
+which OpenNext builds buffered (6 MB response cap after base64), so a larger
+photo would upload fine and then 502 for visitors. File responses carry
+`Cache-Control: public, max-age=3600, s-maxage=86400` and any media change
+purges CloudFront. Details and the planned CDN-origin follow-up:
+`docs/TECHSPEC.md` §6.2.
 
 ### Health endpoint
 
@@ -339,9 +357,10 @@ See `docs/TECHSPEC.md` §4 for the full layout and reasoning. Quick pointers:
   system, ported). i18n lives in `src/i18n/` (routing/request/navigation +
   `messages/{en,fr,de}.json`); `src/proxy.ts` composes next-intl's routing with
   the TOTP admin gate; data access is `src/lib/content.ts`.
-- `src/app/(payload)/` is Payload's admin UI + REST/GraphQL (`/admin`, `/api`) —
+- `src/app/(payload)/` is Payload's admin UI + REST API (`/admin`, `/api`) —
   its `admin/importMap.js` is generated and must not be hand-edited. `/admin`
-  is **not** localized.
+  is **not** localized. Payload's GraphQL API is **disabled** (nothing uses it;
+  the two generated `graphql*` route files were removed on 2026-09-18).
 - `src/app/(frontend)/` is now just the bare `/ → /<locale>` redirect (the
   repurposed Phase 0 placeholder — the real site is under `[locale]/`).
 - `prototype/` is the static, client-approved design reference (zero

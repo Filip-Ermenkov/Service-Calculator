@@ -34,12 +34,25 @@ updates:
         patterns:
           - '@sparticuz/chromium'
           - 'puppeteer-core'
+      # Everything else: ONE weekly PR for all minor + patch bumps, instead of one
+      # PR per package. Added 2026-09-18 with 12 same-week single-package PRs
+      # open — and every merge to `main` is a full staging deploy + a production
+      # approval, so one grouped PR is one deploy, not twelve. Dependabot puts a
+      # dependency in the FIRST group that matches, so the payload/browser groups
+      # above keep their own PRs (their pairing must be reviewed together). Major
+      # bumps are deliberately NOT grouped: each one needs its own review.
+      minor-and-patch:
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-  # Tracks the image tags pinned in docker-compose.yml (postgres:17-alpine,
-  # adobe/s3mock:5.1.0). This is the `docker-compose` ecosystem on purpose: the
+  # Tracks the image tags pinned in docker-compose.yml (postgres:18-alpine,
+  # adobe/s3mock:5.2.2). This is the `docker-compose` ecosystem on purpose: the
   # `docker` ecosystem parses Dockerfiles ONLY, so until 2026-09-13 this entry
   # was tracking a stock, non-building Dockerfile template (since removed — the
   # app deploys to Lambda via OpenNext, not a container) while the compose file

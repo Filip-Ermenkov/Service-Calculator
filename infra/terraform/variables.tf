@@ -81,9 +81,9 @@ variable "neon_region_id" {
 }
 
 variable "neon_pg_version" {
-  description = "Postgres major version of the existing Neon project (reconcile after import)."
+  description = "Postgres major version of the existing Neon project (reconcile after import). The live project is 18 (terraform.tfvars); docker-compose.yml and the CI service container track the same major (postgres:18-alpine) so local/CI never run migrations against an older engine than production."
   type        = number
-  default     = 17
+  default     = 18
 }
 
 variable "neon_history_retention_seconds" {

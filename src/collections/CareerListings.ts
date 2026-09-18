@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
+import { MEDIA_MAX_FILE_LABEL } from '@/collections/Media'
 import { publicReadWhen } from '@/access/publicRead'
 import {
   revalidateContentAfterChange,
@@ -118,7 +119,7 @@ export const CareerListings: CollectionConfig = {
           label: 'Photo',
           type: 'upload',
           relationTo: 'media',
-          admin: { description: 'PNG or JPG up to 5 MB.' },
+          admin: { description: `PNG or JPG up to ${MEDIA_MAX_FILE_LABEL}.` },
         },
       ],
     },

@@ -58,6 +58,17 @@ test.describe('Security headers', () => {
     assertHeaders(res.headers())
   })
 
+  test('GraphQL is not served: /api/graphql and its playground are 404', async ({ request }) => {
+    // graphQL.disable + the deleted route files (src/payload.config.ts). Nothing in
+    // the app used GraphQL, and an unauthenticated query engine is pure attack
+    // surface. Both paths now fall through to Payload's REST catch-all → 404.
+    const post = await request.post(`${BASE}/api/graphql`, { data: { query: '{ __typename }' } })
+    expect(post.status()).toBe(404)
+    const playground = await request.get(`${BASE}/api/graphql-playground`)
+    expect(playground.status()).toBe(404)
+    assertHeaders(post.headers())
+  })
+
   test('the /api/quote route carries the full header set', async ({ request }) => {
     // A bad-slug POST short-circuits to 404 without touching the DB/PDF Lambda,
     // which is all we need — the security headers ride on every response.

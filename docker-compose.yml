@@ -5,7 +5,7 @@
 # the env vars that point Payload's S3 storage plugin at it.
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: bulbau
@@ -28,7 +28,7 @@ services:
   # trail) — S3Mock is a small, purpose-built, Apache-2.0 testing tool with no
   # such commercial pressure and is still actively released.
   s3mock:
-    image: adobe/s3mock:5.1.0
+    image: adobe/s3mock:5.2.2
     restart: unless-stopped
     environment:
       COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: bulbau-dev

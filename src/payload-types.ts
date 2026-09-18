@@ -160,6 +160,8 @@ export interface User {
   collection: 'users';
 }
 /**
+ * JPEG, PNG or WebP, up to 4 MB each.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
@@ -215,12 +217,12 @@ export interface Service {
     cardTitle?: string | null;
     cardDescription?: string | null;
     /**
-     * PNG or JPG up to 5 MB · recommended 800×600.
+     * PNG or JPG up to 4 MB · recommended 800×600.
      */
     cardImage?: (number | null) | Media;
   };
   /**
-   * PNG or JPG up to 5 MB · recommended 1600×600.
+   * PNG or JPG up to 4 MB · recommended 1600×600.
    */
   heroImage?: (number | null) | Media;
   /**
@@ -327,7 +329,7 @@ export interface Project {
     [k: string]: unknown;
   } | null;
   /**
-   * PNG or JPG up to 5 MB.
+   * PNG or JPG up to 4 MB.
    */
   photo?: (number | null) | Media;
   /**
@@ -368,7 +370,7 @@ export interface CareerListing {
     [k: string]: unknown;
   } | null;
   /**
-   * PNG or JPG up to 5 MB.
+   * PNG or JPG up to 4 MB.
    */
   photo?: (number | null) | Media;
   updatedAt: string;

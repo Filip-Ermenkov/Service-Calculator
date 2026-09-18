@@ -149,6 +149,23 @@ describe('payloadEmailAdapter.ts — message normalisation', () => {
     expect(text.match(/https:\/\/x\.test\/reset\/1/g)?.length).toBe(2)
     expect(text).not.toMatch(/<[a-z]/)
   })
+
+  it('plainTextFromHtml is a tokenizer, not a regex chain: nested containers and entity order cannot leak markup', () => {
+    // The two CodeQL findings the 2026-09-18 rewrite closed: a regex that strips
+    // `<style…</style>` once leaves `<sty<style>le>` behind, and decoding
+    // `&amp;` before `&lt;` turns a literal `&amp;lt;` into `<`.
+    const text = plainTextFromHtml(
+      '<sty<style>le>x</style>le><p>A &amp;lt; B</p><script>alert(1)</script><SCRIPT>2</SCRIPT>' +
+        '<p>Unclosed <a href="https://x.test/a">link',
+    )
+    expect(text).not.toMatch(/<[a-z]/i)
+    expect(text).not.toContain('alert')
+    // `&amp;lt;` is one entity (`&amp;`) followed by literal `lt;` → `&lt;`, never `<`.
+    expect(text).toContain('A &lt; B')
+    expect(text).not.toContain('A < B')
+    // A link that never closes keeps its label.
+    expect(text).toContain('link')
+  })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────

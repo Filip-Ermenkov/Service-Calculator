@@ -1,6 +1,7 @@
 import type { CollectionBeforeChangeHook, CollectionConfig } from 'payload'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
+import { MEDIA_MAX_FILE_LABEL } from '@/collections/Media'
 import { readPublishedOrVerified } from '@/access/publicRead'
 import {
   revalidateContentAfterChange,
@@ -93,6 +94,8 @@ export const Projects: CollectionConfig = {
     create: requireTotpVerified(() => true),
     update: requireTotpVerified(() => true),
     delete: requireTotpVerified(() => true),
+    // Versions (drafts included) need the full 2FA session — see Services.ts.
+    readVersions: requireTotpVerified(() => true),
   },
   versions: {
     drafts: true,
@@ -190,7 +193,7 @@ export const Projects: CollectionConfig = {
           label: 'Photo',
           type: 'upload',
           relationTo: 'media',
-          admin: { description: 'PNG or JPG up to 5 MB.' },
+          admin: { description: `PNG or JPG up to ${MEDIA_MAX_FILE_LABEL}.` },
         },
       ],
     },

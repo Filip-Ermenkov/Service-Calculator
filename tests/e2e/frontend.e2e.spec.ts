@@ -47,6 +47,47 @@ test.describe('Public site — shell & i18n', () => {
   })
 })
 
+test.describe('Public site — crawl signals (sitemap + hreflang)', () => {
+  test('the sitemap lists every locale of the static pages with NO invented lastmod', async ({
+    request,
+  }) => {
+    const res = await request.get(`${BASE}/sitemap.xml`)
+    expect(res.status()).toBe(200)
+    const xml = await res.text()
+    for (const locale of ['en', 'fr', 'de']) {
+      expect(xml).toContain(`/${locale}/projects</loc>`)
+      expect(xml).toContain(`/${locale}/contact</loc>`)
+    }
+    // A static page has no real modification time, so it must not claim one:
+    // its <url> block ends right after the alternates, with no <lastmod>. (A
+    // CMS service — seeded in CI as ci-sample-service — DOES carry its updatedAt.)
+    const staticBlock = /<url>\s*<loc>[^<]*\/en\/contact<\/loc>[\s\S]*?<\/url>/.exec(xml)?.[0] ?? ''
+    expect(staticBlock).not.toBe('')
+    expect(staticBlock).not.toContain('<lastmod>')
+    const serviceBlock = /<url>\s*<loc>[^<]*\/en\/services\/[^<]+<\/loc>[\s\S]*?<\/url>/.exec(xml)?.[0]
+    if (serviceBlock) expect(serviceBlock).toContain('<lastmod>')
+  })
+
+  test('x-default hreflang points at the language-negotiating unprefixed URL in BOTH the HTML and the Link header', async ({
+    request,
+  }) => {
+    // Two sources of hreflang exist: the <link rel="alternate"> tags from
+    // generateMetadata (src/lib/seo.ts) and the `Link:` header next-intl adds.
+    // They used to disagree on x-default (`/en/projects` vs `/projects`); a
+    // crawler given two answers picks one at random. Now both say the same thing.
+    const res = await request.get(`${BASE}/en/projects`)
+    expect(res.status()).toBe(200)
+    const html = await res.text()
+    const tag = /<link[^>]*hreflang="x-default"[^>]*>/i.exec(html)?.[0] ?? ''
+    expect(tag).toMatch(/href="[^"]*\/projects"/)
+    expect(tag).not.toMatch(/href="[^"]*\/(en|fr|de)\/projects"/)
+    const link = res.headers()['link'] ?? ''
+    const headerDefault = /<([^>]+)>;\s*rel="alternate";\s*hreflang="x-default"/i.exec(link)?.[1] ?? ''
+    expect(headerDefault).toMatch(/\/projects$/)
+    expect(headerDefault).not.toMatch(/\/(en|fr|de)\/projects$/)
+  })
+})
+
 test.describe('Public site — pages render', () => {
   for (const path of ['/en', '/en/projects', '/en/about', '/en/careers', '/en/contact', '/en/legal', '/en/privacy']) {
     test(`renders ${path}`, async ({ page }) => {

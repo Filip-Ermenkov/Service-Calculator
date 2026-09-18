@@ -2,6 +2,7 @@ import type { CollectionConfig, JSONFieldValidation, TextFieldValidation } from 
 import { text as validateText } from 'payload/shared'
 
 import { requireTotpVerified } from '@/access/requireTotpVerified'
+import { MEDIA_MAX_FILE_LABEL } from '@/collections/Media'
 import { readPublishedOrVerified } from '@/access/publicRead'
 import {
   revalidateContentAfterChange,
@@ -100,6 +101,12 @@ export const Services: CollectionConfig = {
     create: requireTotpVerified(() => true),
     update: requireTotpVerified(() => true),
     delete: requireTotpVerified(() => true),
+    // The versions endpoints (`GET /api/services/versions[/:id]`) return EVERY
+    // saved version — drafts included — and Payload's fallback for an unset
+    // access function is `Boolean(req.user)`, i.e. a password-only session with
+    // no completed TOTP step. Same class of gap as `users.unlock`: every access
+    // operation on this collection must sit behind the second factor.
+    readVersions: requireTotpVerified(() => true),
   },
   versions: {
     drafts: true,
@@ -209,7 +216,7 @@ export const Services: CollectionConfig = {
               relationTo: 'media',
               admin: {
                 className: 'fx-cardimage',
-                description: 'PNG or JPG up to 5 MB · recommended 800×600.',
+                description: `PNG or JPG up to ${MEDIA_MAX_FILE_LABEL} · recommended 800×600.`,
               },
             },
           ],
@@ -221,7 +228,7 @@ export const Services: CollectionConfig = {
           relationTo: 'media',
           admin: {
             className: 'fx-heroimage',
-            description: 'PNG or JPG up to 5 MB · recommended 1600×600.',
+            description: `PNG or JPG up to ${MEDIA_MAX_FILE_LABEL} · recommended 1600×600.`,
           },
         },
       ],

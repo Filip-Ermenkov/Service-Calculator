@@ -12,7 +12,9 @@
  */
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getPayload, Payload } from 'payload'
+import { REST_GET } from '@payloadcms/next/routes'
 import config from '@/payload.config'
+import { MEDIA_MAX_FILE_BYTES } from '@/collections/Media'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -93,7 +95,7 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
     // delete step ran.
     for (const id of createdMediaIds) {
       await payload
-        .delete({ collection: 'media', id })
+        .delete({ collection: 'media', id, context: { disableRevalidate: true } })
         .catch(() => undefined)
     }
   })
@@ -102,6 +104,7 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
     const doc = await payload.create({
       collection: 'media',
       data: { alt: 'Integration test pixel' },
+      context: { disableRevalidate: true },
       file: {
         data: onePixelPng,
         mimetype: 'image/png',
@@ -124,6 +127,7 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
     const doc = await payload.create({
       collection: 'media',
       data: { alt: 'Integration test pixel (delete case)' },
+      context: { disableRevalidate: true },
       file: {
         data: onePixelPng,
         mimetype: 'image/png',
@@ -135,7 +139,7 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
 
     await expect(objectExists(filename)).resolves.toBe(true)
 
-    await payload.delete({ collection: 'media', id: doc.id })
+    await payload.delete({ collection: 'media', id: doc.id, context: { disableRevalidate: true } })
 
     // Not tracked for afterAll cleanup — it's already gone, and re-deleting
     // a Media doc whose S3 object no longer exists is exactly the failure
@@ -150,12 +154,14 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
     const older = await payload.create({
       collection: 'media',
       data: { alt: 'Order test — older' },
+      context: { disableRevalidate: true },
       file: { data: onePixelPng, mimetype: 'image/png', name: 'media-int-order-a.png', size: onePixelPng.length },
     })
     createdMediaIds.push(older.id)
     const newer = await payload.create({
       collection: 'media',
       data: { alt: 'Order test — newer' },
+      context: { disableRevalidate: true },
       file: { data: onePixelPng, mimetype: 'image/png', name: 'media-int-order-b.png', size: onePixelPng.length },
     })
     createdMediaIds.push(newer.id)
@@ -170,6 +176,69 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
     expect(pos(newer.id)).toBeLessThan(pos(older.id))
   })
 
+  it(`rejects a file over the ${MEDIA_MAX_FILE_BYTES / (1024 * 1024)} MB cap before it reaches S3`, async () => {
+    // Media bytes are served through the BUFFERED Web Lambda, whose 6 MB
+    // response cap (after base64) turns a large photo into a 502 for visitors —
+    // so the cap is a correctness limit, enforced by Media's beforeValidate hook
+    // on every upload path (src/collections/Media.ts). The Local API is the one
+    // path busboy's `upload.limits` and the presigned-URL check don't cover, so
+    // this is the hook's own proof. A real PNG header keeps Payload's type sniff
+    // and dimension read happy; the padding is what makes it oversized.
+    const oversized = Buffer.concat([onePixelPng, Buffer.alloc(MEDIA_MAX_FILE_BYTES + 1 - onePixelPng.length)])
+    expect(oversized.length).toBe(MEDIA_MAX_FILE_BYTES + 1)
+    // Unique per run: a local re-run after a failed attempt must not be fooled
+    // by a leftover object of the same name in S3Mock.
+    const oversizedName = `media-int-test-oversized-${Date.now()}.png`
+    await expect(
+      payload.create({
+        collection: 'media',
+        data: { alt: 'Should be rejected (too large)' },
+        context: { disableRevalidate: true },
+        file: { data: oversized, mimetype: 'image/png', name: oversizedName, size: oversized.length },
+      }),
+    ).rejects.toMatchObject({
+      name: 'ValidationError',
+      data: { errors: [{ path: 'file', message: expect.stringMatching(/limit is 4 MB/) }] },
+    })
+    await expect(objectExists(oversizedName)).resolves.toBe(false)
+
+    // Exactly at the cap is still allowed (the bound is inclusive).
+    const atCap = Buffer.concat([onePixelPng, Buffer.alloc(MEDIA_MAX_FILE_BYTES - onePixelPng.length)])
+    const ok = await payload.create({
+      collection: 'media',
+      data: { alt: 'At the cap' },
+      context: { disableRevalidate: true },
+      file: { data: atCap, mimetype: 'image/png', name: 'media-int-test-atcap.png', size: atCap.length },
+    })
+    createdMediaIds.push(ok.id)
+    expect(ok.filesize).toBe(MEDIA_MAX_FILE_BYTES)
+  })
+
+  it('serves files with a CDN/browser Cache-Control and streams the real S3 bytes', async () => {
+    // Drives the REAL file route (`GET /api/media/file/<name>`, the same
+    // REST_GET handler Next mounts) so the `modifyResponseHeaders` contract is
+    // proven on the response CloudFront actually sees — not on config alone.
+    const doc = await payload.create({
+      collection: 'media',
+      data: { alt: 'Cache header case' },
+      context: { disableRevalidate: true },
+      file: { data: onePixelPng, mimetype: 'image/png', name: 'media-int-test-cache.png', size: onePixelPng.length },
+    })
+    createdMediaIds.push(doc.id)
+
+    const handler = REST_GET(await config)
+    const filename = doc.filename as string
+    const res = await handler(
+      new Request(`http://localhost:3000/api/media/file/${encodeURIComponent(filename)}`),
+      { params: Promise.resolve({ slug: ['media', 'file', filename] }) },
+    )
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('image/png')
+    expect(res.headers.get('cache-control')).toBe('public, max-age=3600, s-maxage=86400')
+    const body = Buffer.from(await res.arrayBuffer())
+    expect(body.equals(onePixelPng)).toBe(true)
+  })
+
   it('rejects a non-image upload (SVG can carry <script>; served same-origin it is stored XSS)', async () => {
     // src/collections/Media.ts restricts `upload.mimeTypes` to raster images.
     // Payload validates the mime type server-side on create, so the rejected
@@ -179,6 +248,7 @@ describe('Media upload/delete (real S3, via S3Mock)', () => {
       payload.create({
         collection: 'media',
         data: { alt: 'Should be rejected' },
+        context: { disableRevalidate: true },
         file: { data: svg, mimetype: 'image/svg+xml', name: 'media-int-test-reject.svg', size: svg.length },
       }),
     ).rejects.toThrow()

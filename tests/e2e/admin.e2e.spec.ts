@@ -6,7 +6,13 @@ import { SAMPLE_SERVICE_TITLE } from '../helpers/sampleContent'
 test.describe('Admin Panel', () => {
   let page: Page
 
-  test.beforeAll(async ({ browser }, _testInfo) => {
+  test.beforeAll(async ({ browser }, testInfo) => {
+    // The seed boots a Payload instance INSIDE this worker (schema push against
+    // the dev DB) before the browser login even starts — 20–30 s on a Windows
+    // laptop, well inside the default 30 s hook timeout's margin of error.
+    // The extra budget only ever matters locally; CI's Linux runner boots in
+    // a few seconds.
+    testInfo.setTimeout(testInfo.timeout + 90_000)
     await seedTestUser()
 
     const context = await browser.newContext()

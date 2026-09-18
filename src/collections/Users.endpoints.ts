@@ -56,8 +56,11 @@ export const totpSetupEndpoint: Endpoint = {
     // longer existed, reported as a plain "Invalid code". Reuse is no weaker: a
     // pending secret is only reachable through the same password login that
     // could mint a fresh one. Re-enrolment (totpEnabled) always starts afresh.
-    // (`req.user` never carries totpSecret — field read access strips it — so
-    // read the row with overrideAccess like /totp/enable and /totp/verify do.)
+    // (Read the row explicitly like /totp/enable and /totp/verify do: Payload's
+    // JWT strategy populates `req.user` via the Local API with overrideAccess on,
+    // so the field IS present there today, but that is an implementation detail
+    // of payload@3.89 — the one documented, access-independent way to read a
+    // hidden field is an explicit overrideAccess read.)
     let secret: string | null = null
     if (!req.user.totpEnabled) {
       const row = await req.payload.findByID({

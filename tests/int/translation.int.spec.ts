@@ -153,6 +153,15 @@ describe('registry.ts — resolveLeaves', () => {
     expect((doc.calculatorFields as { label: string }[])[0].label).toBe('X')
   })
 
+  it('refuses prototype keys, so a path can never pollute Object.prototype', () => {
+    // Paths only ever come from TRANSLATABLE_FIELDS (the API validates first),
+    // but the walker must not be the thing that relies on that.
+    expect(resolveLeaves({}, '__proto__.polluted')).toEqual([])
+    expect(resolveLeaves({}, 'constructor.prototype.polluted')).toEqual([])
+    expect(resolveLeaves({ __proto__: {} } as object, '__proto__')).toEqual([])
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+  })
+
   it('topLevelKey strips array markers and group descent', () => {
     expect(topLevelKey('calculatorFields[].options[].optionLabel')).toBe('calculatorFields')
     expect(topLevelKey('card.cardTitle')).toBe('card')

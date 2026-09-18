@@ -136,6 +136,36 @@ export async function getPublishedServiceSlugs(): Promise<string[]> {
   }
 }
 
+/**
+ * Published services for the sitemap: slug + last modification, so `lastmod`
+ * reflects a real edit (Google only honours lastmod when it is consistently
+ * truthful; stamping "now" on every regeneration is the same as omitting it,
+ * except it also looks like a lie). Resilient → [].
+ */
+export async function getPublishedServicesForSitemap(): Promise<
+  { slug: string; updatedAt: string }[]
+> {
+  try {
+    const payload = await getPayloadClient()
+    const res = await payload.find({
+      collection: 'services',
+      depth: 0,
+      limit: 500,
+      pagination: false,
+      overrideAccess: false,
+      select: { slug: true, updatedAt: true },
+    })
+    return res.docs.flatMap((d) =>
+      typeof d.slug === 'string' && d.slug.length > 0
+        ? [{ slug: d.slug, updatedAt: d.updatedAt }]
+        : [],
+    )
+  } catch (err) {
+    logOpsEvent('content.getPublishedServicesForSitemap', err)
+    return []
+  }
+}
+
 export async function getProjects(locale: Locale): Promise<Project[]> {
   try {
     const payload = await getPayloadClient()

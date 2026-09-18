@@ -5,8 +5,9 @@ import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 
+import { isFullyVerified } from './access/publicRead'
 import { Users } from './collections/Users'
-import { Media } from './collections/Media'
+import { MEDIA_MAX_FILE_BYTES, Media } from './collections/Media'
 import { Services } from './collections/Services'
 import { Projects } from './collections/Projects'
 import { CareerListings } from './collections/CareerListings'
@@ -149,6 +150,30 @@ export default buildConfig({
       },
     },
   },
+  // Nothing in this app speaks GraphQL: the public site reads through the Local
+  // API, the admin panel through REST + server functions, and the custom routes
+  // are plain handlers. Payload nevertheless exposed `POST /api/graphql` — an
+  // unauthenticated, introspectable query engine (with its own complexity
+  // budget to defend) — on every stage. Disabling it removes that surface and
+  // skips building the schema at boot; the two generated route files under
+  // src/app/(payload)/api/graphql* were deleted with it (2026-09-18).
+  graphQL: {
+    disable: true,
+  },
+  // One media file may be at most MEDIA_MAX_FILE_BYTES (see src/collections/
+  // Media.ts for why this is a CORRECTNESS limit: media is served through the
+  // buffered Web Lambda, whose 6 MB response cap turns a large photo into a 502).
+  // `limits.fileSize` is busboy's cap on the multipart path (local/S3Mock and any
+  // server-side upload) — `abortOnLimit` makes it a 413 instead of a silently
+  // truncated file — and @payloadcms/storage-s3 reads the SAME option when it
+  // mints presigned PUT URLs for direct-to-S3 browser uploads on deployed stages,
+  // refusing an oversized request and signing `content-length` so S3 enforces it
+  // too. Media's own `beforeValidate` hook is the third, path-independent check.
+  upload: {
+    limits: { fileSize: MEDIA_MAX_FILE_BYTES },
+    abortOnLimit: true,
+    responseOnLimit: `File too large — the limit is ${MEDIA_MAX_FILE_BYTES / (1024 * 1024)} MB.`,
+  },
   collections: [Users, Media, Services, Projects, CareerListings],
   globals: [CompanyInfo, LegalInfo, HomeSettings],
   editor: lexicalEditor(),
@@ -234,7 +259,17 @@ export default buildConfig({
       // unaffected by this flag — that's what makes the media Local-API
       // integration test (tests/int/media.int.spec.ts) able to exercise real
       // S3 semantics without a browser, and why it never caught this.
-      clientUploads: !process.env.S3_ENDPOINT,
+      //
+      // `access` gates the presigned-URL endpoint the browser calls first
+      // (`POST /api/storage-s3-generate-signed-url`). The plugin's default is
+      // `!!req.user` — i.e. a PASSWORD-ONLY session, one that never completed
+      // the mandatory TOTP step, could still obtain signed PUT URLs and write
+      // arbitrary bytes into the media bucket (the Media document itself would
+      // then be refused by `create: requireTotpVerified`, but the object is
+      // already in S3). Same three checks as every other admin write.
+      clientUploads: process.env.S3_ENDPOINT
+        ? false
+        : { access: ({ req }) => isFullyVerified(req) },
       config: {
         region: process.env.AWS_REGION || 'eu-central-1',
         // No explicit credentials by default: Lambda's own execution role —

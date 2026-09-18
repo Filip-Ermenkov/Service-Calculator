@@ -1,6 +1,7 @@
 import type { GlobalConfig } from 'payload'
 import { APIError } from 'payload'
 
+import { readPublishedOrVerified } from '@/access/publicRead'
 import { requireTotpVerified } from '@/access/requireTotpVerified'
 import { revalidateGlobalAfterChange } from '@/lib/revalidate'
 import { translateGlobalAfterChange } from '@/lib/translation/hook'
@@ -47,12 +48,29 @@ export const LegalInfo: GlobalConfig = {
       'registered address) are filled in — see TECHSPEC §6.9.',
   },
   access: {
-    // Public content once published. Payload globals return only the published
-    // main-row to a normal (no-`draft`) read; unpublished edits live in the
-    // versions table, so placeholder drafts are never exposed here. The
-    // publish gate below is what guarantees it's never *published* incomplete.
-    read: () => true,
+    // Published-only for the public, everything for a fully 2FA-verified admin —
+    // the SAME rule Services/Projects use (src/access/publicRead.ts).
+    //
+    // This used to be `() => true` on the reasoning that a plain read returns
+    // only the published main row. That reasoning missed `?draft=true`: Payload's
+    // `findOne` then swaps in the latest version from the versions table and,
+    // with a boolean-true access result, applies NO constraint to that version
+    // query (verified in payload@3.89 `versions/drafts/replaceWithDraftIfAvailable.js`
+    // and reproduced with the real REST handler — an anonymous
+    // `GET /api/globals/legal-info?draft=true` returned the unpublished draft).
+    // Payload's own docs are explicit that `draft` never restricts anything and
+    // that `_status`-based read access is what must. With a WHERE constraint the
+    // draft lookup is filtered to `version._status = published`, so the §6.9
+    // guarantee — placeholder legal details can never surface publicly — holds
+    // on every read path, not just the one the public pages happen to use.
+    // tests/int/rest.int.spec.ts pins it in both directions.
+    read: readPublishedOrVerified,
     update: requireTotpVerified(() => true),
+    // `GET /api/globals/legal-info/versions[/:id]` returns every saved version —
+    // the unpublished drafts above included — and Payload's fallback for an
+    // unset access function is `Boolean(req.user)`: a password-only session. The
+    // second factor is required here exactly as for every other operation.
+    readVersions: requireTotpVerified(() => true),
   },
   // Draft/publish so the page can be authored and held in Draft until the
   // client's real details arrive (FUNCTIONALITY.md §2.5).

@@ -79,13 +79,16 @@ describe('SEO alternates/metadata (src/lib/seo.ts)', () => {
       en: '/en/projects',
       fr: '/fr/projects',
       de: '/de/projects',
-      'x-default': '/en/projects',
+      // x-default = the UNPREFIXED, language-negotiating URL (what next-intl's
+      // proxy 307s from), matching the `Link:` header next-intl emits — not a
+      // hard-coded English page.
+      'x-default': '/projects',
     })
   })
 
   it('normalises the home path (no trailing slash)', () => {
     expect(buildAlternates('en', '/').canonical).toBe('/en')
-    expect((buildAlternates('de', '/').languages as Record<string, string>)['x-default']).toBe('/en')
+    expect((buildAlternates('de', '/').languages as Record<string, string>)['x-default']).toBe('/')
   })
 
   it('pageMetadata wires title/description into OpenGraph + canonical', () => {

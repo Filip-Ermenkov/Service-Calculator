@@ -85,6 +85,24 @@ async function restGet(
 
 const idsOf = (docs: Array<{ id: number | string }>) => docs.map((d) => d.id)
 
+/** Same as restGet, for a GLOBAL: the response body is the document itself, not `{ docs }`. */
+async function restGetGlobal(
+  handler: ReturnType<typeof REST_GET>,
+  slug: string,
+  cookie?: string,
+  query?: string,
+  shape?: RequestShape,
+): Promise<{ status: number; doc: Record<string, unknown> }> {
+  const headers = new Headers()
+  if (cookie) headers.set('cookie', cookie)
+  applyShape(headers, shape)
+  const url = `${SAME_ORIGIN}/api/globals/${slug}${query ? `?${query}` : ''}`
+  const res = await handler(new Request(url, { headers }), {
+    params: Promise.resolve({ slug: ['globals', ...slug.split('/')] }),
+  })
+  return { status: res.status, doc: (await res.json()) as Record<string, unknown> }
+}
+
 /** Invoke the real REST POST handler (used for the auth `unlock` operation below). */
 async function restPost(
   handler: ReturnType<typeof REST_POST>,
@@ -274,6 +292,122 @@ describe('Public REST boundary — real route handler (src/app/(payload)/api)', 
     const rawDoc = raw.docs.find((d) => d.id === publishedServiceId)
     expect(rawDoc).toBeDefined()
     expect(rawDoc?.title).toBeFalsy()
+  })
+
+  // ── GET /api/globals/legal-info?draft=true — the §6.9 draft must never leak ──
+  //
+  // LegalInfo's `read` used to be `() => true`, on the reasoning that a plain
+  // read only ever returns the published main row. `?draft=true` broke that:
+  // Payload then swaps in the newest version from the versions table and, with
+  // a boolean-true access result, filters that version query by NOTHING
+  // (payload@3.89 `versions/drafts/replaceWithDraftIfAvailable.js`) — so the
+  // unpublished draft, i.e. exactly the placeholder registration details §6.9
+  // says must never be public, came back to an anonymous caller. Reproduced
+  // against this very handler on 2026-09-18. Payload's docs are explicit that
+  // `draft` restricts nothing and `_status`-based read access must; the global
+  // now uses the same `readPublishedOrVerified` rule as the collections.
+  //
+  // The MARKER is a value that only ever exists in the draft, so "not leaked"
+  // is asserted on content, never on `_status` alone (a published row that
+  // happens to carry the same fields would otherwise mask a regression).
+  describe('GET /api/globals/legal-info?draft=true never exposes the unpublished draft', () => {
+    const MARKER = `REST-LEGAL-DRAFT-MARKER-${Date.now()}`
+
+    beforeAll(async () => {
+      // A draft that differs from whatever is published (content.int.spec.ts
+      // publishes a complete LegalInfo earlier in the run; on a fresh DB nothing
+      // is published at all — both states must hold).
+      await payload.updateGlobal({
+        slug: 'legal-info',
+        draft: true,
+        data: { legalName: MARKER, rcsNumber: MARKER },
+        context: { disableRevalidate: true },
+      })
+    })
+
+    it('anonymous: the draft is NOT returned, with or without ?draft=true', async () => {
+      const plain = await restGetGlobal(handler, 'legal-info')
+      expect(plain.status).toBe(200)
+      expect(JSON.stringify(plain.doc)).not.toContain(MARKER)
+      expect(plain.doc._status === undefined || plain.doc._status === 'published').toBe(true)
+
+      const draft = await restGetGlobal(handler, 'legal-info', undefined, 'draft=true')
+      expect(draft.status).toBe(200)
+      expect(JSON.stringify(draft.doc)).not.toContain(MARKER)
+      expect(draft.doc._status).not.toBe('draft')
+    })
+
+    it('password-only session (no TOTP step-up): treated like the public, draft hidden', async () => {
+      const { doc } = await restGetGlobal(handler, 'legal-info', passwordOnlyCookie, 'draft=true')
+      expect(JSON.stringify(doc)).not.toContain(MARKER)
+      expect(doc._status).not.toBe('draft')
+    })
+
+    it('fully verified admin: the draft IS returned (the editor needs it)', async () => {
+      const { status, doc } = await restGetGlobal(handler, 'legal-info', verifiedCookie, 'draft=true')
+      expect(status).toBe(200)
+      expect(doc.legalName).toBe(MARKER)
+      expect(doc._status).toBe('draft')
+    })
+
+    it('the public data layer (src/lib/content.ts) sees the same thing as anonymous REST', async () => {
+      // `getLegalInfo` reads with overrideAccess:false and no `draft`, but the
+      // rule must hold for a draft read too — this is the Local-API twin of the
+      // anonymous REST case, so a future caller cannot reopen the hole.
+      const asPublic = await payload.findGlobal({
+        slug: 'legal-info',
+        overrideAccess: false,
+        draft: true,
+      })
+      expect(JSON.stringify(asPublic)).not.toContain(MARKER)
+    })
+  })
+
+  // ── /versions — every saved version, drafts included, behind the 2FA step ──
+  //
+  // Neither collection nor global ever set `access.readVersions`, and Payload's
+  // fallback for an UNSET access function is `Boolean(req.user)` (verified in
+  // payload@3.89 `auth/executeAccess.js`). So `GET /api/services/versions` and
+  // `GET /api/globals/legal-info/versions` handed every draft to a session that
+  // had only passed the PASSWORD step — the same class of gap as `users.unlock`.
+  // The read/create/update/delete boundary ("a password-only session sees
+  // nothing extra") now holds for versions too.
+  describe('versions endpoints require the completed TOTP step-up', () => {
+    it('GET /api/services/versions: anonymous and password-only are refused, verified admin sees the draft', async () => {
+      const anon = await restGet(handler, ['services', 'versions'])
+      expect(anon.status).toBe(403)
+
+      const passwordOnly = await restGet(handler, ['services', 'versions'], passwordOnlyCookie)
+      expect(passwordOnly.status).toBe(403)
+
+      const verified = await restGet(handler, ['services', 'versions'], verifiedCookie)
+      expect(verified.status).toBe(200)
+      const parents = (verified.docs as unknown as Array<{ parent: number | string }>).map((v) => v.parent)
+      expect(parents).toContain(draftServiceId)
+    })
+
+    it('GET /api/globals/legal-info/versions: anonymous and password-only are refused, verified admin is allowed', async () => {
+      const anon = await restGetGlobal(handler, 'legal-info/versions')
+      expect(anon.status).toBe(403)
+
+      const passwordOnly = await restGetGlobal(handler, 'legal-info/versions', passwordOnlyCookie)
+      expect(passwordOnly.status).toBe(403)
+
+      const verified = await restGetGlobal(handler, 'legal-info/versions', verifiedCookie)
+      expect(verified.status).toBe(200)
+      expect(Array.isArray(verified.doc.docs)).toBe(true)
+    })
+  })
+
+  // ── GraphQL is switched off ────────────────────────────────────────────────
+  // Nothing in this app uses it (Local API on the public site, REST + server
+  // functions in the admin), yet Payload mounted an unauthenticated,
+  // introspectable `POST /api/graphql` on every stage. `graphQL.disable: true`
+  // in payload.config.ts plus the deleted route files make it a plain 404 —
+  // this drives the REST catch-all the path now falls through to.
+  it('POST /api/graphql is not a route any more (GraphQL disabled)', async () => {
+    const { status } = await restPost(postHandler, ['graphql'], { query: '{ __typename }' })
+    expect(status).toBe(404)
   })
 
   // ── POST /api/users/unlock — the FIFTH access operation ───────────────────

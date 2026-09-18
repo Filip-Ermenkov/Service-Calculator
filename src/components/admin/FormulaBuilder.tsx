@@ -298,8 +298,11 @@ export const FormulaBuilder = ({ path = 'formula' }: Props) => {
       const ta = textareaRef.current
       const start = range?.[0] ?? ta?.selectionStart ?? text.length
       const end = range?.[1] ?? ta?.selectionEnd ?? text.length
+      // `|` is a caret marker in our own chip snippets (never formula syntax —
+      // the language has no `|` operator), so every occurrence is stripped and
+      // the FIRST one decides where the caret lands.
       const caretMark = snippet.indexOf('|')
-      const clean = snippet.replace('|', '')
+      const clean = snippet.replaceAll('|', '')
       const before = text.slice(0, start)
       const after = text.slice(end)
       const spaceBefore = before.length > 0 && !/[\s(]$/.test(before) && !/^[)%,]/.test(clean)

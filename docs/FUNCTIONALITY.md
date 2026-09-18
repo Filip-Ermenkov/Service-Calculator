@@ -2,9 +2,9 @@
 
 > This document describes the complete functionality of the bulbau.lu website from a non-technical perspective. It covers every page, every user-facing interaction, every admin capability, and all cross-cutting behaviours. It is intended to serve as the single source of truth before any technical decisions are made.
 >
-> **Status (2026-09-17) — read this first.** **Every feature described in this document is built and running at `https://bulbau.lu`**, which is deliberately not yet announced or indexed. Where the build deviates from the wording below, a short **Built** note follows the relevant section.
+> **Status (2026-09-18) — read this first.** **Every feature described in this document is built and running at `https://bulbau.lu`**, which is deliberately not yet announced or indexed. Where the build deviates from the wording below, a short **Built** note follows the relevant section.
 >
-> **Since the last update (2026-09-16/17):** the **admin's "Forgot your password?" now really sends an email** — until then the screen said "Email Sent" while nothing left the server, which with a single administrator and mandatory two-factor login would have made a forgotten password unrecoverable (§5.1); the admin login is protected against being replayed from another website; two small technical hardenings (framework fingerprint header removed, security headers on redirects); the Careers page's "Contact Us" button now goes to the Contact page. **Both the test and live databases were rebuilt from empty on 2026-09-16** — the live site's content (services, projects, company details) has to be re-entered.
+> **Since the last update (2026-09-18, awaiting its test-then-live release):** a review of the whole build found and closed four gaps that no feature had asked for — (1) an **unpublished Legal Notice draft could be read by anyone** who asked the website's data interface for "the draft" (the pages themselves were fine; the raw interface was not) — closed, so placeholder legal details can no longer surface anywhere before the admin publishes (§2.5); (2) someone holding only the admin **password**, without the authenticator code, could read every unpublished draft through the version-history interface — now the second factor is required there too (§5.1); (3) **photos are capped at 4 MB** with a clear message in the admin — a larger photo used to upload "successfully" and then fail to display for visitors (§5.3–5.5) — and photos are now cached at the edge, so pages load faster; (4) an unused query interface was switched off. All third-party software updates were applied and every automated security-scan finding resolved. **Since 2026-09-16/17:** the **admin's "Forgot your password?" really sends an email** (§5.1); the admin login is protected against being replayed from another website; the Careers page's "Contact Us" button goes to the Contact page. **Both the test and live databases were rebuilt from empty on 2026-09-16** — the live site's content (services, projects, company details) has to be re-entered.
 >
 > **What still stands between the site and a public launch — none of it development work:** the company's real registered legal details entered and published (a safeguard prevents publishing placeholders — §2.5); the client's `office@bulbau.lu` mailbox connected to the domain, so the contact form has somewhere to deliver; AWS "production access" for email so the emailed quote can reach any visitor's address (until then only pre-verified addresses receive it); and the "make it findable by search engines" switch, flipped last.
 
@@ -109,6 +109,8 @@ Every page's footer links to two pages: a **Privacy Policy** and a **Legal Notic
 **No cookie-consent banner** is shown to visitors. The site runs no web analytics, so the only cookie in use remembers the visitor's chosen language (strictly functional) — which requires no consent under GDPR/ePrivacy rules. (Web analytics was deliberately left out of scope; see `docs/TECHSPEC.md` §6.10. If ever added, it must be a cookieless tool so no banner is needed.)
 
 **Important constraint**: the company's exact registered legal form, RCS Luxembourg number, VAT number, and registered office address are not yet finalized. The Legal Notice must not be published with placeholder or invented values in place of these — the admin fills them in when they're available, and the page stays in Draft until it is complete and accurate.
+
+> **Built.** Publishing is technically blocked until all five details are present, and — since 2026-09-18 — an unpublished draft is invisible to the public on *every* path, including the website's raw data interface (it previously returned the draft when asked for it explicitly). The admin can therefore save partial details as a draft at any time without risk.
 
 ---
 
@@ -317,7 +319,7 @@ The admin panel is a private, password-protected section of the website accessib
 - The reset link expires after a set period (e.g., one hour).
 - Following the link, the admin sets a new password and is then returned to the login screen.
 
-> **Built (2026-09-16).** The reset email is sent from `info@bulbau.lu` (confirmed delivered 2026-09-17). It contains only a single-use link that expires after **one hour**; the screen shows the same "Email Sent" message whether or not the address has an account, so nobody can use it to discover admin addresses; and repeated requests are throttled (5 per 15 minutes). After choosing a new password the admin still has to enter the two-factor code — a reset never skips it. The "Change Password" and "re-link authenticator" flows in §5.8 are Payload's account screen and the `/admin/totp-setup` screen respectively.
+> **Built (2026-09-16).** The reset email is sent from `info@bulbau.lu` (confirmed delivered 2026-09-17). It contains only a single-use link that expires after **one hour**; the screen shows the same "Email Sent" message whether or not the address has an account, so nobody can use it to discover admin addresses; and repeated requests are throttled (5 per 15 minutes). After choosing a new password the admin still has to enter the two-factor code — a reset never skips it. The "Change Password" and "re-link authenticator" flows in §5.8 are Payload's account screen and the `/admin/totp-setup` screen respectively. **The two-factor code protects everything, including history (2026-09-18):** a session that has entered only the password can neither read unpublished drafts through the version history nor start a photo upload — every such door opens only after the authenticator code.
 
 ---
 
@@ -356,6 +358,8 @@ This is the most flexible and powerful section of the admin panel. Services are 
 - Service description (rich text — supports paragraphs, bold, lists, etc.).
 - Hero image upload.
 - Published / Draft toggle. Draft services are not visible to visitors.
+
+> **Photos, everywhere in the admin (2026-09-18):** JPEG, PNG or WebP, **at most 4 MB each** — the admin sees the file's size and the limit if a photo is larger. A photo above that size used to upload without complaint and then not display for visitors, so this is a safeguard, not a restriction on quality (a full-width 1600 px photo is well under 1 MB).
 
 **Home Page Card**
 - Separate card photo (may differ from the hero image).

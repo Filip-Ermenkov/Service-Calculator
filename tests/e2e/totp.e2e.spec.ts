@@ -27,7 +27,9 @@ const sessionPassword = 'totp-e2e-session-password'
 const sessionSecret = 'SJPA2UZZG7ABPN2DYVD3TD36BTRTPYUD'
 
 test.describe('Two-factor authentication', () => {
-  test.beforeAll(async () => {
+  test.beforeAll(async ({}, testInfo) => {
+    // Two seeds = one Payload boot in this worker (see admin.e2e.spec.ts).
+    testInfo.setTimeout(testInfo.timeout + 90_000)
     await seedUnenrolledTestUser(email, password)
     await seedEnrolledTestUser(sessionEmail, sessionPassword, sessionSecret)
   })

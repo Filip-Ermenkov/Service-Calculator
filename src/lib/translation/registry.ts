@@ -67,6 +67,9 @@ export interface LeafRef {
   set(value: unknown): void
 }
 
+/** Property names that would alter the prototype chain rather than a field. */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
 /**
  * Resolve a registry path against a concrete document object, returning a
  * get/set handle for every leaf it addresses. Missing intermediate objects/arrays
@@ -86,6 +89,12 @@ export function resolveLeaves(root: unknown, path: string): LeafRef[] {
     const seg = segments[idx]
     const isArray = seg.endsWith('[]')
     const key = isArray ? seg.slice(0, -2) : seg
+    // Every path this is ever called with comes from TRANSLATABLE_FIELDS (the
+    // API route rejects anything else before it gets here), so a prototype key
+    // can't reach this walker in practice — but a `set()` through `__proto__`
+    // would be prototype pollution, and a walker that structurally refuses it
+    // needs no such argument. Only own, data properties are addressable.
+    if (UNSAFE_KEYS.has(key)) return
     const isLast = idx === segments.length - 1
     const container = current as Record<string, unknown>
 
