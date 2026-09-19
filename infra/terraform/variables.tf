@@ -111,3 +111,51 @@ variable "deploy_role_name" {
   type        = string
   default     = "gh-actions-bulbau-staging-deploy"
 }
+
+# ── DMARC (domain-wide; the record itself lives in ses.tf) ──────────────────
+variable "dmarc_policy" {
+  description = "DMARC policy for the domain: none (monitor only), quarantine or reject. Start at none; ratchet only after aggregate reports show every legitimate sender (SES and Google Workspace) passing aligned SPF/DKIM."
+  type        = string
+  default     = "none"
+
+  validation {
+    condition     = contains(["none", "quarantine", "reject"], var.dmarc_policy)
+    error_message = "dmarc_policy must be one of: none, quarantine, reject."
+  }
+}
+
+variable "dmarc_report_address" {
+  description = "Mailbox that receives DMARC aggregate (rua) reports. Empty = dmarc@<domain_name>. MUST be an address under domain_name: an external address (a gmail.com inbox, say) is silently IGNORED by conformant receivers unless the external domain publishes <domain_name>._report._dmarc.<external> — gmail.com does not, which is why the previous rua never received a single report. Create the mailbox as a Workspace alias or group."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.dmarc_report_address == "" || endswith(lower(var.dmarc_report_address), "@${lower(var.domain_name)}")
+    error_message = "dmarc_report_address must be an address under domain_name (e.g. dmarc@bulbau.lu) — an external mailbox cannot receive reports without an authorisation record the external domain would have to publish."
+  }
+}
+
+# ── Google Workspace mailbox DNS (opt-in) ────────────────────────────────────
+variable "manage_workspace_mail" {
+  description = "Whether Terraform publishes the DNS the client's Google Workspace mailbox (office@<domain_name>) needs: the root MX to smtp.google.com, the root SPF (Google + SES), and — when their values are supplied — Google's domain-verification TXT and the Workspace DKIM TXT (workspace-mail.tf). Kept FALSE by default like every other opt-in resource."
+  type        = bool
+  default     = false
+}
+
+variable "google_site_verification" {
+  description = "Google Workspace domain-verification value, copied from Admin console → Account → Domains → Manage domains → Verify domain (TXT record → Value). Either the full 'google-site-verification=…' string or just the part after '='. Empty = the TXT record is not published (Gmail cannot be activated until it is). Keep it after verification — harmless, and it saves a re-verification dance."
+  type        = string
+  default     = ""
+}
+
+variable "google_dkim_selector" {
+  description = "Selector prefix of the Workspace DKIM key (Admin console → Apps → Google Workspace → Gmail → Authenticate email → Generate new record). Google's default is 'google'."
+  type        = string
+  default     = "google"
+}
+
+variable "google_dkim_txt_value" {
+  description = "The full TXT value Google shows for the DKIM record ('v=DKIM1; k=rsa; p=MIIB…'). A 2048-bit key is ~410 characters, longer than a single 255-character TXT string, so workspace-mail.tf splits it into the quoted chunks Route 53 requires. Empty = not published yet (Google only offers the key 24–72 h after Gmail is activated)."
+  type        = string
+  default     = ""
+}

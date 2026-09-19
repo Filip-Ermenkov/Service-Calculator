@@ -43,3 +43,14 @@ output "ops_alerts_topic_arn_us_east_1" {
   description = "ARN of the us-east-1 SNS topic the uptime + CloudFront alarms publish to (empty until manage_uptime_monitoring = true). Its email subscription needs its OWN confirmation click, separate from the eu-central-1 topic's."
   value       = var.manage_uptime_monitoring ? aws_sns_topic.ops_alerts_us_east_1[0].arn : ""
 }
+
+# ── Mail DNS (what the zone publishes for the domain's mail) ─────────────────
+output "mail_dns_records" {
+  description = "The domain-level mail records as published (MX, root TXT incl. SPF, DMARC, Workspace DKIM name) — compare against `nslookup`/`dig` after apply. Empty pieces mean that record is not managed yet."
+  value = {
+    root_mx     = var.manage_workspace_mail ? aws_route53_record.root_mx[0].records : []
+    root_txt    = var.manage_workspace_mail ? aws_route53_record.root_txt[0].records : []
+    dmarc       = var.manage_ses ? aws_route53_record.ses_dmarc[0].records : []
+    google_dkim = local.google_dkim_enabled == 1 ? aws_route53_record.google_dkim[0].name : ""
+  }
+}
