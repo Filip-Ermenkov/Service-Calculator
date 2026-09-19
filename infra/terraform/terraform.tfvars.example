@@ -41,3 +41,23 @@ deploy_role_name   = "gh-actions-bulbau-staging-deploy"
 # identity + its DKIM/SPF/DMARC/MAIL-FROM records (verifies automatically, DNS is
 # in-zone). Then set the SST EmailSender secret + request SES production access.
 manage_ses = false
+
+# DMARC (the _dmarc record in ses.tf covers BOTH senders — SES and the Workspace
+# mailbox). Monitor first; move to "quarantine" then "reject" only once the
+# aggregate reports show every legitimate source passing aligned SPF/DKIM.
+dmarc_policy         = "none"
+# Where the aggregate reports go. MUST be under the domain (dmarc@bulbau.lu is the
+# default when empty) — create it in Workspace as an alias of office@ or as a
+# group; an external inbox (gmail.com) is ignored by receivers, so nothing arrives.
+dmarc_report_address = ""
+
+# ── Client mailbox — Google Workspace (workspace-mail.tf, opt-in) ─────────────
+# Publishes the root MX (1 smtp.google.com.), the root SPF (Google + SES) and,
+# when the two values below are filled in, Google's domain-verification TXT and
+# the Workspace DKIM TXT. Each value is optional so this can be applied in three
+# passes: MX/SPF now → verification token → DKIM key (Google issues it 24–72 h
+# after Gmail is activated). See the README runbook.
+manage_workspace_mail    = false
+google_site_verification = ""   # "google-site-verification=…" from Admin console → Account → Domains → Manage domains → Verify domain
+google_dkim_selector     = "google"
+google_dkim_txt_value    = ""   # "v=DKIM1; k=rsa; p=MIIB…" from Admin console → Apps → Google Workspace → Gmail → Authenticate email
