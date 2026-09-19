@@ -45,7 +45,7 @@
     "@payloadcms/richtext-lexical": "3.89.0",
     "@payloadcms/storage-s3": "3.89.0",
     "@payloadcms/ui": "3.89.0",
-    "@sparticuz/chromium": "^149.0.0",
+    "@sparticuz/chromium": "^153.0.0",
     "cross-env": "10.1.0",
     "dotenv": "17.4.2",
     "graphql": "17.0.2",
@@ -54,7 +54,7 @@
     "next-intl": "^4.14.5",
     "otplib": "13.5.0",
     "payload": "3.89.0",
-    "puppeteer-core": "^25.4.0",
+    "puppeteer-core": "^25.11.0",
     "qrcode": "1.5.4",
     "react": "19.3.0",
     "react-dom": "19.3.0"
