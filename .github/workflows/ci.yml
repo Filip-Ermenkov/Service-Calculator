@@ -240,6 +240,39 @@ jobs:
       # element selectors printed in the test output.
       - run: npm run test:e2e
 
+  # Foundational Terraform (infra/terraform): formatting, validity and the native
+  # `terraform test` suite — the pure record/value logic (DKIM chunking, DMARC
+  # address rule, opt-in gates) run against MOCKED providers, so this needs no
+  # AWS or Neon credentials and can never touch a live resource. It is the
+  # first automated check that layer has ever had: until 2026-09-19 a broken
+  # .tf file was discovered by whoever next ran `terraform plan` by hand.
+  # `-backend=false` skips the S3 state backend (which would need credentials);
+  # providers are still downloaded, which `validate` and `test` need for schemas.
+  terraform-check:
+    name: Terraform (fmt, validate, test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Pinned to a full commit SHA like every other action here. `terraform_version`
+      # tracks the minor the layer is developed against (versions.tf: >= 1.11).
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: '1.15.8'
+
+      - run: terraform fmt -check -recursive -diff
+
+      - run: terraform init -backend=false -input=false
+
+      - run: terraform validate -no-color
+
+      - run: terraform test -no-color
+
   deploy-staging:
     name: Deploy to staging
     needs: verify

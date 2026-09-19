@@ -57,9 +57,9 @@ resource "aws_route53_record" "ses_dkim" {
 # Aligns the Return-Path/envelope sender to the domain (SPF alignment) instead of
 # the default amazonses.com — a cleaner DMARC posture and better deliverability.
 resource "aws_sesv2_email_identity_mail_from_attributes" "domain" {
-  count                  = var.manage_ses ? 1 : 0
-  email_identity         = aws_sesv2_email_identity.domain[0].email_identity
-  mail_from_domain       = local.ses_mail_from_domain
+  count            = var.manage_ses ? 1 : 0
+  email_identity   = aws_sesv2_email_identity.domain[0].email_identity
+  mail_from_domain = local.ses_mail_from_domain
   # If the MX below ever fails to resolve, fall back to amazonses.com rather than
   # rejecting the send — availability over strict alignment for a transactional
   # quote email.
@@ -92,14 +92,31 @@ resource "aws_route53_record" "ses_mail_from_spf" {
 }
 
 # ── DMARC ────────────────────────────────────────────────────────────────────
-# Start at p=none (monitor-only) so a misconfiguration can't silently drop mail;
-# aggregate reports go to the alert address. Tighten to quarantine/reject only
-# after confirming DKIM+SPF pass on real sends (a deliberate later change).
+# ONE record for the whole domain — it governs every sender that uses
+# bulbau.lu in From: Amazon SES (the site's quote/contact/reset mail, aligned via
+# its bulbau.lu DKIM signature and the mail.bulbau.lu MAIL FROM — relaxed SPF
+# alignment) AND the client's Google Workspace mailbox (workspace-mail.tf, aligned
+# once its DKIM key is published). `p=none` is monitor-only so a misconfiguration
+# can never drop mail; tighten to quarantine/reject via var.dmarc_policy only
+# after the aggregate reports show every legitimate source passing.
+#
+# The rua address MUST be under this domain (var.dmarc_report_address validates
+# it). Until 2026-09-19 it pointed at a gmail.com inbox: RFC 7489 §7.1 makes a
+# report generator ignore an external destination unless the external domain
+# publishes `<domain>._report._dmarc.<external>` — gmail.com publishes no such
+# record (google.com does), so no report was ever delivered and "monitoring"
+# monitored nothing. `fo=1` was dropped with it: it only affects failure (ruf)
+# reports, which this record does not request.
+locals {
+  dmarc_report_address = var.dmarc_report_address != "" ? var.dmarc_report_address : "dmarc@${var.domain_name}"
+  dmarc_record         = "v=DMARC1; p=${var.dmarc_policy}; rua=mailto:${local.dmarc_report_address}"
+}
+
 resource "aws_route53_record" "ses_dmarc" {
   count   = var.manage_ses ? 1 : 0
   zone_id = aws_route53_zone.main.zone_id
   name    = "_dmarc.${var.domain_name}"
   type    = "TXT"
   ttl     = 600
-  records = ["v=DMARC1; p=none; rua=mailto:${var.alert_email}; fo=1"]
+  records = [local.dmarc_record]
 }
