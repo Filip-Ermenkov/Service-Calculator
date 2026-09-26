@@ -47,13 +47,13 @@ import { default as default_9bb8ea9971948830b3de812baaa56aec } from '../../../co
 import { default as default_7006369d46333af165d19f6b340651f3 } from '../../../components/admin/ViewWebsiteAction'
 import { default as default_ad58a1585bcee035a66e94d6c1df4536 } from '../../../components/admin/BackToWebsite'
 import { default as default_7b77c0a8bf5649eadd846d28c5d927eb } from '../../../components/admin/LoginIntro'
-import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { default as default_d5206ed16da09b4b168746139c60fd4a } from '../../../components/admin/DashboardView'
 import { default as default_b5f3e370d7e19c538f450a4fe585c663 } from '../../../components/admin/ServicesRedirect'
 import { default as default_d3bcd6b26bcbfa2512d67965e00aa168 } from '../../../components/admin/TotpSetupView'
 import { default as default_7a9acd40ce8825a2bd222927c3f9ad93 } from '../../../components/admin/TotpVerifyView'
 import { default as default_94803bc5cd550e7385f10011bc982182 } from '../../../components/admin/TranslationsView'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
+import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 
 /** @type import('payload').ImportMap */
 export const importMap = {
@@ -106,11 +106,11 @@ export const importMap = {
   "/components/admin/ViewWebsiteAction#default": default_7006369d46333af165d19f6b340651f3,
   "/components/admin/BackToWebsite#default": default_ad58a1585bcee035a66e94d6c1df4536,
   "/components/admin/LoginIntro#default": default_7b77c0a8bf5649eadd846d28c5d927eb,
-  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "/components/admin/DashboardView#default": default_d5206ed16da09b4b168746139c60fd4a,
   "/components/admin/ServicesRedirect#default": default_b5f3e370d7e19c538f450a4fe585c663,
   "/components/admin/TotpSetupView#default": default_d3bcd6b26bcbfa2512d67965e00aa168,
   "/components/admin/TotpVerifyView#default": default_7a9acd40ce8825a2bd222927c3f9ad93,
   "/components/admin/TranslationsView#default": default_94803bc5cd550e7385f10011bc982182,
-  "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
+  "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,
+  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24
 }

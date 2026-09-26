@@ -41,6 +41,21 @@ describe('media/publicUrl.ts — the "URL path is the S3 key" contract', () => {
     expect(mediaPublicUrl({ filename: 'a.png', prefix: 'media//sub' })).toBe('/media/sub/a.png')
   })
 
+  it('keeps the contract for a client upload, whose key carries a per-upload segment', () => {
+    // Payload 3.90's fix for GHSA-7vg8-29qx-jgj8: a direct-to-S3 upload (the
+    // path DEPLOYED stages take — local/CI use multipart, so only this test
+    // covers the deployed shape) is stored at `media/<uuid>/<file>` and the
+    // plugin hands `generateFileURL` the folded prefix. The URL must still be
+    // the key, byte for byte, or CloudFront would ask the bucket for a key that
+    // does not exist.
+    const objectKey = '7f1c3f9e-2b45-4f6a-9d21-8c0ea5b3d7aa'
+    const url = mediaPublicUrl({ filename: 'roof top.jpg', prefix: `${MEDIA_S3_PREFIX}/${objectKey}` })
+    expect(url).toBe(`/media/${objectKey}/roof%20top.jpg`)
+    expect(decodeURIComponent(url.slice(1))).toBe(`media/${objectKey}/roof top.jpg`)
+    // Still under the one CloudFront behaviour / one local rewrite.
+    expect(url.startsWith(`${MEDIA_PUBLIC_PATH}/`)).toBe(true)
+  })
+
   it('a document with no prefix (pre-contract upload) still gets the canonical shape', () => {
     // Its object sits at the bucket root, which nothing serves any more — the
     // canonical URL 404s cleanly at the edge and the fix is to re-upload. What

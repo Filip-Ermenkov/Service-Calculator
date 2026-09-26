@@ -47,6 +47,29 @@ const COMPANY_NAME = 'Bulbau'
 export const RESET_PASSWORD_EXPIRATION_MS = 60 * 60 * 1000
 
 /**
+ * Payload's OWN minimum interval between reset emails for one account, added in
+ * 3.90.0 as the fix for GHSA-v5gf-vpjc-pc7w (an unauthenticated attacker who
+ * knows an address can hold the only administrator in the `maxLoginAttempts`
+ * lockout below indefinitely). It is enforced as an ATOMIC reservation on the
+ * new `resetPasswordRequestedAt` column — so unlike a per-process counter it
+ * holds across Lambda instances — and a throttled request returns the same
+ * silent `null` as an unknown address, giving nothing away.
+ *
+ * Kept at Payload's default 15 s, but stated explicitly for the same reason
+ * `push` is stated explicitly in payload.config.ts: this is a security boundary,
+ * and a boundary that lives in someone else's default can change under us in a
+ * minor release without a line in our diff.
+ *
+ * It does NOT replace `FORGOT_PASSWORD_RATE_LIMIT` below; the two answer
+ * different questions. Payload's is per ACCOUNT and bounds the *rate* (one mail
+ * per 15 s, so a flood cannot be amplified through us). Ours is per IP and per
+ * ADDRESS and bounds the *total* (5 per 15 min), runs before the account lookup
+ * so it cannot be used to probe which addresses exist, and is what refuses a
+ * slow drip that stays under Payload's interval forever.
+ */
+export const RESET_PASSWORD_MIN_REQUEST_INTERVAL_MS = 15 * 1000
+
+/**
  * Budget for `POST /api/users/forgot-password`. It is unauthenticated and every
  * accepted call writes a reset token AND triggers an outbound SES email to the
  * account holder — so without a cap it is both a mail-bombing vector against the
@@ -109,6 +132,9 @@ export const Users: CollectionConfig = {
     // and is delivered by the SES adapter registered in payload.config.ts.
     forgotPassword: {
       expiration: RESET_PASSWORD_EXPIRATION_MS,
+      // See RESET_PASSWORD_MIN_REQUEST_INTERVAL_MS — Payload 3.90's account-level
+      // anti-lockout floor, stated rather than inherited.
+      minRequestInterval: RESET_PASSWORD_MIN_REQUEST_INTERVAL_MS,
       generateEmailSubject: () => resetPasswordSubject(COMPANY_NAME),
       generateEmailHTML: (args) => {
         const { req, token } = args ?? {}

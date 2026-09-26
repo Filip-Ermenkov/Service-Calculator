@@ -293,13 +293,39 @@ describe('forgot-password end to end (real Payload + Postgres)', () => {
     adminId = admin.id
   })
 
-  beforeEach(() => {
+  /**
+   * Clears Payload's per-account reset reservation (`resetPasswordRequestedAt`,
+   * added in 3.90 — see RESET_PASSWORD_MIN_REQUEST_INTERVAL_MS).
+   *
+   * Payload itself only releases the reservation when the operation THROWS
+   * before an email went out (so a failed attempt cannot lock the admin out of
+   * their own recovery for 15 seconds); after a successful send the marker
+   * stands until the interval genuinely elapses. A test that needs to act as
+   * though those seconds have passed therefore clears it here rather than
+   * sleeping through them.
+   */
+  const releaseResetInterval = async () => {
+    // Through `payload.db`, not `payload.update`: the reservation is an internal
+    // auth column Payload does not expose on the collection's writable data type
+    // (the typed Local API rightly refuses it), and the operation itself sets and
+    // clears it the same way.
+    await payload.db.updateOne({
+      collection: 'users',
+      data: { resetPasswordRequestedAt: null },
+      where: { id: { equals: adminId } },
+    })
+  }
+
+  beforeEach(async () => {
     process.env.EMAIL_SENDER = 'info@bulbau.lu'
     sent = []
     __setSesSendForTests(async (sender, params) => {
       sent.push({ sender, params })
     })
     __resetRateLimitForTests()
+    // Each test starts as though the account's last reset request is long past;
+    // otherwise the first test's reservation would silently swallow the rest.
+    await releaseResetInterval()
   })
 
   afterEach(() => {
@@ -356,12 +382,39 @@ describe('forgot-password end to end (real Payload + Postgres)', () => {
     expect(sent).toHaveLength(0)
   })
 
+  it("Payload's own minimum interval silently drops a repeat request for the same account", async () => {
+    // Payload 3.90 (GHSA-v5gf-vpjc-pc7w) reserves the account atomically on
+    // `resetPasswordRequestedAt` and refuses another reset inside
+    // `minRequestInterval`, returning the SAME silent null as an unknown address
+    // so the throttle cannot be used to probe which addresses exist. That is the
+    // anti-lockout floor; our own budget below is the separate, wider cap.
+    const first = await payload.forgotPassword({ collection: 'users', data: { email: adminEmail } })
+    expect(typeof first).toBe('string')
+    expect(sent).toHaveLength(1)
+
+    const second = await payload.forgotPassword({ collection: 'users', data: { email: adminEmail } })
+    expect(second).toBeNull()
+    expect(sent).toHaveLength(1) // nothing more went out, and no error leaked the reason
+
+    // The reservation is what did it — once it is released, a reset works again.
+    await releaseResetInterval()
+    const third = await payload.forgotPassword({ collection: 'users', data: { email: adminEmail } })
+    expect(typeof third).toBe('string')
+    expect(sent).toHaveLength(2)
+  })
+
   it('is rate-limited per address: the 6th request in the window is refused with 429 before any lookup or send', async () => {
     for (let i = 0; i < FORGOT_PASSWORD_RATE_LIMIT.max; i++) {
+      // Release Payload's per-account interval between iterations — the test is
+      // about OUR budget across a 15-minute window, in which 15 seconds have
+      // long since passed. Without this the loop would measure Payload's floor
+      // instead (the test above does that deliberately).
+      await releaseResetInterval()
       await payload.forgotPassword({ collection: 'users', data: { email: adminEmail } })
     }
     expect(sent).toHaveLength(FORGOT_PASSWORD_RATE_LIMIT.max)
 
+    await releaseResetInterval()
     await expect(
       payload.forgotPassword({ collection: 'users', data: { email: adminEmail } }),
     ).rejects.toMatchObject({ status: 429 })

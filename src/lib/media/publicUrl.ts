@@ -7,6 +7,20 @@
  * is served at `/media/roof.jpg` — same origin as the site, no host to
  * configure, no CORS.
  *
+ * Since Payload 3.90 a key may carry ONE MORE SEGMENT: the direct-to-S3
+ * client-upload path (what deployed stages use — `clientUploads` in
+ * payload.config.ts) mints a random per-upload folder, stored on the document
+ * as `_objectKey`, so the key is `media/<uuid>/roof.jpg` and the URL
+ * `/media/<uuid>/roof.jpg`. That is Payload's fix for GHSA-7vg8-29qx-jgj8 (a
+ * client upload could otherwise overwrite an existing object) and it does not
+ * bend the rule — the URL path is still exactly the key, `/media/*` still
+ * matches (a CloudFront path pattern's `*` spans slashes, and the local
+ * `/media/:path*` rewrite is equally greedy), and the caller here simply
+ * receives `prefix = "media/<uuid>"` because the storage plugin folds the two
+ * together before calling `generateFileURL`. Documents uploaded before 3.90
+ * have no `_objectKey`, keep `prefix = "media"`, and keep working unchanged —
+ * which is why the column is nullable and nothing was backfilled.
+ *
  * Why the path IS the key: CloudFront forwards the request path to an S3 origin
  * unchanged, so a `/media/*` cache behaviour pointed straight at the bucket
  * (sst.config.ts) needs no edge function to translate URLs into keys, and a
