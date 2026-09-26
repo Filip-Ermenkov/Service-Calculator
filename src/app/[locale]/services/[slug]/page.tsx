@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 
 import { JsonLd } from '@/components/site/JsonLd'
+import { MEDIA_SIZES, MediaImage } from '@/components/site/MediaImage'
 import { RichText } from '@/components/site/RichText'
 import { ServiceCalculator } from '@/components/site/ServiceCalculator'
 import { ArrowLeft, Bolt, Info } from '@/components/site/icons'
@@ -112,7 +113,11 @@ export default async function ServicePage({
               )}
             </div>
             <div className="img-ph" style={{ height: 200 }}>
-              {hero ? <img src={hero.url} alt={hero.alt} className="media-cover" /> : <Bolt style={{ width: 80, height: 80 }} />}
+              {hero ? (
+                <MediaImage src={hero.url} alt={hero.alt} sizes={MEDIA_SIZES.serviceHero} priority />
+              ) : (
+                <Bolt style={{ width: 80, height: 80 }} />
+              )}
             </div>
           </div>
         </div>

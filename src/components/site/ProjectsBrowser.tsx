@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 
 import { Bolt, Search } from '@/components/site/icons'
+import { MEDIA_SIZES, MediaImage } from '@/components/site/MediaImage'
 import {
   filterProjects,
   projectCategories,
@@ -87,12 +88,10 @@ export function ProjectsBrowser({ items }: { items: ProjectCard[] }) {
               <div className="project-card-img">
                 <div className="card-img-inner img-ph" style={{ height: 180 }}>
                   {project.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <MediaImage
                       src={project.imageUrl}
                       alt={project.imageAlt}
-                      className="media-cover"
-                      loading="lazy"
+                      sizes={MEDIA_SIZES.projectCard}
                     />
                   ) : (
                     <Bolt style={{ width: 40, height: 40 }} />
