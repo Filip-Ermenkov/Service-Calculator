@@ -380,7 +380,12 @@ test.describe('Public site — media is served at /media/* (Phase 7, media CDN)'
     const src = await img.getAttribute('src')
     expect(src).toBeTruthy()
     // The contract: relative, under /media/, never Payload's retired file route.
-    expect(src!).toMatch(/^\/media\/[^/]+\.(png|jpe?g|webp)$/)
+    // The path segment between `/media/` and the filename is OPTIONAL: since
+    // Payload 3.90 a direct-to-S3 client upload (deployed stages) stores the
+    // object at `media/<uuid>/<file>`, while the multipart path this dev server
+    // uses stores it at `media/<file>`. Both are "the URL path is the S3 key";
+    // pinning the flat shape here would pass locally and misdescribe production.
+    expect(src!).toMatch(/^\/media\/(?:[^/]+\/)?[^/]+\.(png|jpe?g|webp)$/)
     expect(src!).not.toContain('/api/media/file/')
 
     // The browser actually got pixels (a broken image has naturalWidth 0).
