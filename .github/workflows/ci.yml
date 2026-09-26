@@ -258,6 +258,11 @@ jobs:
           path: .lighthouseci/
           retention-days: 14
           if-no-files-found: warn
+          # REQUIRED here, and not obvious: `.lighthouseci` is a DOT-directory,
+          # and upload-artifact skips hidden files by default — so without this
+          # the step warns "No files were found" and uploads nothing while the
+          # job stays green. Caught on this PR's own first run.
+          include-hidden-files: true
 
       # Runs the full Playwright suite, which now INCLUDES the axe-core WCAG 2.2
       # AA accessibility gate (tests/e2e/accessibility.e2e.spec.ts) — a failing
