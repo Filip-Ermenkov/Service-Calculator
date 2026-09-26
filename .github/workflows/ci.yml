@@ -234,6 +234,31 @@ jobs:
       - name: Lighthouse CI (performance / SEO / a11y budgets)
         run: npm run lhci
 
+      # Make the numbers visible, and keep the reports.
+      #
+      # `lhci assert` prints ONLY the assertions that fail or warn, so a budget
+      # that PASSES leaves no score anywhere in the log — and `lighthouserc.cjs`
+      # writes its reports to `./.lighthouseci` with a comment saying they are
+      # kept "so the workflow can attach them as a build artifact", which no step
+      # ever did: they were discarded with the runner. Found 2026-09-26 when the
+      # next/image slice needed the new performance baseline to re-calibrate the
+      # floor with, and there was no way to read it without changing CI first.
+      #
+      # Both steps run with `if: always()` on purpose — a failing budget is
+      # exactly when the report is worth having.
+      - name: Lighthouse scores (job summary)
+        if: always()
+        run: node scripts/lighthouse-summary.mjs
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 14
+          if-no-files-found: warn
+
       # Runs the full Playwright suite, which now INCLUDES the axe-core WCAG 2.2
       # AA accessibility gate (tests/e2e/accessibility.e2e.spec.ts) — a failing
       # serious/critical violation fails this step, with the offending rule +
