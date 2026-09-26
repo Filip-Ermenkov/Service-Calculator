@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { JsonLd } from '@/components/site/JsonLd'
+import { MEDIA_SIZES, MediaImage } from '@/components/site/MediaImage'
 import { ArrowRight, Bolt } from '@/components/site/icons'
 import { Link } from '@/i18n/navigation'
 import type { Locale } from '@/i18n/routing'
@@ -107,7 +108,7 @@ export default async function HomePage({
                     <div className="service-card-img">
                       <div className="card-img-inner img-ph" style={{ height: 200 }}>
                         {img ? (
-                          <img src={img.url} alt={img.alt} className="media-cover" loading="lazy" />
+                          <MediaImage src={img.url} alt={img.alt} sizes={MEDIA_SIZES.serviceCard} />
                         ) : (
                           <Bolt />
                         )}

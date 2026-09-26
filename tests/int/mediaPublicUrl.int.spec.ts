@@ -65,6 +65,23 @@ describe('media/publicUrl.ts — the "URL path is the S3 key" contract', () => {
     expect(mediaPublicUrl({ filename: 'a.png', prefix: '' })).toBe('/media/a.png')
   })
 
+  it('next/image may optimize ONLY /media/** — the guard the S3 loader depends on', async () => {
+    // Three files agree on this and would break apart silently otherwise:
+    //   • sst.config.ts repoints the image optimizer's S3 loader at the MEDIA
+    //     bucket with an EMPTY key prefix, because a local `/media/<key>` src
+    //     resolves to exactly that key.
+    //   • next.config.ts allows local optimization for `/media/**` and nothing
+    //     else, which is what makes the line above safe: no other local path can
+    //     ever be handed to that loader (and there is no `public/` directory).
+    //   • This test fails the moment the allow-list widens, which is the moment
+    //     the loader would start being asked for keys the media bucket has not
+    //     got — a 404 that would only ever show up on a deployed stage.
+    const { default: nextConfig } = (await import('../../next.config')) as {
+      default: { images?: { localPatterns?: { pathname?: string; search?: string }[] } }
+    }
+    expect(nextConfig.images?.localPatterns).toEqual([{ pathname: `${MEDIA_PUBLIC_PATH}/**` }])
+  })
+
   it('browser caching is public and bounded (keys can be reused after a delete, so never immutable)', () => {
     expect(MEDIA_CACHE_CONTROL).toMatch(/^public, max-age=\d+$/)
     expect(MEDIA_CACHE_CONTROL).not.toContain('immutable')

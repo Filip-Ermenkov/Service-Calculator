@@ -289,6 +289,49 @@ export default $config({
               },
             ])
         },
+        // Point the image optimizer at the MEDIA bucket.
+        //
+        // `next/image` with a relative `src` (ours are all `/media/<key>` — see
+        // src/lib/media/publicUrl.ts) is a LOCAL image, and OpenNext resolves a
+        // local path through its S3 loader: `GetObject(BUCKET_NAME,
+        // BUCKET_KEY_PREFIX + path)`. SST hard-codes those to its own ASSETS
+        // bucket and the `_assets` prefix (ssr-site.ts), where CMS uploads do
+        // not exist — so without this the optimizer would 404 every photo on
+        // Lambda while working perfectly on `next dev` (whose own optimizer
+        // reads local paths back through the dev server). A divergence that
+        // only appears in production is exactly the kind this project refuses
+        // to ship, so the loader is repointed rather than worked around.
+        //
+        // Because the URL path IS the S3 key, the prefix must be EMPTY: the
+        // request path `/media/<uuid>/roof.jpg` is already the key
+        // `media/<uuid>/roof.jpg`. No translation, and no HTTP hop back through
+        // CloudFront (the alternative — absolute `src` + `remotePatterns` —
+        // would make every optimization a round trip through the edge and bake
+        // a per-stage origin into the markup).
+        //
+        // Nothing else can reach this loader: there is no `public/` directory,
+        // and `images.localPatterns` in next.config.ts allows `/media/**` only,
+        // so any future static image fails loudly in dev and CI (a 400 from
+        // Next) instead of silently 404-ing here.
+        imageOptimizer: (fnArgs) => {
+          fnArgs.environment = $util
+            .all([$output(fnArgs.environment ?? {}), media.name])
+            .apply(([environment, bucketName]) => ({
+              ...environment,
+              BUCKET_NAME: bucketName,
+              BUCKET_KEY_PREFIX: '',
+            }))
+          // Read-only, and only this bucket. SST's own grant on the assets
+          // bucket stays: it is its own bucket, and leaving it means a future
+          // static image would fail on Next's allow-list rather than on IAM,
+          // which is the clearer error.
+          fnArgs.permissions = $util
+            .all([$output(fnArgs.permissions ?? []), media.arn])
+            .apply(([permissions, bucketArn]) => [
+              ...permissions,
+              { actions: ['s3:GetObject'], resources: [`${bucketArn}/*`] },
+            ])
+        },
       },
       // Linking `pdf` grants the Web function permission to invoke it; its name
       // is passed explicitly as PDF_FUNCTION_NAME (read by src/lib/pdf/render.ts).

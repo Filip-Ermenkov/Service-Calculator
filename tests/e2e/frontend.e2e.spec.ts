@@ -379,33 +379,64 @@ test.describe('Public site — media is served at /media/* (Phase 7, media CDN)'
 
     const src = await img.getAttribute('src')
     expect(src).toBeTruthy()
-    // The contract: relative, under /media/, never Payload's retired file route.
+
+    // Since the next/image slice the browser is handed the OPTIMIZER's URL, with
+    // the media path as its `url` parameter. Both halves matter, so both are
+    // asserted: the optimizer is actually in the path, and what it was asked for
+    // is still our `/media/<key>` URL and nothing else.
+    expect(src!).toMatch(/^\/_next\/image\?url=/)
+    const mediaPath = decodeURIComponent(new URL(src!, BASE).searchParams.get('url')!)
     // The path segment between `/media/` and the filename is OPTIONAL: since
     // Payload 3.90 a direct-to-S3 client upload (deployed stages) stores the
     // object at `media/<uuid>/<file>`, while the multipart path this dev server
     // uses stores it at `media/<file>`. Both are "the URL path is the S3 key";
     // pinning the flat shape here would pass locally and misdescribe production.
-    expect(src!).toMatch(/^\/media\/(?:[^/]+\/)?[^/]+\.(png|jpe?g|webp)$/)
-    expect(src!).not.toContain('/api/media/file/')
+    expect(mediaPath).toMatch(/^\/media\/(?:[^/]+\/)?[^/]+\.(png|jpe?g|webp)$/)
+    expect(mediaPath).not.toContain('/api/media/file/')
+
+    // `sizes` must be present, or Next ships the 3840px variant to a 256px card
+    // and this slice makes page weight worse rather than better.
+    expect(await img.getAttribute('sizes')).toBeTruthy()
+    const srcset = await img.getAttribute('srcset')
+    expect(srcset).toContain('/_next/image?url=')
+    expect(srcset).toMatch(/\b256w\b/)
 
     // The browser actually got pixels (a broken image has naturalWidth 0).
     await expect
       .poll(async () => img.evaluate((el) => (el as HTMLImageElement).naturalWidth))
       .toBeGreaterThan(0)
 
-    // And the URL itself answers with the image — through the dev server, which
-    // proxies /media/* to S3Mock exactly as CloudFront proxies it to S3.
-    const res = await request.get(`${BASE}${src}`)
-    expect(res.status()).toBe(200)
-    expect(res.headers()['content-type']).toMatch(/^image\/png/)
-    expect((await res.body()).length).toBeGreaterThan(0)
+    // The optimizer really optimizes: asked for WebP it returns WebP, not a
+    // pass-through of the stored PNG. (On Lambda this same request is served by
+    // OpenNext's S3 loader reading the media bucket — see the `imageOptimizer`
+    // transform in sst.config.ts.)
+    const optimized = await request.get(`${BASE}${src}`, {
+      headers: { accept: 'image/webp,image/*' },
+    })
+    expect(optimized.status()).toBe(200)
+    expect(optimized.headers()['content-type']).toBe('image/webp')
+    expect((await optimized.body()).length).toBeGreaterThan(0)
+
+    // And the underlying media URL still answers directly — the CDN contract the
+    // optimizer sits on top of, unchanged.
+    const original = await request.get(`${BASE}${mediaPath}`)
+    expect(original.status()).toBe(200)
+    expect(original.headers()['content-type']).toMatch(/^image\/png/)
+    expect((await original.body()).length).toBeGreaterThan(0)
   })
 
   test("Payload's file route no longer proxies media through the app", async ({ page, request }) => {
     await page.goto(`${BASE}/en/projects`)
     const img = page.locator('.projects-grid img').first()
     test.skip((await img.count()) === 0, 'no seeded project photo in this environment (empty DB)')
-    const filename = (await img.getAttribute('src'))!.split('/').pop()!
+    // The filename comes out of the optimizer's `url` parameter, not off the end
+    // of `src`: since the next/image slice `src` is `/_next/image?url=…&w=…&q=…`,
+    // so splitting on `/` would yield a query string and this test would go on
+    // "passing" while asking Payload for a file name that never existed.
+    const src = (await img.getAttribute('src'))!
+    const mediaPath = decodeURIComponent(new URL(src, BASE).searchParams.get('url') ?? src)
+    const filename = mediaPath.split('/').pop()!
+    expect(filename).toMatch(/\.(png|jpe?g|webp)$/)
 
     // The route that used to stream every byte through the (buffered, 6 MB-capped)
     // Web Lambda is switched off (disablePayloadAccessControl); it must not hand
