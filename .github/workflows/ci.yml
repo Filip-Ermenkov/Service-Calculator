@@ -395,6 +395,16 @@ jobs:
           # resilient (src/lib/content.ts) so a cold/empty DB still builds.
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL_UNPOOLED }}
 
+      # Prove `next/image` works on the stage that was just deployed. No test in
+      # `verify` can: they all run against `next start` (Next's own optimizer),
+      # while a deployed stage uses OpenNext's, in a separate Lambda behind a
+      # separate CloudFront behaviour. That blind spot let a 500 on every CMS
+      # photo ship green — see scripts/smoke-image-optimizer.mjs and the
+      # `openNextVersion` note in sst.config.ts. Reads the stage URL from
+      # .sst/outputs.json, which the deploy above just wrote.
+      - name: Smoke test — next/image on staging
+        run: node scripts/smoke-image-optimizer.mjs
+
   deploy-production:
     name: Deploy to production
     # Promotion pipeline: production only runs after BOTH the verify gate and a
@@ -471,3 +481,9 @@ jobs:
           # this build-only value. Reads are resilient (src/lib/content.ts) so a
           # cold/empty DB still builds.
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL_UNPOOLED }}
+
+      # Same guard on production. Until the client uploads the first photo the
+      # media library is empty and this reports that it could not run (exit 0) —
+      # it never passes silently, and it starts guarding from that first upload.
+      - name: Smoke test — next/image on production
+        run: node scripts/smoke-image-optimizer.mjs

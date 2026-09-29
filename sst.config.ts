@@ -213,6 +213,41 @@ export default $config({
     })
 
     const web = new sst.aws.Nextjs('Web', {
+      // Pinned AHEAD of the version SST bundles by default, to fix a broken
+      // `next/image` optimizer. SST 4.17.1 (the latest release) hard-codes
+      // `DEFAULT_OPEN_NEXT_VERSION = "3.9.14"` (Jan 2026), and that build calls
+      // a Next.js internal whose signature changed underneath it:
+      //
+      //   OpenNext 3.9.14  fetchInternalImage(href, {headers}, {}, handler)     // 4 args
+      //   Next 16.3.6      fetchInternalImage(href, req, res, maxBody, handler) // 5 params
+      //
+      // so `handler` arrived as `undefined`, Next did `await handler(...)`, and
+      // EVERY optimized LOCAL image returned a 500 — reproduced on staging
+      // 2026-09-26: the raw object `/media/<uuid>/<file>` served 200 from S3
+      // while `/_next/image?url=%2Fmedia%2F…` returned OpenNext's generic
+      // `"Internal server error"`. Only LOCAL srcs are affected (an absolute
+      // src takes `fetchExternalImage`), which is exactly our case — see
+      // src/lib/media/publicUrl.ts. Nothing below was at fault: the URL
+      // contract, the media bucket, its policy and the IAM grant are all
+      // correct, and the S3 loader is never even reached.
+      //
+      // Upstream fixed it in @opennextjs/aws 4.0.0 by branching on the Next
+      // version; there is NO 3.x backport (3.9.16 / 3.10.0 / 3.10.4 all still
+      // make the 4-arg call), so moving off 3.x is the only real fix. 4.1.5 was
+      // verified locally against this repo before pinning: `open-next.output.json`
+      // is identical to 3.9.14 in every field SST reads (the three origins
+      // `default`/`imageOptimizer`/`s3`, no edge functions, the same `behaviors`
+      // and the same `additionalProps`), middleware stays bundled INTO the server
+      // function (no new origin, so src/proxy.ts keeps running), and the emitted
+      // optimizer bundle carries `globalThis.nextVersion = "16.3.6"` with the
+      // `>= 16.2.5` branch that passes all five arguments.
+      //
+      // Pinned exactly, not floated: this is the build that produces the Lambda
+      // bundles, so it must change deliberately and be re-proved on staging.
+      // REMOVE this line once SST's own default reaches >= 4.0.0 — keeping a
+      // manual pin past that point is how a project silently stops getting
+      // OpenNext's security and runtime fixes.
+      openNextVersion: '4.1.5',
       // Custom domain — PRODUCTION ONLY (see `isProduction` above). All other
       // stages return `undefined` here and keep their *.cloudfront.net URL.
       //

@@ -1,9 +1,9 @@
 // Lighthouse CI configuration (TECHSPEC §6.11 / §7B).
 //
 // Runs Google Lighthouse against a PRODUCTION build of the public site in CI and
-// fails the build on accessibility / SEO / best-practices regressions, with a
-// performance budget that currently WARNS (see the rationale on `performance`
-// below). This is the perf/SEO counterpart to the axe-core WCAG gate in
+// fails the build on accessibility / best-practices / performance regressions
+// (SEO stays a WARN by design — see the rationale on `categories:seo` below).
+// This is the perf/SEO counterpart to the axe-core WCAG gate in
 // tests/e2e/accessibility.e2e.spec.ts — together they replace the old "eyeball
 // it at sign-off" TODO in .github/workflows/ci.yml.
 //
@@ -55,7 +55,9 @@ module.exports = {
         // (`LanternError: cycle detected`, `… not implemented in lantern`) —
         // noisy and a stability risk in CI. Applied throttling is deterministic
         // and sidesteps that path entirely. Numbers differ slightly from a
-        // simulated run; performance is a WARN, so that's fine.
+        // simulated run, which is harmless because the performance floor below
+        // was calibrated against THESE numbers — but it does mean a local run
+        // using simulated throttling is not comparable to the CI gate.
         throttlingMethod: 'devtools',
         // --no-sandbox: required for headless Chrome under the CI runner's
         // sandboxing. Harmless locally. (The Windows-only EPERM temp-cleanup
@@ -76,10 +78,21 @@ module.exports = {
         // Hard gates — proven to pass 12/12 in CI at these thresholds.
         'categories:accessibility': ['error', { minScore: 0.9 }],
         'categories:best-practices': ['error', { minScore: 0.9 }],
-        // Performance floor. Passed 12/12 at 0.8 with no single-run dip, so 0.8 is
-        // a safe regression floor. Tighten once the `<img>`→`next/image` perf pass
-        // lands (docs/PROGRESS.md) and a higher baseline is confirmed.
-        'categories:performance': ['error', { minScore: 0.8 }],
+        // Performance floor, raised 0.8 → 0.85 on 2026-09-27 now that the
+        // `<img>` → `next/image` pass has landed and the scores are actually
+        // observable (scripts/lighthouse-summary.mjs — before it, a passing
+        // budget printed no number anywhere, so the floor could not be
+        // re-derived from a measurement).
+        //
+        // Two consecutive CI runs, each already the median of 3:
+        //   /en 96/95 · /en/projects 87/87 · /en/about 96/96 · /en/contact 96/96
+        //   /en/services/ci-sample-service 96/96 · /fr 95/95
+        // The worst page (the image grid) landed on exactly 87 both times and
+        // nothing moved by more than a point, so 0.85 sits two points under the
+        // observed minimum — tight enough to catch a real regression, loose
+        // enough for the ±1 actually measured. 0.9 would be above 87 and fail
+        // on the next push, which is why this is 0.85 and not higher.
+        'categories:performance': ['error', { minScore: 0.85 }],
 
         // SEO — the pre-launch SEO/mobile-legibility polish slice (2026-07-21)
         // fixed the real audits that were failing UNDER the composite score, and
