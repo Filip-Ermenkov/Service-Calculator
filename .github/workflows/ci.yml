@@ -94,8 +94,17 @@ jobs:
       # their line (e.g. brace-expansion inside eslint 9, only patched in an
       # ESM-only 5.x that eslint 9's CJS minimatch@3 can't consume without
       # jumping to eslint 10, which breaks eslint-plugin-react).
+      # Runs `npm audit --omit=dev` and fails on any high/critical advisory that
+      # is not explicitly accepted in scripts/audit-production-deps.mjs, with a
+      # reason, the evidence, and a review date. A bare `npm audit
+      # --audit-level=high` had no way to accept an advisory with no fix — the
+      # only options were to lower the threshold (which would also have waved
+      # through the ten undici highs cleared on 2026-10-03) or leave the gate
+      # red, which just teaches people to ignore it. The script also fails when
+      # an accepted advisory stops being reported, or passes its review date, so
+      # an exception cannot quietly become permanent.
       - name: Dependency audit — production deps (gate; fails on high/critical)
-        run: npm audit --omit=dev --audit-level=high
+        run: node scripts/audit-production-deps.mjs
 
       # VISIBILITY: audit the full tree (incl. dev) too, but never fail the build
       # on it — so new dev-tooling advisories are still surfaced in the CI log for
