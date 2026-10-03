@@ -3106,6 +3106,102 @@ button:focus-visible,
   }
 }
 
+/* ── Admin-assisted 2FA reset (TotpAdminReset.tsx) ──────────────────────────
+   Grouped with the other MFA styles even though it renders inside the Users
+   DOCUMENT EDITOR rather than on an auth screen — it is the same feature, and
+   splitting it across two sections is how one of them goes stale. Deliberately
+   narrow (not `.amfa-btn`, which is a full-width call-to-action sized for the
+   login card): inside a form this is one control among many. */
+.atfa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-block-end: var(--s-5);
+}
+
+.atfa__title {
+  margin: 0;
+  font-size: var(--fs-0);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--theme-elevation-800);
+}
+
+.atfa__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-width: 24rem;
+}
+
+.atfa__label {
+  font-size: var(--fs--1);
+  font-weight: 600;
+  color: var(--theme-elevation-700);
+}
+
+.atfa__input {
+  min-height: 38px;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--theme-elevation-150);
+  background: var(--theme-input-bg);
+  color: var(--theme-elevation-800);
+  font-size: var(--fs-0);
+}
+
+.atfa__input:focus-visible {
+  outline: 2px solid var(--bulbau-orange);
+  outline-offset: 1px;
+}
+
+.atfa__error {
+  margin: 0;
+  font-size: var(--fs--1);
+  color: var(--theme-error-500);
+}
+
+.atfa__actions {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.atfa__btn {
+  align-self: flex-start;
+  min-height: 38px;
+  padding: var(--s-2) var(--s-4);
+  background: var(--bulbau-orange);
+  border: 2px solid var(--bulbau-orange);
+  color: #fff;
+  cursor: pointer;
+  font-size: var(--fs--1);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.atfa__btn:hover:not(:disabled) {
+  background: var(--bulbau-orange-hover);
+  border-color: var(--bulbau-orange-hover);
+}
+
+.atfa__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.atfa__btn--ghost {
+  background: transparent;
+  border-color: var(--theme-elevation-150);
+  color: var(--theme-elevation-700);
+}
+
+.atfa__btn--ghost:hover:not(:disabled) {
+  background: var(--theme-elevation-50);
+  border-color: var(--theme-elevation-250);
+}
+
 /* ============================================================================
    13. UTILITIES, ACCESSIBILITY, MOTION, PRINT
    ========================================================================== */

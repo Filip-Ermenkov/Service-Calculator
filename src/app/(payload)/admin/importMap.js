@@ -1,3 +1,4 @@
+import { TotpAdminReset as TotpAdminReset_c67c3fd61cadf07378f02060d2881a31 } from '../../../components/admin/TotpAdminReset'
 import { ListCardHeader as ListCardHeader_2d8fa7f93b87984eee488dd966b46dd8 } from '../../../components/admin/ListCardHeader'
 import { TitleCell as TitleCell_a9b4d8b89257a84f84710835e9cfd9ef } from '../../../components/admin/TitleCell'
 import { PublishStatusField as PublishStatusField_228f46b18f510d3c5dee34edf739ed23 } from '../../../components/admin/PublishStatusField'
@@ -57,6 +58,7 @@ import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc056
 
 /** @type import('payload').ImportMap */
 export const importMap = {
+  "/components/admin/TotpAdminReset#TotpAdminReset": TotpAdminReset_c67c3fd61cadf07378f02060d2881a31,
   "/components/admin/ListCardHeader#ListCardHeader": ListCardHeader_2d8fa7f93b87984eee488dd966b46dd8,
   "/components/admin/TitleCell#TitleCell": TitleCell_a9b4d8b89257a84f84710835e9cfd9ef,
   "/components/admin/PublishStatusField#PublishStatusField": PublishStatusField_228f46b18f510d3c5dee34edf739ed23,

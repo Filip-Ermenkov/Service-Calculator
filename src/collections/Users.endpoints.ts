@@ -1,5 +1,6 @@
 import type { Endpoint } from 'payload'
 
+import { logOpsEvent } from '@/lib/observability/opsLog'
 import { decryptTotpSecret, encryptTotpSecret } from '@/lib/totp/crypto'
 import { buildOtpAuthUri, generateTotpSecret, otpEnvironmentTag, verifyTotpToken } from '@/lib/totp/otp'
 import { generateQrCodeDataUrl } from '@/lib/totp/qr'
@@ -251,6 +252,142 @@ export const totpDisableEndpoint: Endpoint = {
     const response = Response.json({ success: true })
     response.headers.append('Set-Cookie', buildStepUpClearCookie())
     return response
+  },
+}
+
+/**
+ * ADMIN-ASSISTED 2FA RESET — the break-glass path for "the client lost their phone".
+ *
+ * ── Why this exists ───────────────────────────────────────────────────────────
+ * `/totp/disable` above only ever acts on `req.user.id`, and the `totpSecret` /
+ * `totpEnabled` fields are declared `access: { update: () => false }`, so they
+ * cannot be cleared through the admin UI or the REST API either. Until this
+ * endpoint, an admin who lost their authenticator was locked out PERMANENTLY and
+ * the only way back in was hand-written SQL against the production database:
+ *
+ *   UPDATE users SET totp_secret = NULL, totp_enabled = false,
+ *                    totp_last_time_step = NULL WHERE email = '…';
+ *
+ * That is an unacceptable recovery procedure for a site a non-technical client
+ * logs into: it needs a Neon console, the production credentials, and nerve, at
+ * exactly the moment someone is panicking. With a second account now in use
+ * (office@bulbau.lu, created 2026-09-29) "someone loses their phone" is a when,
+ * not an if.
+ *
+ * ── What it requires, and why each one ────────────────────────────────────────
+ *  • A session (`req.user`) — obviously.
+ *  • The ACTING admin's own completed step-up. Without it, a stolen password
+ *    alone would let an attacker strip the second factor off every other
+ *    account; with it, they must already have beaten 2FA once.
+ *  • The acting admin's CURRENT PASSWORD, re-checked here rather than trusting
+ *    session freshness — the same bar `/totp/disable` sets for the equivalent
+ *    action on yourself.
+ *  • A rate-limit budget per actor AND per IP, like `/totp/verify`.
+ *
+ * It deliberately REFUSES to target yourself: `/totp/disable` already covers
+ * that, and that path additionally proves you still hold the current device.
+ * Two routes to the same outcome with different guarantees is how the weaker
+ * one quietly becomes the one everybody uses.
+ *
+ * ── What it does NOT do, on purpose ───────────────────────────────────────────
+ * It does not let the target back in by itself. Clearing `totpEnabled` makes
+ * `requireTotpVerified` deny that account EVERYTHING (it returns false on
+ * `!totpEnabled` regardless of any step-up cookie the target may still hold), so
+ * their next login lands on /admin/totp-verify, which redirects to
+ * /admin/totp-setup for a fresh enrolment. The reset re-opens enrolment; it
+ * never grants access.
+ *
+ * ── Why it pages ──────────────────────────────────────────────────────────────
+ * Removing someone's second factor is security-significant and rare (expect
+ * roughly zero per year). `logOpsEvent` with `error` severity emits OPS_ALERT,
+ * which the metric filter in sst.config.ts turns into an email. That is a
+ * deliberate stretch of the "user-visible degradation" wording in
+ * src/lib/observability/opsLog.ts — the alarm's description was widened in the
+ * same commit — because the alternative is that a reset nobody authorised leaves
+ * no trace anyone reads. Only ids are logged, never addresses (invariant 4).
+ */
+export const totpAdminResetEndpoint: Endpoint = {
+  path: '/totp/admin-reset',
+  method: 'post',
+  handler: async (req) => {
+    if (!req.user) return jsonError('Not authenticated', 401)
+    if (!isStepUpVerified(req.headers, String(req.user.id))) {
+      return jsonError("Verifying your own 2FA code is required before resetting someone else's", 403)
+    }
+
+    const [actorLimit, ipLimit] = await Promise.all([
+      checkTotpRateLimit(`totp-admin-reset:${req.user.id}`),
+      checkTotpRateLimit(`totp-admin-reset-ip:${getClientIp(req)}`),
+    ])
+    if (!actorLimit.success || !ipLimit.success) {
+      return jsonError('Too many attempts. Please wait and try again.', 429)
+    }
+
+    const body = (await req.json?.()) as { userId?: unknown; currentPassword?: unknown } | undefined
+    const targetId = body?.userId
+    if (targetId === undefined || targetId === null || targetId === '') {
+      return jsonError('Missing userId', 400)
+    }
+    if (typeof body?.currentPassword !== 'string' || body.currentPassword === '') {
+      return jsonError('Missing currentPassword', 400)
+    }
+    if (String(targetId) === String(req.user.id)) {
+      return jsonError(
+        'Use /api/users/totp/disable for your own account — it proves you still hold the current device.',
+        400,
+      )
+    }
+
+    try {
+      // Same reasoning as /totp/disable: re-confirm the password step for this
+      // one sensitive action. `req` is deliberately not passed (Payload types
+      // that option as a plain Request) — this is only a password re-check.
+      await req.payload.login({
+        collection: 'users',
+        data: { email: String(req.user.email), password: body.currentPassword },
+      })
+    } catch {
+      return jsonError('Incorrect password', 401)
+    }
+
+    // `disableErrors` turns "no such row" into null; the try/catch additionally
+    // covers an id the database cannot even coerce (ids are integers here, so a
+    // non-numeric string must be a 404, never a 500).
+    type TargetRow = { id: string | number; totpEnabled?: unknown; totpSecret?: unknown }
+    let target: TargetRow | null = null
+    try {
+      target = (await req.payload.findByID({
+        collection: 'users',
+        id: targetId as string,
+        overrideAccess: true,
+        disableErrors: true,
+      })) as TargetRow | null
+    } catch {
+      target = null
+    }
+    if (!target) return jsonError('No such user', 404)
+
+    // Idempotent on purpose: the operation is "this account has no second
+    // factor", and in a recovery the operator should not have to care whether a
+    // half-finished enrolment left a pending secret behind. Reported back so the
+    // UI can say which happened.
+    const hadTotp = Boolean(target.totpEnabled) || Boolean(target.totpSecret)
+
+    await req.payload.update({
+      collection: 'users',
+      id: target.id,
+      data: { totpEnabled: false, totpSecret: null, totpLastTimeStep: null },
+      overrideAccess: true,
+    })
+
+    logOpsEvent(
+      'security.totpAdminReset',
+      `2FA was reset for user ${target.id} by user ${req.user.id}`,
+      'error',
+      { actorId: String(req.user.id), targetId: String(target.id), hadTotp },
+    )
+
+    return Response.json({ success: true, hadTotp })
   },
 }
 
