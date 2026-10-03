@@ -36,9 +36,11 @@
  * Live stage (runs when the media library has at least one upload):
  *   • the raw media object is served — the S3/CloudFront half;
  *   • `/_next/image` returns an image — the optimizer Lambda half;
- *   • that image was really transformed: converted to WebP and smaller than the
- *     source. Byte-identical output, or `Cache-Control: max-age=14400` (the
- *     `minimumCacheTTL` default the fallback path sets), is treated as failure.
+ *   • that image was really transformed — output that is byte-identical AND
+ *     type-identical to the source is exactly what Next's fallback returns, and
+ *     is treated as failure. (`Cache-Control` is reported but NOT used to judge:
+ *     see the note at the check itself for why `max-age=14400` is not the
+ *     fallback tell it looks like.)
  *
  * Splitting raw from optimized is deliberate: it says WHICH half broke instead
  * of just "images are down".
@@ -65,9 +67,6 @@ const RETRY_DELAY_MS = 3000
  */
 const OPTIMIZER_ARCH = 'arm64'
 const BUNDLE_DIR = '.open-next/image-optimization-function'
-
-/** `minimumCacheTTL`'s default — the max-age Next's fallback path stamps on an unoptimized reply. */
-const FALLBACK_MAX_AGE = 14400
 
 /**
  * Source types Next returns untouched by design, so WebP conversion must not be
@@ -214,7 +213,10 @@ async function main() {
   )
 
   console.log(`[smoke:image] raw object  ${doc.url} -> ${describe(raw)}`)
-  console.log(`[smoke:image] optimized   w=${WIDTH} q=${QUALITY} -> ${describe(optimized)}`)
+  console.log(
+    `[smoke:image] optimized   w=${WIDTH} q=${QUALITY} -> ${describe(optimized)}` +
+      `${optimized.cacheControl ? `, cache-control: ${optimized.cacheControl}` : ''}`,
+  )
 
   if (!isImage(raw)) {
     failures.push(
@@ -231,28 +233,37 @@ async function main() {
     )
   }
 
-  // The silent-fallback checks. Only meaningful once both halves served an image
+  // The silent-fallback check. Only meaningful once both halves served an image
   // and the source is a type Next is supposed to transform.
+  //
+  // The test is EXACT, not a heuristic: Next's fallback returns
+  // `{ buffer: upstreamBuffer, contentType: upstreamType }` — the untouched
+  // bytes under the untouched type. Both identical together is the fallback and
+  // essentially nothing else.
+  //
+  // It deliberately does NOT look at `max-age`. An earlier version treated
+  // `max-age=14400` as the fallback's fingerprint and was simply wrong: the
+  // SUCCESS path computes `Math.max(minimumCacheTTL, getMaxAge(upstream))`, and
+  // with minimumCacheTTL at its 14400 default and our media objects served as
+  // `max-age=3600`, a perfectly optimized response carries 14400 too. That
+  // false positive failed a staging deploy on 2026-10-03 for a response that
+  // was a correct 8 KB WebP from an 83 KB JPEG.
   if (isImage(raw) && isImage(optimized) && !PASSTHROUGH_TYPES.has(raw.contentType)) {
-    const maxAge = Number(/max-age=(\d+)/.exec(optimized.cacheControl)?.[1])
-    const looksLikeFallback =
-      optimized.bytes === raw.bytes ||
-      optimized.contentType === raw.contentType ||
-      maxAge === FALLBACK_MAX_AGE
-
-    if (looksLikeFallback) {
+    if (optimized.bytes === raw.bytes && optimized.contentType === raw.contentType) {
       failures.push(
-        `next/image returned a 200 but did NOT optimize: ${describe(optimized)} against a ` +
-          `${raw.bytes}-byte ${raw.contentType} source (cache-control: ` +
-          `${optimized.cacheControl || 'none'}). Next's imageOptimizer catches a failure and ` +
-          `falls back to the original image, so this is what a broken sharp looks like — a ` +
-          `valid, unoptimized 200. Expected WebP, smaller than the source. ` +
-          `max-age=${FALLBACK_MAX_AGE} is the fallback path's fingerprint.`,
+        `next/image returned a 200 but did NOT optimize: ${describe(optimized)} is byte- and ` +
+          `type-identical to the ${raw.bytes}-byte ${raw.contentType} source. Next's ` +
+          `imageOptimizer catches a failure and falls back to the original image, so this is ` +
+          `what a broken sharp looks like — a valid, unoptimized 200. Check the bundled sharp ` +
+          `architecture (see open-next.config.ts) and the optimizer's CloudWatch logs.`,
       )
     } else if (optimized.bytes >= raw.bytes) {
-      failures.push(
-        `next/image produced ${optimized.bytes} bytes from a ${raw.bytes}-byte source — ` +
-          `optimization ran but made the image no smaller at w=${WIDTH}.`,
+      // Not a failure: a already-small or already-efficient source can legitimately
+      // not shrink at this width, and a gate that flakes is worse than none.
+      console.log(
+        `[smoke:image] NOTE — optimization ran (${raw.contentType} -> ${optimized.contentType}) ` +
+          `but produced ${optimized.bytes}B from a ${raw.bytes}B source, i.e. no saving at ` +
+          `w=${WIDTH}. Worth a look if the source is a large photo.`,
       )
     } else {
       const saved = Math.round((1 - optimized.bytes / raw.bytes) * 100)
