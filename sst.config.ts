@@ -602,7 +602,7 @@ export default $config({
 
     opsAlarm('app-ops-alerts', {
       description:
-        'The application logged an OPS_ALERT — a silent degradation the AWS/Lambda metrics cannot see (content read failed / email send failed / CDN purge failed). Check the Web function logs for the `scope` field.',
+        'The application logged an OPS_ALERT — either a silent degradation the AWS/Lambda metrics cannot see (content read failed / email send failed / CDN purge failed), or a security-significant event that should be seen by a human even though nothing is broken (scope `security.*`, e.g. an admin resetting another admin\'s 2FA). Check the Web function logs for the `scope` field.',
       namespace: `BulbauLu/${$app.stage}`,
       metricName: 'AppOpsAlerts',
     })

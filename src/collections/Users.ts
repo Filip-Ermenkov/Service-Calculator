@@ -11,6 +11,7 @@ import { checkRateLimit, getClientIp, type RateLimitPolicy } from '@/lib/rateLim
 import { buildStepUpClearCookie } from '@/lib/totp/requestHelpers'
 
 import {
+  totpAdminResetEndpoint,
   totpDisableEndpoint,
   totpEnableEndpoint,
   totpSetupEndpoint,
@@ -160,6 +161,9 @@ export const Users: CollectionConfig = {
     totpEnableEndpoint,
     totpVerifyEndpoint,
     totpDisableEndpoint,
+    // Break-glass recovery for a lost authenticator — see the long note on the
+    // endpoint itself for why it exists and what it demands.
+    totpAdminResetEndpoint,
     totpStatusEndpoint,
   ],
   hooks: {
@@ -211,6 +215,21 @@ export const Users: CollectionConfig = {
   },
   fields: [
     // Email added by default
+    {
+      // The admin-assisted 2FA reset control. A `ui` field (nothing stored):
+      // the TOTP fields below are `update: () => false`, so this cannot be a
+      // normal editable field — the work happens in the
+      // /api/users/totp/admin-reset endpoint, which re-checks the acting
+      // admin's own step-up and password. The component hides itself on the
+      // create form and on your own account, where the control is meaningless.
+      name: 'totpAdminReset',
+      type: 'ui',
+      admin: {
+        components: {
+          Field: '/components/admin/TotpAdminReset#TotpAdminReset',
+        },
+      },
+    },
     {
       name: 'totpSecret',
       type: 'text',
