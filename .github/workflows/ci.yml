@@ -140,26 +140,64 @@ jobs:
       #     `git status --porcelain src/migrations` becomes non-empty → guard
       #     fails. (git-status detection is version-independent — it doesn't rely
       #     on the CLI's log wording.)
-      #   • `</dev/null` + `timeout` neutralize the one edge case where an
-      #     ambiguous enum/column RENAME drops drizzle-kit into an interactive
-      #     TUI (`--skip-empty` does not bypass that one): stdin reads EOF and the
-      #     command exits non-zero instead of hanging the runner — also treated
-      #     as drift (a rename genuinely needs a hand-authored migration).
+      #   • `</dev/null` + `timeout` cover the edge case where an ambiguous
+      #     enum/column RENAME drops drizzle-kit into an interactive TUI
+      #     (`--skip-empty` does not bypass that one): stdin reads EOF so the
+      #     command dies instead of hanging the runner forever.
       # A fixed name (`ci_drift_check`) labels any file that WOULD be written, so
       # a failure is self-explanatory; the file is never committed (the job fails).
+      #
+      # WHY A WRITTEN FILE IS THE ONLY PROOF OF DRIFT, AND A BAD EXIT CODE IS NOT
+      # (2026-10-04, run 37229435740): this step used to fail on `status != 0`
+      # with the same "the Payload schema changed" message. It fired on a commit
+      # whose only change was a shell script. The command had logged "Migration
+      # DOWN statements generation complete" within 3 seconds and then simply
+      # never returned, so `timeout` killed it and the guard blamed the schema —
+      # while `git status src/migrations` was EMPTY, i.e. no migration had been
+      # generated, i.e. the schema had not drifted at all. The same commit exits 0
+      # locally and had passed this very step the day before.
+      #
+      # The cause of the hang is NOT established. It is not the database
+      # (payload/dist/bin/migrate.js sets `disableDBConnect` for migrate:create,
+      # so `db.connect` is never called) and it is not the empty-migration prompt
+      # (buildCreateMigration.js calls `process.exit(0)` unconditionally on the
+      # empty + skipEmpty path). So it is treated as what it demonstrably is: a
+      # transient failure OF THE CHECK, retried once, and reported in its own
+      # words rather than as a schema problem. A guard that cries "you forgot a
+      # migration" when it merely failed to run teaches people to ignore it — and
+      # this one cost a production deploy.
       - name: Schema drift guard (migrations capture the current schema)
         run: |
-          set +e
-          timeout 180s npm run migrate:create -- ci_drift_check --skip-empty </dev/null 2>&1 | tee drift-check.log
-          status=${PIPESTATUS[0]}
-          set -e
-          drift="$(git status --porcelain src/migrations)"
-          if [ -n "$drift" ] || [ "$status" -ne 0 ]; then
+          attempt=1
+          status=1
+          drift=""
+          while [ "$attempt" -le 2 ]; do
+            set +e
+            timeout 240s npm run migrate:create -- ci_drift_check --skip-empty </dev/null 2>&1 \
+              | tee "drift-check-$attempt.log"
+            status=${PIPESTATUS[0]}
+            set -e
+            drift="$(git status --porcelain src/migrations)"
+            # A written migration is REAL drift and is conclusive — never retry it.
+            if [ -n "$drift" ] || [ "$status" -eq 0 ]; then break; fi
+            if [ "$attempt" -lt 2 ]; then
+              echo "::warning title=Drift check did not complete::Attempt $attempt exited $status (124 = timed out) without generating a migration. That is not evidence of drift; retrying."
+            fi
+            attempt=$((attempt + 1))
+          done
+
+          if [ -n "$drift" ]; then
             echo "::error title=Schema drift — missing migration::The Payload schema changed but src/migrations/ was not updated. Run 'npm run migrate:create' locally, commit the generated migration (.ts + .json), and push. (An ambiguous enum/column rename can also trip this — those need a hand-written migration.) See docs/TECHSPEC.md §10.5."
             echo "--- untracked/modified files under src/migrations ---"
             git status --porcelain src/migrations
             exit 1
           fi
+
+          if [ "$status" -ne 0 ]; then
+            echo "::error title=Drift check could not complete::'payload migrate:create' exited $status (124 = timed out) on BOTH attempts without generating a migration. This is NOT evidence that the schema drifted - real drift writes a file into src/migrations. The check itself failed to run; see the drift-check-*.log output above before assuming a schema problem."
+            exit 1
+          fi
+
           echo "✅ No schema drift — committed migrations fully capture the current schema."
 
       # Generated-artifact drift guard (TECHSPEC §10.5 hardening) — the sibling
