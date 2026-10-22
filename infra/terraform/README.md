@@ -6,7 +6,9 @@ therefore are deliberately **not** owned by the removable SST app stage
 `sst.config.ts` refers to when it says standalone Terraform for non-SST-native
 resources "lives in `infra/`".
 
-> **Status (2026-09-18): applied and live.** The zone + delegation set, budgets and the eu-central-1 SNS topic are created; DNS is delegated at EuroDNS; the Neon project and the deploy role are imported (`manage_neon`, `manage_deploy_role` = `true` in the live, gitignored `terraform.tfvars`); the **SES sending identity is applied** (`manage_ses = true` — `_dmarc.bulbau.lu`, `mail.bulbau.lu` MX/SPF and the DKIM CNAMEs resolve publicly, and the site sends from `info@bulbau.lu`); the live tfvars also has `manage_uptime_monitoring = true` with `cloudfront_distribution_id = E1O15XCT0NNBSD` (production). Deploy-policy edits go live with `terraform apply` (`iam.tf` sources `infra/aws/*.json`). **Still to do here:** the root-domain DNS for the client's Google Workspace mailbox `office@bulbau.lu` (MX `1 smtp.google.com.`, root SPF `v=spf1 include:_spf.google.com include:amazonses.com -all`, Google's DKIM TXT and the site-verification TXT — a new gated file `workspace-mail.tf`, same pattern as `ses.tf`; the last two values come only from the Workspace admin console), and re-running `terraform plan` from a credentialed session to confirm no drift (the `neon_pg_version` variable default was corrected to 18 on 2026-09-18 to match the live tfvars, so the plan should stay clean). The runbook below is for a fresh clone / disaster recovery.
+> **Status (2026-10-22): applied and live.** The zone + delegation set, budgets and the eu-central-1 SNS topic are created; DNS is delegated at EuroDNS; the Neon project and the deploy role are imported (`manage_neon`, `manage_deploy_role` = `true` in the live, gitignored `terraform.tfvars`). The **SES sending identity** is applied (`manage_ses = true` — `_dmarc`, `mail.bulbau.lu` MX/SPF and the DKIM CNAMEs all resolve; the site sends from `info@bulbau.lu`). The **client mailbox DNS** is applied too (`workspace-mail.tf`, `manage_workspace_mail = true`): `bulbau.lu` now answers `MX 1 smtp.google.com`, with the Google SPF/DKIM and verification records alongside SES on `mail.`. Uptime monitoring is on (`manage_uptime_monitoring = true`, `cloudfront_distribution_id = E1O15XCT0NNBSD`). Deploy-policy edits go live with `terraform apply` (`iam.tf` sources `infra/aws/*.json`).
+>
+> **Open here:** move DMARC from `p=none` to `p=quarantine` once aggregate reports have been arriving for a while (`dmarc_policy`), and re-run `terraform plan` from a credentialed session to confirm no drift. The runbook below is for a fresh clone / disaster recovery.
 
 ## What it manages
 
@@ -17,6 +19,7 @@ resources "lives in `infra/`".
 | **AWS Budgets** (daily + monthly cost alarms → email) | `budget.tf` | new (safe create) | first pass |
 | **SNS ops-alert topic** (`bulbau-lu-ops-alerts`) | `observability.tf` | new (safe create) | ✅ live |
 | **SES domain identity** + DKIM/MAIL-FROM/SPF/DMARC records | `ses.tf` | new, opt-in (`manage_ses`) | ✅ applied |
+| **Client mailbox DNS** (Google Workspace MX/SPF/DKIM/verification on the root) | `workspace-mail.tf` | new, opt-in (`manage_workspace_mail`) | ✅ applied |
 | **Route 53 uptime check + CloudFront 5xx alarm** (us-east-1) | `uptime.tf` | new, opt-in | enabled in the live tfvars (`manage_uptime_monitoring = true`) |
 | ~~CloudWatch Lambda alarms~~ | ~~`observability.tf`~~ | — | ➡️ **in `sst.config.ts`** (wired by reference) |
 | **Neon project** (existing DB) | `neon.tf` | import-only, `prevent_destroy` | after import |

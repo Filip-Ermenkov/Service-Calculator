@@ -1,213 +1,170 @@
-# Progress log — bulbau.lu
+# Progress — bulbau.lu
 
-> The record of how far implementation actually is and how it got there. `docs/TECHSPEC.md` is the plan (as corrected by what each phase required); `docs/FUNCTIONALITY.md` is the target behaviour. **Read "Current state" and "Immediate next steps" first**, then the slice log only for the history behind a decision. Everything here was verified against `git log`, the CI logs, the GitHub API, public DNS, the installed package sources and the live stages on 2026-09-18 — not carried over from memory.
+What is actually true right now, and what is left. `FUNCTIONALITY.md` is the
+what, `TECHSPEC.md` the how, `README.md` the commands.
+
+History lives in git: every slice has a commit message and a PR description
+explaining why it was done that way. This file does not repeat them.
 
 ---
 
-## Current state (2026-09-18, night)
+## Where it stands — 2026-10-22
 
-**Every planned feature (TECHSPEC §12, Phases 0–6) is built and deployed.** Phase 7 (hardening + launch) is in progress. Nothing left before launch is feature work; it is the enablement chain and the Well-Architected items in "Immediate next steps".
+Every planned feature is built and deployed. Nothing left before launch is
+development work.
 
-| Fact | Verified how |
+| | |
 |---|---|
-| **`c88598c` (media served by CloudFront straight from S3, migration #5) is deployed to STAGING; production is waiting for approval.** CI run 35381965893: `verify` ✅ (19:04–19:16 UTC), `deploy-staging` ✅ (19:16–19:19 UTC — pre-flight `5 migration file(s), 4 ledger row(s)` → `Migrated: 20260918_180113_media_prefix (212ms)` → `✅ migrate:verify: every committed migration is recorded as applied`, 5 rows; SST printed `mediaUrl: https://d20kjuz86nwvyp.cloudfront.net/media/`), `deploy-production` **waiting**. Staging proof so far: `curl -I …/media/does-not-exist.png` → **404** (not 403 — the `s3:ListBucket` grant works), `Server: AmazonS3` (the bucket answers, not the Lambda), the full security-header set + `Cache-Control: public, max-age=3600`; `…/api/media/file/anything.png` → 500 JSON (the Lambda path is closed); `/api/health` 200, `/en` 200. **Still to prove** (needs the staging admin login / an AWS session — steps 1b–1f below): a real upload's URL and bytes, the edge hit, the purge-on-delete, the distribution/bucket-policy shape. | `gh run view`, job log, `curl`, 2026-09-18 19:21 UTC |
-| **The commit these docs ship with (after `c88598c`) carries five hygiene fixes** — admin fonts self-hosted, `NEXT_LOCALE` `Secure`, social URLs validated, admin routes on `isFullyVerified`, dead stylesheet + public-repo PII removed — plus this reconciliation. Gates: lint 0 errors, typecheck, both drift guards, `test:int` 341, `test:e2e` 59 (`--workers=1`), production build (cookie proven `Secure`; admin login proven free of third-party requests in a browser). | this session, 2026-09-18 night |
-| **Latest commit deployed to PRODUCTION is still `71561dd`** (shared DynamoDB rate limiting + dependency sweep) — CI run 35348714716; `0dcadc8` (docs only) followed, run 35351701336 ✅. | `gh run view`, 2026-09-18 |
-| Production `https://bulbau.lu` and staging `https://d20kjuz86nwvyp.cloudfront.net` are live; `/api/health` 200 on both; indexing OFF everywhere; `/api/graphql` 404; anonymous `GET /api/globals/legal-info?draft=true` returns `{}`; `/api/services/versions` 403; the full security-header set on `/` and `/en`. | `curl`, 2026-09-18 |
-| **Rate limits are now shared across Lambda instances:** 15 parallel `POST /api/quote` → exactly ten `404` (allowed; the probe slug does not exist) and five `429`, on staging AND production. Until this deploy every limiter ran per instance (Upstash had never been configured), so the same burst produced zero 429s. | parallel `curl` burst, both stages |
-| **CodeQL: 0 open alerts** — alert #2 (`js/prototype-polluting-assignment`, `registry.ts`) had stayed open behind a `Set.has()` guard the scanner cannot see; fixed with the inline equality check and auto-closed by the analysis of `71561dd`. **Dependabot: 0 open alerts**; PRs #82/#83/#84 applied and closed; **#57, #58, #66, #74 are still open and obsolete** (their bumps are on `main` or target a deleted `Dockerfile`). | `gh api`, 2026-09-18 |
-| Both databases were reset from empty on 2026-09-16 and rebuilt by CI from the four committed migrations (`migrate:verify` ✅ 4 rows each). No migration since. | CI run 35095817327 |
-| `EmailSender` and `SiteUrl` are set on staging (the admin password-reset mail arrives from `info@bulbau.lu`, confirmed 2026-09-17); Turnstile keys set on both stages; the SES Terraform (`manage_ses = true`) is applied — `_dmarc`, `mail.` MX/SPF and DKIM resolve. | Filip + `nslookup`, 2026-09-17 |
-| **`LegalInfo` is not published** on production (`/en/legal` shows "Not yet available") and **production content has not been re-entered** since the reset. | `curl`, 2026-09-17 |
-| Root `bulbau.lu` has **no MX and no SPF** — the client's Google Workspace mailbox `office@bulbau.lu` is not wired into DNS. | `nslookup`, 2026-09-18 |
-| **GitHub repo is PUBLIC.** The `protect-main` ruleset (PR + `verify` check, no force-push/deletion, linear history) exists but with `bypass: Repository admin, always`, so direct pushes to `main` still deploy. Secret scanning + push protection on; `production` env has 1 required reviewer; `staging` env restricted to `main`. | `gh api`, 2026-09-18 |
-| Local `infra/terraform/terraform.tfvars` has `manage_neon`, `manage_deploy_role`, `manage_ses`, `manage_uptime_monitoring` all `true` and `cloudfront_distribution_id = E1O15XCT0NNBSD` (production). Neon is PG 18; docker-compose/CI are 18; Filip's running local container is still a 17 volume on host port 5431 (S3Mock 5.1.0; compose says 5.2.2). | file + `docker ps` |
-| The `production` GitHub Environment has its required reviewer but **no deployment-branch policy** (`deployment_branch_policy: null`); `staging` is restricted to `main`. Setting it via the API was blocked in this session by the tool's permission gate → manual step 2 below. | `gh api …/environments`, 2026-09-18 |
-| Production's `/en` served `Set-Cookie: NEXT_LOCALE=en; Path=/; SameSite=lax` **without `Secure`**; the admin panel loaded Inter/Barlow from `fonts.googleapis.com` at runtime while the public site self-hosts them. Both fixed in this commit (proven on a local production build: `…; Secure; SameSite=lax`; admin login has zero external requests). | `curl -I`, browser network log |
+| **Production** | `https://bulbau.lu` — live, **indexing off** (`robots.txt` disallows everything) |
+| **Staging** | `https://d20kjuz86nwvyp.cloudfront.net` |
+| **Deploys** | push to `main` → `verify` → staging → *manual approval* → production |
+| **Content** | Legal Notice **published** with the client's real details (BULBAU MULTISERVICE, S.A.S, RCS B303936, VAT LU37807402). 1 service. **0 projects, 0 careers, 0 media.** |
+| **Client access** | `office@bulbau.lu` has an admin account with 2FA enrolled |
 
-**Not verified (needs an AWS session — SSO was expired all day on 2026-09-18):** the five SST alarms + `OPS_ALERT` metric filter on production; the us-east-1 SNS subscription; `EmailSender`/`SiteUrl` on the *production* stage; SES production-access status; that no `OPS_ALERT rateLimit.dynamodb` line has been logged (the parallel burst succeeding is strong indirect proof — a store failure would have fallen back to per-instance counting and produced far fewer 429s); whether the staging media bucket holds any pre-slice uploads (they will show as broken after this deploy — see step 1).
-
-### The standing rules this project learned the hard way
-
-- **Verify against the installed source and the live system, never against docs, `npm audit`'s "fix available", or a previous session's conclusion.** The highest-value fixes here (security headers, the `/api/quote` limiter, the `users.unlock` gate, the silent no-op migrate step, the non-deterministic axe gate, the unsent password-reset email, the never-shared rate limiter) were all found by re-reading code or running the product after a session had concluded "everything remaining is externally gated".
-- **A passing CI step must prove its post-condition** (the migrate step "passed" for six weeks while applying nothing).
-- **Prove a regression test fails without its fix**, both directions, before trusting it.
-- **A comment in `.env` is not a guard; a process that refuses to start is** (`src/lib/dbGuard.ts`).
-- **Every Payload access operation must be set explicitly — `read`, `create`, `update`, `delete`, `unlock`, `readVersions` — and every public read on a draft-enabled entity needs a `_status` constraint.** Payload's fallback for an unset access function is `Boolean(req.user)` (any password-only session), and `?draft=true` restricts nothing on its own.
-- **On Lambda, a counter that is not shared is not a limit.** Every instance has its own memory and every cold start resets it; a limiter must live in a store all instances see, and its "is there budget left?" check must be atomic in that store.
-- **A header the app sets only reaches responses the app sends.** Anything CloudFront answers from S3 (`/media/*`) gets no `headers()`, no proxy, no Next — the same policy has to be projected to the edge from the same source (`src/lib/security/cloudfrontResponseHeaders.ts`), and a test must tie the two together.
-- **Make the URL the key.** A media file's public path is `/` + its S3 key (`media/<file>` ⇄ `/media/<file>`), so the edge needs no rewrite function, local dev needs one rewrite, and there is exactly one string to reason about (`src/lib/media/publicUrl.ts`).
-- **A security guard the scanner can prove beats one it has to be told about** — write sanitisers in the form CodeQL documents (an inline equality check), not an equivalent it cannot see.
-- **Every Dependabot/CodeQL finding gets a decision, in the repo:** a version bump, an `overrides` entry for a transitive package the direct dependency will not move, or — only when no patched release exists AND the code path is provably unreachable — a dismissal whose reason is written down here.
-- **Any client-side navigation across an authorisation boundary must be a hard navigation** (`window.location.assign`) — the App Router's client cache replays prefetched redirects.
-- **Prefer an AWS-native, execution-role-authenticated service over a third-party free tier** when it does the same job (Translate over DeepL, DynamoDB over Upstash): no secret, no new sub-processor, no free-tier terms to lose — this project lost DeepL's, MinIO's and LocalStack's.
-- Deploy through CI (Ubuntu), never `sst deploy` from Windows; `npm ci` before any local build; `npm run devsafe` after a `proxy.ts` change.
+**Not verified in this pass** (AWS SSO expired): SES production access, the
+Lambda concurrency quota, and whether the CloudWatch alarms have ever fired.
+Run `aws sso login --profile sc-new` first.
 
 ---
 
-## Immediate next steps (priority order)
+## What is left
 
-1. **Finish proving `c88598c` (media CDN) on staging, then approve production.** Done already (CI run 35381965893 + `curl`, 19:21 UTC): the migrate step applied `20260918_180113_media_prefix` (5 rows), `sst deploy` printed `mediaUrl`, and on `https://d20kjuz86nwvyp.cloudfront.net` (a) `curl -I …/media/does-not-exist.png` → **404** (not 403 — that is the `s3:ListBucket` grant) with `Server: AmazonS3`, `strict-transport-security`, `x-content-type-options: nosniff`, `content-security-policy` and `cache-control: public, max-age=3600`, and (c) `…/api/media/file/<anything>` is a JSON 500, never an image. Left for Filip (needs the staging admin login): (b) log into the admin, upload a JPEG (and a >4 MB one — refused with the "limit is 4 MB" message, the check left over from `c4b3f59`), open the doc: its URL is `/media/<file>`; `curl -I …/media/<file>` → 200, `content-type: image/jpeg`, the same headers, `x-cache: Miss from cloudfront` then `Hit from cloudfront`; (d) attach the photo to a published project → `/en/projects` shows it, view-source has `src="/media/<file>"`; (e) delete the media doc → within ~1 minute `/media/<file>` is 404 (the `/*` invalidation covers media too); (f) with `aws sso login --profile sc-new`: `aws cloudfront get-distribution-config` shows the `/media/*` behaviour → origin `media` with an OAC, `aws s3api get-bucket-policy` shows the two `cloudfront.amazonaws.com` statements with the `aws:SourceArn` condition, and the Web function's log group has no `GET /media/` lines. Any staging upload that predates this deploy sits at the bucket root and shows as broken — delete and re-upload it (optional tidy-up: `aws s3 rm` the root-level objects). Then **approve the waiting `deploy-production` job** (run 35381965893) and repeat (a) and the `/api/media/file/…` check on `https://bulbau.lu` (no media exists there yet — (b)–(e) happen with the content entry in step 4). Push the docs/hygiene commit that follows `c88598c` right after (it carries no migration and no infra change).
-2. **Three GitHub decisions** (5 minutes, Settings): (a) the repository is **public** — a commercial client site with its infra topology, account id and alert address in the open; make it private unless the client wants it public. (b) Remove *Repository admin* from the `protect-main` ruleset's bypass list (Settings → Rules → Rulesets → protect-main) so merges go through PRs. (c) Restrict the **`production` Environment to `main`** like staging already is — the tool's permission gate stopped this session from doing it: `gh api -X PUT repos/Filip-Ermenkov/Service-Calculator/environments/production --input - <<< '{"wait_timer":0,"prevent_self_review":false,"reviewers":[{"type":"User","id":72618444}],"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}'` then `gh api -X POST repos/Filip-Ermenkov/Service-Calculator/environments/production/deployment-branch-policies -f name=main -f type=branch`, and read it back (`gh api repos/…/environments/production` must still list the required reviewer). Then close the four obsolete Dependabot PRs: `gh pr close 57 58 66 74`.
-3. **Rotate the staging Neon password** — it sits, commented out, in the local `.env` (`npg_…`, host `ep-damp-haze-asa0laff`; never committed, checked with `git log -S`). Neon console → project *Service-Calculator* → branch *staging* → Roles → `neondb_owner` → Reset password; update the `staging` Environment secret `STAGING_DATABASE_URL_UNPOOLED` and `npx sst secret set DatabaseUrl "<new pooled url>" --stage staging`, re-run the last workflow, delete the line from `.env`. Rotate the **Neon API key** at the same time (it is in the local `terraform.tfvars`; never committed) and update `TF_VAR_neon_api_key`.
-4. **Re-enter production content** after the reset: first admin at `/admin`, enrol 2FA, then services (formulas via the formula bar), projects, careers, `CompanyInfo` (`email` = the real mailbox — see 5; the Facebook/Instagram fields now insist on full `https://` addresses), the Home card limit. Media: JPEG/PNG/WebP, **4 MB each**, served at `/media/<file>`. Smoke-test the admin under the CSRF allowlist while doing it (log in, open a list, save an edit) and confirm `EmailSender`/`SiteUrl` are set on production (`npx sst secret list --stage production`).
-5. **Stand up the client mailbox `office@bulbau.lu` (Google Workspace).** SES cannot host a mailbox. Author `infra/terraform/workspace-mail.tf` (gated `manage_workspace_mail`, same pattern as `ses.tf`): MX `1 smtp.google.com.`, root SPF `v=spf1 include:_spf.google.com include:amazonses.com -all`, Google's DKIM TXT (`google._domainkey`) and the site-verification TXT. The MX and SPF values are known; the last two exist only in the client's Workspace admin console — **request now** either admin access or the two values: the `google-site-verification=…` TXT (Admin console → Account → Domains → Manage domains → Verify) and the DKIM TXT (Apps → Google Workspace → Gmail → Authenticate email → Generate new record, 2048-bit, selector `google`); confirm `bulbau.lu` is the Workspace primary domain and the user `office@bulbau.lu` exists. SES stays on `mail.`; the one `_dmarc` covers both. Then verify `office@bulbau.lu` as an SES recipient (sandbox) and set `CompanyInfo.email` to it → the contact form is fully live without SES production access.
-6. **Confirm the Home-page claims with the client** — `Since 2015`, `250+ projects completed`, `10+ years`, `100% certified & insured` are hard-coded in `src/i18n/messages/*.json` (`Home.heroBadge`, `statProjects`, `statYears`, `statCertified`), came from the prototype, and are not admin-editable. Either the client signs them off or they become `HomeSettings` fields (a small slice + one migration). A false factual claim on a live commercial site is a consumer-law exposure, not a copy nit.
-7. **`LegalInfo`** — the client's legal form, RCS number, VAT number and registered address entered and published (the §6.9 hard gate; until then `/legal` and `/privacy` render "not yet available").
-8. **`<img>` → `next/image`** (the next engineering slice; unblocked by this commit). OpenNext builds the image optimizer with `imageLoader: "s3"` against the *assets* bucket, so the media URLs must be fetched over HTTPS: either `images.remotePatterns` for `https://bulbau.lu/media/**` + the staging host, or an `open-next.config.ts` with `imageOptimization.loader: 'host'` — decide against the installed OpenNext (`3.9.14`) source. Revisit `MEDIA_MAX_FILE_BYTES` (4 MB is now a page-weight guard, not a Lambda limit) once visitors receive resized variants; then tighten the Lighthouse performance floor.
-9. **SES production access** — required only for the email-quote path (arbitrary visitor addresses). Request it once the domain has some sending history; a transactional, user-initiated description is what gets approved.
-10. **Prove the monitoring** (needs `aws sso login --profile sc-new`): `aws cloudwatch describe-alarms --alarm-name-prefix bulbau-lu-production --region eu-central-1` should list five alarms whose `FunctionName` dimension matches the live functions; `terraform plan` in `infra/terraform` should be clean; confirm the us-east-1 SNS subscription; inject a synthetic `OPS_ALERT` line with `aws logs put-log-events` and `set-alarm-state` on the others and confirm the emails arrive. The Web function logs to a differently-suffixed log group than its own name. While there: DynamoDB → the `RateLimits` tables show `pk = <prefix>#<hex>` items (no IP visible) with TTL on `expiresAt`.
-11. **Lambda concurrency increase to 1000** (Service Quotas; free, 1–2 day approval — submit a few days before launch). The account still runs on the default 10.
-12. **Phase 7 remainder:** flip `AllowIndexing='true'` on production (the Lighthouse SEO gate then goes hard); HSTS `preload` (one constant, `HSTS_PRELOAD` in `src/lib/security/headers.ts`, now reaches both Next and the CloudFront media policy); forward `CloudFront-Viewer-Address` on the production distribution (full spoof-resistance for the IP limiters); strip the `x-middleware-set-cookie` header OpenNext lets through on proxy redirects (a response-headers policy with `removeHeadersConfig` on the default behaviour — the media policy is the template); IAM Access Analyzer pass on the `role/*` deploy role; WAF/GuardDuty evaluated against real traffic; a rehearsed Neon PITR restore; the nonce CSP needs a design decision first (per-request nonces force dynamic rendering, which fights ISR + CloudFront caching — a non-nonce ratchet with `default-src`/`img-src`/`connect-src`/`frame-src` for Turnstile may be the better trade). Recreate Filip's local Postgres 17 volume as 18 and bump the local S3Mock to 5.2.2 when convenient (`docker compose down -v && docker compose up -d`).
+Ordered so the things with external waiting periods start first.
 
----
+### 1. SES production access — client-independent, start now
+SES is in sandbox: mail only reaches verified identities, so a visitor's quote
+email goes nowhere. The review is about sending practices, not site content, so
+this does **not** wait on the client. ~24h turnaround. Console → SES → Account
+dashboard → Request production access (eu-central-1, transactional).
 
-## Slice log (newest first)
+### 2. Lambda concurrency 10 → 1000 — client-independent, start now
+The account is still on the AWS default of 10 concurrent executions. Under any
+real traffic the web function throttles and visitors see errors. Service Quotas
+→ AWS Lambda → *Concurrent executions* → request 1000. The
+`web-lambda-throttles` alarm already watches for this.
 
-### Media served by CloudFront straight from S3 (`c88598c`, on staging) + five hygiene fixes (the following commit) — 2026-09-18, night
+### 3. Client content
+Projects, careers, photos, and the remaining services. Each service needs its
+pricing parameters for the calculator. Media is JPEG/PNG/WebP, 4 MB max.
 
-**The docs' own designated next engineering slice**, picked after a full line-by-line read of every source, test, infra, CI and doc file and an independent re-verification of the documented state (health, headers, GraphQL 404, the `legal-info?draft=true` `{}`, `/versions` 403, root MX/SPF absent, repo public, ruleset bypass, Dependabot PRs). Nothing in the read changed the plan; it produced the five small fixes below.
+Still outstanding from the client:
+- the ***autorisation d'établissement*** number — Luxembourg generally requires
+  it on commercial communications for regulated trades, and electrical work is
+  one. **There is no field for it**, so if it is required that is a schema
+  change plus a migration.
+- the Privacy Policy body (a draft exists; it needs review against the now-known
+  legal entity)
+- a **CV retention period**. The Careers page currently promises to keep
+  applications "on file" with no stated limit and no privacy policy behind it,
+  which is a GDPR storage-limitation problem. Replacement copy is drafted and
+  waiting on a number (12 months was proposed).
 
-1. **Media off the Lambda path.** Payload's file route (`/api/media/file/<name>`) proxied every byte through the Web Lambda, which OpenNext builds *buffered* (6 MB response cap after base64 → the 4 MB "correctness" cap of `c4b3f59`), at one invocation + an S3 round-trip per image view. Now: **a file's public URL path is `/` + its S3 key** — every object lives under `media/` (storage-s3 `prefix`, recorded per document → **migration #5**, one nullable `prefix` column) and is served at `/media/<file>` by a `/media/*` cache behaviour on the *same* Web distribution (`transform.cdn` appends an S3 origin with an **origin access control** + the behaviour with CloudFront's CachingOptimized policy; SST's own Router uses the identical shape). Same distribution ⇒ the existing `/*` invalidation on every media save/delete purges media too; same origin ⇒ no CORS, no host to configure, relative URLs everywhere (Next resolves them against `metadataBase` for Open Graph). Payload's route is switched off (`disablePayloadAccessControl` — media `read` is public, nothing to lose). The bucket policy is written out instead of SST's `access: "cloudfront"` shorthand: `s3:GetObject` + **`s3:ListBucket`** (S3 answers a missing key with 404 instead of 403) for the CloudFront service principal, both pinned with `aws:SourceArn` to *this account's* distributions — it cannot be pinned to the one distribution because the Bucket component gates its outputs on the policy (policy → distribution → bucket domain → policy = a cycle), and the account is single-app. S3 responses get **the site's full security-header set + `Cache-Control: public, max-age=3600`** through a response-headers policy built by `src/lib/security/cloudfrontResponseHeaders.ts`, a pure projection of `securityHeaders` (CloudFront takes six headers as structured fields and rejects them as custom headers) — `sst.config.ts` reaches it through a dynamic import, SST's documented way to share app code with the config. Locally/CI one `next.config.ts` rewrite (`/media/:path*` → S3Mock, only when `S3_ENDPOINT` is set — proven `[]` otherwise) serves the identical URLs. The 4 MB cap stays as a **page-weight guard** (nothing resizes uploads until `next/image`), its rationale rewritten. Single source: `src/lib/media/publicUrl.ts`.
-2. **Admin fonts self-hosted.** `custom.scss` `@import`ed Inter + Barlow Condensed from `fonts.googleapis.com` at runtime — the one third-party request the admin made, and the admin's IP with it — while the public site had self-hosted them via `next/font` since Phase 2. The admin layout now loads the same two families through `next/font/google` and passes their CSS-variable classes to Payload's `RootLayout` via `htmlProps`; the SCSS tokens read `var(--font-inter)`/`var(--font-barlow)`. Proven in a browser: computed `font-family: Inter, "Inter Fallback", …`, `document.fonts` shows the self-hosted `Inter 400 loaded`, **zero cross-origin resource entries** on the login page; the production build's HTML has no `googleapis` reference.
-3. **`NEXT_LOCALE` cookie is `Secure`** on production builds (`localeCookie` in `src/i18n/routing.ts`, gated on `NODE_ENV` so a LAN-addressed dev server still remembers the language). Proven on a local `next build && next start`: `Set-Cookie: NEXT_LOCALE=en; Path=/; Secure; SameSite=lax`.
-4. **`CompanyInfo.facebookUrl`/`instagramUrl` validate as absolute `https://` URLs** (`validateHttpsUrl`; Payload's text rules first). They render straight into `<a href>` on every public page: a bare `facebook.com/x` became a broken same-site link, and a non-`https:` scheme must never reach an `href`. Four unit tests incl. `javascript:`.
-5. **`/api/admin/services` and `/api/admin/translations` use `isFullyVerified`** — the same three checks as `requireTotpVerified` (user, `totpEnabled`, a step-up cookie for that user) instead of the cookie check alone. Also: the dead Phase-0 `src/app/(frontend)/styles.css` deleted; the real alert address replaced by a placeholder in `terraform.tfvars.example` (the repo is public).
+### 4. Home-page claims — needs a decision, not code
+`Since 2015`, `250+ projects completed`, `10+ years`, `100% certified & insured`
+are hard-coded in `src/i18n/messages/*.json` and are not admin-editable. Either
+the client can substantiate each one, or it goes. A false factual claim on a
+commercial site is a consumer-law exposure.
 
-**Verification:** lint 0 errors (23 warnings — the 4 new are the generated migration's unused args, like every prior migration), typecheck, both drift guards clean, `test:int` **341** (326 → 15 new: the URL/key contract, stored prefix + bytes + Content-Type on real S3Mock, the file route no longer streaming, the CloudFront projection tied field-by-field to `securityHeaders`, the URL validator), `test:e2e` **59** (`--workers=1`; 2 new: the seeded project photo renders from `/media/`, has pixels, and its URL answers `image/png` through the running server; the old route does not), production build, `sst.config.ts` bundled with esbuild to prove the dynamic imports resolve, `next.config.ts` evaluated both ways (rewrite present with `S3_ENDPOINT`, absent without). **Two mutations proven caught:** the storage `prefix` removed → the media contract fails; `X-XSS-Protection: 1; mode=block` → the CloudFront projection refuses at load. **On staging (CI run 35381965893, 19:16–19:19 UTC):** migration #5 applied through the fail-closed step (4 → 5 ledger rows), `mediaUrl` printed, and the edge answers `/media/<missing>` with **404 + `Server: AmazonS3` + the full header set + `Cache-Control: public, max-age=3600`** while `/api/media/file/…` is a JSON 500 — the behaviour, the OAC, the `ListBucket` grant and the response-headers policy are all live. The upload → URL → bytes → edge-hit → purge-on-delete chain still needs the staging admin (PROGRESS step 1b–1e); production is waiting for approval.
+### 5. Monitoring proof
+Confirm the five alarms exist, are not stuck in `INSUFFICIENT_DATA`, and that
+the SNS topic reaches a real inbox. An alarm nobody receives is not monitoring.
+Also confirm the us-east-1 SNS subscription (CloudFront metrics only exist
+there).
 
-**Gotchas kept:** `sst.aws.Bucket` gates `nodes.bucket`/`name`/`arn` on its policy (`this.bucket = policy.apply(() => bucket)`), so a bucket policy can never reference the distribution that serves it. `sst.aws.Nextjs` v4.17 builds ONE default behaviour and routes assets vs. server inside a CloudFront Function + KV store — `orderedCacheBehaviors` is empty, so a path-matched behaviour is a clean addition. CloudFront's response-headers policy rejects `Strict-Transport-Security`/`X-Content-Type-Options`/`X-Frame-Options`/`Referrer-Policy`/`X-XSS-Protection`/`Content-Security-Policy` as *custom* headers — they are structured fields, and `X-XSS-Protection` can only be expressed as `0`. With `disablePayloadAccessControl` Payload's `getFile` falls through to a disk lookup and logs `File … is missing on the disk` — that log line is the proof the route is off, not a bug. A stray `⨯ Error: The destination stream closed early` in the e2e output comes from the pre-existing admin-login test's teardown (`GET /admin/login`, context closed mid-stream), not from media — reproduced in isolation. `next/font` in dev registers the real family name (`Inter`), in production a hashed one; the SCSS reads the variable, so both work. A bash heredoc containing `''` inside a quoted body failed in this tool twice — write patch scripts to a file instead.
+### 6. Backup restore rehearsal
+A Neon PITR restore has never been tested. Untested backups are not backups.
 
-### Shared DynamoDB rate limiting, dependency sweep, CodeQL closure, contact-form hydration — 2026-09-18, commit `71561dd`
+### 7. Launch flip — last, in this order
+1. content in, reviewed
+2. `npx sst secret set AllowIndexing "true" --stage production` (the Lighthouse
+   SEO gate becomes hard at the same moment)
+3. HSTS `preload` (`HSTS_PRELOAD` in `src/lib/security/headers.ts`) — deliberately
+   last, because preload is painful to reverse
 
-**Found by reading and probing.** Both stages had been running every limiter (TOTP verify/enrol, forgot-password, `/api/quote`, `/api/contact`) on the in-memory fallback since July — the Upstash secrets had never been set — so every budget was multiplied by Lambda concurrency and reset on each cold start; a 15-request parallel burst produced zero 429s. The documented fix ("set Upstash credentials") was the wrong one: Upstash's free tier has no encryption at rest and no SOC 2, it would be a new sub-processor holding visitor IPs (personal data), a new secret to rotate, and a third free-tier dependency after DeepL/MinIO/LocalStack.
+### 8. Housekeeping
+- `delete_branch_on_merge` is off
+- the `protect-main` ruleset has a `Repository admin` bypass, so admins can push
+  straight to `main`
+- rotate the staging Neon password (it sits commented out in the local `.env`)
+  and the Neon API key
+- the repo is **public** — a commercial client site with its infra topology in
+  the open. Private would lose CodeQL on the free tier; it is a decision, not an
+  oversight
+- DMARC is `p=none`; move to `quarantine` once reports have been arriving
 
-1. **`src/lib/rateLimit.ts` → DynamoDB.** A per-stage `sst.aws.Dynamo('RateLimits')` (pk/sk, TTL `expiresAt`, PITR off), `RATE_LIMIT_TABLE` env, least-privilege `dynamodb:GetItem` + `UpdateItem` on that ARN only — no secret, execution-role auth, in-region, cents/month. Algorithm: the sliding-window counter (Cloudflare's, and what Upstash used) — one strongly-consistent `GetItem` of the previous window + one conditional atomic `ADD` on the current one (`hits < :limit`), so N instances can never all take the last token; at most one request of slack at a window boundary. Keys are stored as `prefix#HMAC-SHA256(key)` under a new HKDF subkey from `TOTP_ENCRYPTION_KEY` (`getRateLimitBucketKey`), so the table never holds a raw IP or email. Any store failure → one `OPS_ALERT rateLimit.dynamodb` (pages) + the in-memory limiter for that call — degraded, never open. Local/CI keep the exact in-memory sliding log (`RATE_LIMIT_TABLE` unset), which is what lets the e2e 429 tests count exactly. `@upstash/*` and the two SST secrets removed.
-2. **CodeQL alert #2** (`js/prototype-polluting-assignment` in `registry.ts`) had been open since 2026-08-10 behind a `Set.has()` guard; the query only recognises the inline `key === '__proto__' || …` check. Fixed, auto-closed on push.
-3. **Dependencies:** Dependabot #83 (21 minor/patch — `next` 16.3.5, `react` 19.3.0, `next-intl` 4.14.5, `@playwright/test` 1.63, `pg` 8.23, AWS SDK clients 3.1132, …), #82 (`configure-aws-credentials` v6.3.0 by SHA, verified against the tag), #84 (`vitest` 5.0.1 — its PR failed because `vite` became a peer dependency and `.npmrc`'s `legacy-peer-deps` does not install peers; `vite ^8.3.0` is now explicit and `vite-tsconfig-paths` was dropped for Vite's native `resolve.tsconfigPaths`), plus `@aws-sdk/client-dynamodb`. Production audit clean; full tree still only the dismissed `extract-zip`.
-4. **Contact form pre-hydration gap.** The submit path is entirely client-side, yet the button was live before React hydrated — a click in that window was a native submit (page reload, everything typed lost). Surfaced as an e2e race on a cold dev compile (a controlled input filled pre-hydration is reset to `''`). The button now renders `disabled` until hydrated (`useSyncExternalStore` with a server snapshot of `false` — React's own idiom, no effect, no lint violation) and the form flags `data-hydrated`; the e2e helper waits for it and pins the SSR-disabled state.
-5. `AGENTS.md`/`CLAUDE.md` (rewritten by `next dev`) gitignored.
-
-**Verification:** lint 0 errors (19 warnings), typecheck, drift guards clean, `test:int` 326 (13 new: the sliding-window arithmetic against a fake store honouring DynamoDB's contract, the boundary/weighting cases, the pseudonymised buckets, the OPS_ALERT-and-fallback path, and the exact `GetItem`/`UpdateItem` commands against a stub client), production build, `test:e2e` 57 (`--workers=1`), `npm audit --omit=dev` 0. Two mutations proven caught (floor-for-ceil in the weighting; a silent fallback). Filip ran the local guide (SSR-disabled button, 11th `/api/quote` 429, the degraded path with a bogus `RATE_LIMIT_TABLE` logging `OPS_ALERT` per request while still limiting) and the staging guide (parallel burst 10/5, TOTP 6th attempt refused, forgot-password 6th 429); the same burst on production after approval: 10/5.
-
-**Gotchas kept:** `sst.aws.Dynamo`'s `link` would grant `dynamodb:*` — use `permissions` for the two actions. `transform.table` in object form is a shallow merge (fine for `pointInTimeRecovery`). The DynamoDB SDK's `ConditionalCheckFailedException` is the "no budget" signal, everything else propagates to the fallback. Playwright's browser download can time out at its 30 s default on this connection — `PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=600000`. React 19.3 double-invokes effects during hydration in Strict Mode; the TOTP setup form and the Turnstile widget were already guarded for that.
-
-### Pre-launch integrity hardening + dependency/code-scanning sweep — 2026-09-18, commit `c4b3f59`
-
-**Found by reading and probing, not by the roadmap** — a line-by-line pass over every source, test, infra and doc file, checked against the installed `payload@3.89` / `@payloadcms/storage-s3` / SST sources and the live stages.
-
-1. **`LegalInfo` draft leak.** `read: () => true` was justified by "a plain read returns only the published main row" — but `?draft=true` makes Payload's `findOne` swap in the newest version and, with a boolean-true access result, filter that query by nothing (`versions/drafts/replaceWithDraftIfAvailable.js`). An anonymous `GET /api/globals/legal-info?draft=true` returned the unpublished draft. Fix: `readPublishedOrVerified` (the collections' rule); with a WHERE result the draft lookup is constrained to `version._status = published`.
-2. **`readVersions` gap.** Unset everywhere, and Payload's fallback for an unset access function is `Boolean(req.user)` — a password-only session could list every draft through `GET /api/{services,projects}/versions`. Fix: `readVersions: requireTotpVerified(() => true)` on Services, Projects, LegalInfo.
-3. **Media.** No file-size limit while every byte is served through the Web Lambda, which OpenNext builds **buffered** (`"streaming": false` → 6 MB response cap after base64 → a >4.5 MB photo uploads "successfully" direct-to-S3 and then 502s); no `Cache-Control` (Lambda + S3 HEAD + GET per image view); presigned PUT URLs granted to password-only sessions. Fixes, one number (`MEDIA_MAX_FILE_BYTES` = 4 MB): `upload.limits.fileSize` + `abortOnLimit` (busboy 413; the storage-s3 plugin re-checks the option and signs `content-length`), a Media `beforeValidate` hook on `filesize` + `mimeType` for every path, `modifyResponseHeaders` → `public, max-age=3600, s-maxage=86400`, revalidate hooks so a replaced file purges the edge, `clientUploads: { access: isFullyVerified }`.
-4. **GraphQL** disabled (`graphQL.disable: true`, route files deleted) — nothing used it; 404 pinned by int + e2e.
-5. **SEO nits**: `x-default` hreflang is now the unprefixed, language-negotiating URL in both the HTML tags and next-intl's `Link` header (they disagreed); the sitemap only claims `lastmod` for CMS pages (`updatedAt`), never a fabricated "now".
-6. **Dependencies:** the 15 open Dependabot PRs (#57–#81) applied (`jose` 6.2.12, `tsx`, AWS SDK clients, `@types/node` 26.5.1, `vitest` 4.1.11, `jsdom` 30, `postgres:18-alpine` + `adobe/s3mock:5.2.2` in compose and CI, `configure-aws-credentials` v6.2.4 by SHA, …). New `overrides` for transitive packages whose direct dependency will not move: `qs ^6.16.0`, `@esbuild-kit/core-utils`→`esbuild ^0.25.0`, `@lhci/cli`→`uuid ^11.1.1`. `extract-zip` (`@lhci/cli`→`lighthouse`→`puppeteer-core`→`@puppeteer/browsers`) has **no patched release** and only runs when a browser is *downloaded*, which LHCI here never does — alerts #17/#29 dismissed `not_used`; re-evaluate if `@lhci/cli` ever downloads a browser. A catch-all `minor-and-patch` Dependabot group so the backlog cannot recur.
-7. **CodeQL:** `plainTextFromHtml` rewritten from a regex chain into a one-pass tokenizer with single-pass entity decoding (three `incomplete-multi-character-sanitization` + `double-escaping` findings); the formula bar's caret-marker strip uses `replaceAll`. (The `registry.ts` finding was *not* closed by the `Set` guard added here — see the entry above.)
-8. **Local e2e robustness:** the hooks that boot Payload inside a Playwright worker get `testInfo.setTimeout(+90 s)` — the schema push takes 20–30 s on a Windows laptop.
-
-**Verification:** lint 0 errors, typecheck, drift guards clean, `test:int` 313 (11 new), build, `test:e2e` 57 (3 new), each new test shown failing with its fix reverted; Filip ran the manual local guide. **Gotchas kept:** Payload's JWT strategy populates `req.user` through the Local API with `overrideAccess` on, so hidden fields (`totpSecret`) ARE on `req.user` — read them explicitly anyway. Playwright runs Payload's schema push in every worker that seeds — parallel local workers can race the dev server; `--workers=1` is what CI uses. Dependabot's alert listing is cached for a minute after a PATCH.
-
-### Admin password reset, Payload CSRF allowlist, header hardening — 2026-09-16/17, commit `bd38da4`
-
-**Found by reading, not by the roadmap.** FUNCTIONALITY §5.1 / TECHSPEC §6.6 said the admin "receives a reset link by email … via SES". Verified against the installed `payload@3.89.0` source, none of it existed: no `email` adapter (Payload's console adapter logs *"Email attempted without being configured"* and returns success — "Forgot your password?" showed *Email Sent*, nothing was sent); no `serverURL` (Payload correctly refuses the Host header, so even with an adapter the link would have been relative); and, because `serverURL`/`csrf` were unset, `auth/extractJWT.js` accepted the `payload-token` cookie from **any `Origin`** — Payload's CSRF allowlist was off.
-
-**Built (no new dependency, no schema change):** `src/lib/email/payloadEmailAdapter.ts` (a Payload `EmailAdapter` over the existing SES v2 path — execution-role auth, never throws; outside production it prints the message incl. the link to the console, in production an unconfigured sender is an `OPS_ALERT`, body never logged; chosen over `@payloadcms/email-nodemailer` = a new SMTP secret and Resend = a new sub-processor); `src/lib/email/resetPasswordEmail.ts` (OWASP Forgot Password cheat sheet: link only, expiry stated, everything escaped); `src/lib/serverUrl.ts` (`NEXT_PUBLIC_SITE_URL` → `https://bulbau.lu` only on the SST production stage → `http://localhost:3000` outside production mode → `''`; a staging stage without `SiteUrl` keeps the permissive behaviour with a loud warning rather than locking its admin out; Payload's sanitizer copies `serverURL` onto `csrf`, so exactly one origin is trusted); `Users.ts` — 1-hour expiry, branded mail from the configured origin only, and a **rate limit on `/api/users/forgot-password`** (5 / 15 min per IP and per address, before the account lookup); `poweredByHeader: false` (production served `x-powered-by: Next.js, Payload`); the security headers applied by `src/proxy.ts` to proxy-terminated redirects (`curl -I https://bulbau.lu/` had been a bare 307); Careers "Contact Us" → `/contact`.
-
-**Tests:** `emailAdapter.int.spec.ts` (resolver, template, adapter branches, the real `forgotPassword` operation: absolute link = stored token, uniform no-enumeration response, 429 on the 6th call); `rest.int.spec.ts` CSRF cases (foreign `Origin` → anonymous; no `Origin` + `Sec-Fetch-Site: same-origin` → accepted; `unlock` from a foreign origin → 403); `accountRecovery.e2e.spec.ts`. **Gotchas kept:** `/api/users/me` returns **403** for a password-only session (`meOperation` re-reads with `overrideAccess: false` and `Users.read` requires the step-up — the 2FA gate, not CSRF). Browsers send no `Origin` on same-origin GETs, so Payload falls back to `Sec-Fetch-Site`; CloudFront forwards it (`AllViewerExceptHostHeader`), while `X-Real-IP`/`Referer` are on CloudFront's removal list.
-
-### Databases reset from empty — 2026-09-16, CI run 35095817327 (`092e9e1`)
-
-Decided 2026-09-16 (pre-launch, no data worth keeping) after the staging ledger had been hand-repaired and re-broken three times. `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` on each Neon branch's direct URL, then a push: both deploy jobs printed `fresh database` → `Migrating: 20260707…` … `20260914…` → `✅ every committed migration is recorded as applied`. After launch this is never an option again — forward migrations and Neon PITR only.
-
-### Formula bar, one list design, fail-closed migrations, local-push guard, TOTP fixes — 2026-09-13 → 16, commits `060db5b` + `092e9e1`
-
-- **`payload migrate` is interactive.** With Payload's dev-push marker (`payload_migrations` row `dev`, batch `-1`) in the target — written by local `.env` pointing at staging since 2026-08-01 — it prompts and exits 0 with stdin closed. Every staging migrate step 2026-08-01 → 09-14 was a silent no-op. `scripts/verify-migrations.mjs` (`npm run migrate:verify [-- --pre]`, plain `pg`, no Payload boot) brackets the apply in CI: pre-flight refuses a marker, `timeout 600s … </dev/null` cannot hang, the post-check fails unless every committed migration is recorded. A database with no ledger table passes pre-flight ("fresh database").
-- **`src/lib/dbGuard.ts`**: with push on (`NODE_ENV !== 'production'`) the config throws for any non-local `DATABASE_URL` (`ALLOW_REMOTE_DB_PUSH=true` overrides). Stage-targeted commands pass the URL on the command line, never via `.env`. A running dev server keeps the connection it started with.
-- **Two desktop layout bugs in `custom.scss`:** `.gutter { margin-inline: auto }` on a *flex item* cancels `align-self: stretch` (every document view collapsed to ~280 px above 1440 px) — fixed with `width: 100%`; `.row__fields { gap }` wrapped two-up rows — `row-gap` only.
-- **One list design:** the bespoke Services screen and the reorder/delete API were deleted; Services, Projects, Careers, Media use Payload's native list (bulk select, drag ordering, search) restyled; extras ride list slots (`ListOrderBanner`, `ListCardHeader`, `HomeCardLimitSettings`, `TitleCell`, `ServiceSummaryCells`, `RowActionsCell`); `/admin/services` redirects. **Projects and Media are `orderable`** → fourth migration `20260914_165124_projects_media_orderable` with a hand-written newest-first backfill (`generateNKeysBetween`), and `orderNewDocumentsFirst` inserts new documents at the top. The public `/projects` order now follows the admin's drag order.
-- **Formula bar** (`src/lib/pricing/formulaExpression.ts`, pure; `FormulaBuilder.tsx` UI): a free-form expression — `(area × rate + 200) × (1 + 17%)`, `if(area > 100, …)`, `max(…, 500)`, `ceil(area / 1.7) × 250` — with highlighting, autocomplete, chips, plain-language errors with positions. Storage stays plain JSONLogic (no migration; old-builder formulas re-open as text); an unparsable text is stored as `{ "__draft": text }` and the field's server-side `validate` refuses to publish it, or any `var` naming a field that no longer exists; `fieldKey` is unique/space-free. The evaluator gained `%`, comparisons, `and/or/!/!!`, lazy `if`, and the one non-standard extension `round/ceil/floor/abs`.
-- **TOTP:** `/totp/setup` reuses a pending unconfirmed secret (a reload between scanning and typing used to make the code "Invalid"); non-production authenticator entries are labelled with the host from `NEXT_PUBLIC_SITE_URL` (`(localhost:3000)`, the CloudFront host) — which is why `SiteUrl` must be set on staging.
-- Same commit: `afterLogout` clears the step-up cookie via `req.responseHeaders`; one shared `getClientIp` (**last** `X-Forwarded-For` hop — CloudFront strips viewer-supplied `CloudFront-Viewer-Address`/`X-Real-IP` and appends the true IP last, verified against production); `serializeJsonLd` escapes `<`; `Media.upload.mimeTypes` = jpeg/png/webp; unused `Dockerfile` removed; Terraform lock committed.
-
-### Dependency security patch + the `users.unlock` gate — 2026-09-10, `9df17ec`
-
-`next` 16.2.11 → **16.3.4** (two critical RCE advisories, patched in 16.3.3 — `16.2.12` is still inside the range), `sharp` override → 0.35.4, Payload → 3.89.0, `baseline-browser-mapping` override. **The Payload advisory GHSA-jg8r-5jh2-v2xj is NOT fixed by the bump** (its page lists no patched version; 3.89.0's defaults still use `unlock: defaultAccess`): the real fix is `unlock: requireTotpVerified(() => true)` in `Users.ts` — `unlock` was the one of five access operations left on `Boolean(user)`, so a stolen password could clear the login lockout. Pinned by three REST cases targeting a real account (a made-up address gets 403 for a different reason and proves nothing). Next 16.3.4 also exposed a latent bug: after a correct code, `router.push('/admin')` was answered from the client Router Cache holding a prefetched redirect to `/admin/totp-verify` — fixed with `window.location.assign` (rule suppressed on those two lines only). And `TotpSetupForm` fired `/totp/setup` twice per mount under StrictMode, burning the 5/5-min budget — fixed by holding the request *promise* in a ref (a boolean guard hangs the view). One moderate stayed: `esbuild` dev-serve via `drizzle-kit`, never run here (closed 2026-09-18 with a nested `overrides` entry).
-
-### Failure visibility — 2026-09-10, `7e02c94` (first Phase 7 slice)
-
-`src/lib/content.ts` never throws (a Neon outage = blank pages with HTTP 200) and OpenNext returns 500 *responses* without the handler throwing (`AWS/Lambda Errors` stays 0). Now: `src/lib/observability/opsLog.ts` emits one single-line `OPS_ALERT {…}` marker per silent degradation (`content.ts`, `revalidate.ts`, `cdn/invalidate.ts`, `email/ses.ts`); a CloudWatch metric filter in `sst.config.ts` turns it into an alarm; self-healing faults use `OPS_WARN`, which the filter ignores. `GET /api/health` is liveness only — it **deliberately never touches the database** (a 30 s probe would keep Neon awake and destroy the scale-to-zero cost model). Alarms moved from Terraform (hand-copied function names that rot silently under `notBreaching`) into `sst.config.ts`, wired by reference: Web/Pdf Errors + Throttles + `app-ops-alerts`. `infra/terraform/uptime.tf` (opt-in) holds the Route 53 health check (3 checker regions — the default 15 would exceed Lambda's free tier on its own), a us-east-1 SNS topic (needs its own confirmation) and the CloudFront 5xx alarm — those metrics exist only in us-east-1, which the deploy role cannot write. Also fixed: an accidental `/* global … */` ESLint directive, and the **non-deterministic axe gate** (it sampled colours mid-`fade-rise`; `prefers-reduced-motion` emulation did not reach the page, so the scan now neutralises animation with an injected stylesheet). `/en/contact` joined the axe + Lighthouse sets.
-
-### Bespoke admin panel + Home card limit — 2026-09-07, `984be35`
-
-Custom `Nav`, Dashboard root view (re-applies the TOTP gate itself — `beforeDashboard` does not render on a replaced view), brand `Logo`/`Icon`, login slots, ~3,100 lines of `custom.scss`. `HomeSettings` global (`serviceCardLimit`, `0` = all) finally delivers FUNCTIONALITY §3.1. Calculator fields gained `unit` (presentation-only, localized, in the registry) and `defaultOn`. **Third migration `20260825_173608`.** `next.config.ts` `sassOptions.charset: false`: Dart Sass prepends `@charset` when a sheet contains any non-ASCII byte (the SCSS comments do), Next turns it into a BOM, and Turbopack rejects the file because `@import` is no longer first — do not "clean it up". The dedicated Services screen from this commit was removed again on 2026-09-14.
-
-### Phase 5 part 2 — Translation Management screen — 2026-08-06, `e3121af`
-
-`/admin/translations` (`TranslationsView.tsx` + `TranslationManager.tsx`) lists every translatable string with EN beside FR/DE and a live status; plain text edits inline (Save = override; Re-translate = regenerate) via `POST /api/admin/translations`; rich text deep-links to the native localized editor. **Migration-free, no shadow collection**: reads at `locale: 'all'` (raw per-locale values, no fallback), flattened by the pure `src/lib/translation/inventory.ts`. Write safety: the target doc is read with `fallbackLocale: false` so untranslated siblings are never persisted as EN copies; one top-level field is written with `_status` preserved. Custom views are public by default — the view, the proxy and the API route each gate on user + TOTP + step-up. Recorded scope limit: without persisted metadata the screen cannot tell an auto-translation from an override or flag "source changed since" — that needs the shadow collection + a migration.
-
-### Phase 6 — Contact form + spam protection — 2026-08-06, `11b5045`
-
-A dedicated `/contact` page (deviation from §3.4's About-page placement — better navigation and crawlability) + `POST /api/contact`: 32 KB cap → IP limit 5/min → honeypot (off-screen field named `contact-ref`, `autocomplete="off"` — never a real field name a browser autofills) → validation → **Cloudflare Turnstile** Siteverify (`src/lib/security/turnstile.ts`, env-gated no-op when unset, never throws) → SES relay with **From = the verified identity, Reply-To = the visitor** (spoofing the visitor in From fails SPF/DKIM alignment). Never persisted. Turnstile was also retrofitted onto the email-quote action. The CSP has no `default-src`, so the Turnstile script/iframe need no allowlisting until a nonce CSP lands. `TurnstileSecretKey`/`TurnstileSiteKey` SST secrets. The form works in the SES sandbox once its single destination address is verified — SES production access is only needed for the email-quote path.
-
-### Phase 4 part 2 — PDF send-to-email — 2026-08-05 (shipped with Phase 6)
-
-SES v2 `SendEmail` with native `Attachments[]` (2025-04+; no MIME, no nodemailer) sent from the **Web** function (the PDF Lambda stays a DB-less renderer), gated by `EMAIL_SENDER`, never throws (→ the §7 "download instead" fallback), time-boxed. `infra/terraform/ses.tf`: domain identity + Easy DKIM (3 CNAMEs), custom MAIL FROM `mail.bulbau.lu` (MX + SPF), DMARC `p=none` — all applied. **Email architecture (Filip):** the site sends FROM `info@bulbau.lu`; `office@bulbau.lu` is the owner's real mailbox at a separate provider (SES cannot host one), set as Reply-To via `CompanyInfo.email`. The provider's MX goes on the root; SES's MX is on `mail.` — no conflict. Runtime `ses:SendEmail` rides the Web function's role via SST `permissions`; the deploy role was unchanged.
-
-### On-demand CloudFront invalidation — 2026-08-04
-
-OpenNext's automatic CDN invalidation is a no-op, so a publish refreshed the origin but CloudFront served stale HTML until `s-maxage`. Passing the distribution id to the server function directly is a dependency cycle (SST #5990), so `sst.config.ts` writes it to an SSM parameter **after** the `Web` component and the function reads it at runtime (`src/lib/cdn/invalidate.ts`, cached per warm instance, `CreateInvalidation('/*')`, never throws). This exposed a latent bug: the translation hook's `disableRevalidate` restore never reached the outer save, so translated content had not been revalidating at all — the hook now leaves the flag set and calls `revalidatePublicSiteNow()` itself once. Gotchas: the staging Web function logs to a differently-suffixed log group; deploy via CI, not a local `sst deploy` from an incomplete `node_modules`.
-
-### Phase 5 part 1 — auto-translation — 2026-08-02
-
-**AWS Translate, not DeepL** (DeepL's recurring free tier is gone; Translate authenticates via the execution role — no secret, no new sub-processor, FORMAL register). A **synchronous `afterChange` hook**, not the Jobs Queue (Payload's `autoRun` is not for serverless; Next's `after()` is unsupported on OpenNext). Because `afterChange` runs inside the save transaction, a timeout there rolls the publish back — hence: calls paced at ~16/s under the 20 req/s quota (no throttle → no backoff), a hard 12 s deadline under an explicit 30 s Lambda timeout, never throws, locales sequential (one transaction), and a recursion guard that **mutates `req.context.skipAutoTranslate`** (the per-call `context` argument did not reach the nested hook → the "3-minute create"). Field selection is self-healing and override-safe: (re)translate iff the EN source changed or the target still equals the EN fallback, read at the same depth. `src/lib/translation/registry.ts` is the hand-kept list of localized paths (a registry↔schema drift test is still a good hardening item).
-
-### Production stand-up + foundational Terraform — 2026-07-30/31
-
-`infra/terraform/`: Route 53 zone on a **reusable delegation set** (stable nameservers — the zone can be destroyed/recreated for "$0 off" without touching EuroDNS), the Neon project and the deploy role **import-only** behind feature flags with `prevent_destroy`, AWS Budgets, the `bulbau-lu-ops-alerts` SNS topic; S3 state with native locking (no DynamoDB). The deploy policy JSON is sourced via `file()`, so `terraform plan` is the drift detector — edits go live with `terraform apply`, never `put-role-policy`. Production: SST `domain` block (apex canonical, `www` redirect, zone looked up by id), a manual-approval `deploy-production` job, the production Neon branch baselined. Three IAM gaps, all the same class (global/cross-region services that a `eu-central-1`-conditioned Allow never covers): ACM in us-east-1, Route 53 (incl. `ListTagsForResource`, which SST's zone lookup calls), and the trust policy's `sub` widened to both Environments.
-
-### AWS account migration + audit-gate policy — 2026-07-22 → 27
-
-Moved out of the shared `acc-test` account into dedicated `service-calculator-production` (`847321857537`): Lambda concurrency is per-account and blast radius. Mental model: bootstrap → deploy fresh → move the two stateful things (Neon reused as-is; S3 media copied) → `sst remove` the old (always `aws sts get-caller-identity` first). Gaps the restricted CI role hit creating everything from scratch: `iam:CreateRole` on SST's stage-truncated role names (→ `role/*` + a `ProtectCriticalRoles` Deny), `cloudfront-keyvaluestore:*`. **CI audit gate rescoped to production deps** (`npm audit --omit=dev --audit-level=high` blocking, full-tree informational): dev-only advisories with no fix in the pinned toolchain must not block a deploy; every runtime advisory still gates. The concurrency increase is a launch item, not pre-launch.
-
-### Public `/api/quote` rate limit + payload caps — 2026-07-22
-
-The one unauthenticated endpoint doing expensive work (a Neon read + the 1600 MB Chromium Lambda) had no limit. Shared `src/lib/rateLimit.ts` (a sliding window — Upstash was the intended store, never configured; DynamoDB since 2026-09-18), `bulbau-quote` 10/min/IP checked before the body is read; 16 KB `Content-Length` guard + 200-field cap (App Router handlers cannot bound body size declaratively). `getClientIp` prefers `CloudFront-Viewer-Address`, then the last XFF hop, then `x-real-ip`, then a constant bucket (fail-safe).
-
-### CI hardening slices — 2026-07-21
-
-- **Security headers** (`src/lib/security/headers.ts`, one source of truth for config and tests): HSTS 2 y + `includeSubDomains` (no `preload` yet), `nosniff`, `Referrer-Policy`, `X-Frame-Options`, `X-XSS-Protection: 0`, `Permissions-Policy`, COOP, and a **nonce-free CSP** (`base-uri`, `object-src`, `frame-ancestors`, `form-action`; deliberately no `default-src`/`script-src` — a nonce CSP would silently break the Payload admin).
-- **Schema drift guard:** `migrate:create --skip-empty` + `git status --porcelain src/migrations` in `verify` (Payload has **no** `--check` flag despite third-party claims; `</dev/null` + `timeout` neutralise the interactive rename prompt).
-- **Generated-artifact drift guard:** regenerate `payload-types.ts` + `importMap.js` and fail on any diff (a stale import map breaks the admin at runtime with no build error). Both generators run without a DB and are idempotent.
-- **CI content seed:** `npm run seed:ci` (`ALLOW_CONTENT_SEED=true` + non-production only) publishes one sample service so `/services/[slug]` is under the axe + Lighthouse gates. Gotcha: a `payload run` entry must **top-level `await`** its work — a floating promise is killed at module-eval end with no output at all.
-- **SEO/legibility:** localized `meta-description` on every page and no public text under 12 px, both hard Lighthouse gates; `tap-targets` was removed by Lighthouse 12 (44 px touch targets stay, covered by axe).
-- Lighthouse cannot complete on Windows (chrome-launcher `EPERM` teardown) — Linux CI is the authority.
-
-### Phase 4 part 1 — PDF quote (download) — 2026-07-20
-
-Isolated **x86_64** `Pdf` Lambda (`puppeteer-core` + full `@sparticuz/chromium`, which ships x64 binaries only; arm64 needs `-min` + a self-hosted pack) — a dumb HTML→PDF renderer with no Payload/DB. `POST /api/quote` re-loads the authoritative published service, re-prices with the same `src/lib/pricing/`, renders self-contained branded HTML, invokes the Lambda; with no `PDF_FUNCTION_NAME` it serves the HTML for preview. Never persisted. The deploy role needed `ManageAppIamRoles` (IAM is global). CodeQL: never interpolate untrusted values into a `console.*` format string. `@sparticuz/chromium` and `puppeteer-core` are version-coupled (Dependabot group).
-
-### Phase 3 — live calculator + formula authoring — 2026-07-19/20
-
-Stored format = standard JSONLogic; evaluation = a zero-dependency in-house interpreter (`json-logic-js` is unmaintained; a rules engine is more surface than money-math needs; swapping to `json-logic-engine` later is drop-in). Default path Σ signed `unitPrice × value`; a formula is authoritative; non-positive/non-finite → "Contact us for a price". The total is withheld until required *number* fields have a value (0 counts as filled). A CSS switch on a hidden checkbox must be wrapped in a `<label>` or the visible slider is dead to the mouse. The 2026-07-20 structured builder was replaced by the formula bar on 2026-09-14.
-
-### Phase 2 — public site — 2026-07-17/18
-
-next-intl v4 with URL-prefixed locales, composed with the TOTP admin gate in `src/proxy.ts` by path; `src/app/[locale]/` root layout; `src/lib/content.ts` reads with `overrideAccess: false` (the same policy the REST boundary is tested with) and never throws; ISR `revalidate = 300` + on-demand revalidation by explicit `'page'` patterns (a layout revalidation does not cascade into dynamic routes on OpenNext); indexing is an explicit opt-in (`NEXT_PUBLIC_ALLOW_INDEXING`). Part 2: slugs (`src/lib/slug.ts`, non-localized, unique), the `Projects.serviceName` snapshot retained after a service is deleted (FK `set null`), client-side search/filter. Gates: axe WCAG 2.2 AA (serious/critical) in the e2e suite + Lighthouse hard gates (a11y ≥0.9, best-practices ≥0.9, perf ≥0.8; SEO WARN by design until indexing). **Analytics deliberately out of scope** (cookieless site, no consent banner). Lessons: `title: undefined` overrides the layout default instead of inheriting; a cleared rich-text field is a non-empty Lexical object (test with `lexicalToPlainText`); local `push` never runs migration backfills; importing next-intl's middleware into a vitest suite drags in `next/server` (mock it); tests that mutate a singleton global must not assume it starts empty; deleting a route leaves stale `.next` type validators (`npm run devsafe`).
-
-### Phase 1 / 1.5 — content model, mandatory TOTP, migrations — 2026-07-06 → 08
-
-Collections/globals with EN/FR/DE localization from day one (toggling `localized` later loses data), drafts on Services/Projects/LegalInfo, `CareerListings` with an explicit active/archived `status`, `LegalInfo`'s §6.9 publish gate (`required` + an aggregated `beforeValidate` throw). Public reads return a `_status: published` constraint unless the session is fully 2FA-verified — the same three checks as `requireTotpVerified`, so a password-only session sees nothing extra. TOTP: `otplib`, AES-256-GCM secret at rest under a separate `TOTP_ENCRYPTION_KEY` (HKDF subkeys), an HMAC step-up cookie, per-user + per-IP limits. **The proxy must verify Payload's JWT with Payload's derived key** (`sha256(secret).hex.slice(0,32)`), not the raw secret — exported as `payloadJwtKey` and reused by the test so they cannot drift. Migrations: push in dev/CI, tracked migrations on deployed stages, applied by CI before `sst deploy` against the **direct** (unpooled) Neon URL; `prodMigrations` deliberately unused on Lambda. `rest.int.spec.ts` needs `@vitest-environment node` (jsdom's `Uint8Array` breaks `jose`).
-
-### Phase 0 — 2026-07-04
-
-Next.js + Payload on Lambda via OpenNext/SST worked, after: builds must happen on Linux (OpenNext symlinks), `sharp` omitted, an explicit S3 storage adapter, `importMap.js` is generated, and IAM's `aws:RequestedRegion` does not scope global services. Media tests use Adobe **S3Mock** (MinIO/LocalStack dropped their free images); int test files run sequentially (`fileParallelism: false`) because every file boots Payload's schema push against one Postgres; `clientUploads` is off against S3Mock (its CORS is incomplete).
+### Known, accepted, not blocking
+- **`braces` GHSA-vfj7-8cjw-p6xm** has no patched release. It is build-time only
+  and absent from the deployed artifact; the evidence is written into
+  `scripts/audit-production-deps.mjs`, which fails if the exception goes stale
+  or passes its review date (2026-12-31).
+- **Every RSC prefetch 307-redirects** and loses its `_rsc` cache-buster, so
+  prefetching is effectively off and each costs two Lambda invocations. Known
+  upstream Next.js behaviour with i18n middleware rewrites (vercel/next.js
+  #91844, #55415). Not a correctness bug.
+- **`next/font/google` runs at build time**, so every deploy depends on Google's
+  font CDN being reachable — it has already failed one deploy. `next/font/local`
+  would remove that, and a Google request from every visitor's first paint.
 
 ---
 
-## Environment notes
+## Rules this project learned the hard way
 
-- Local: Docker Postgres (Filip's container maps host port **5431**; the committed compose says 5432, which clashes with an unrelated `shop-postgres`) + S3Mock. `.env` must point at a local database — `dbGuard` refuses anything else in push mode. **The committed compose is now `postgres:18-alpine` (matching Neon).** A Postgres major cannot start on a volume written by an older major — an existing `pgdata` volume must be recreated (`docker compose down -v && docker compose up -d`, then `ALLOW_CONTENT_SEED=true npm run seed:ci` and a new first admin); Filip's running 5431 container is still 17 and keeps working until it is recreated. Same for CI: the service container is 18 and ephemeral.
-- The int tests mutate content on whatever `DATABASE_URL` points at; the TOTP, contact and forgot-password limiters are in-memory on a dev server, so a second e2e run within their windows can 429 (the forgot-password and quote cases use unique buckets per run; TOTP/contact do not) — with `reuseExistingServer` a still-running dev server keeps its counters across runs. Playwright's default local parallelism can race the dev server (each seeding worker boots Payload with schema push); `--workers=1` is the deterministic local run and is what CI uses.
-- Uploaded media renders on the dev server through the `next.config.ts` rewrite `/media/:path*` → `${S3_ENDPOINT}/${S3_BUCKET}/media/:path*`, which exists only while `S3_ENDPOINT` is set (i.e. with the S3Mock block in `.env`). `http://localhost:3000/media/<file>` is therefore the same URL a visitor uses live; `/api/media/file/<file>` returns Payload's uniform error on every stage.
-- `AGENTS.md`/`CLAUDE.md` at the repo root are rewritten by `next dev` and gitignored (tool output, not project docs).
-- Earlier sessions ran in a sandbox that could not run this toolchain (Turbopack/Playwright/`tsc`); "verified in-sandbox" claims from that era were always followed by a run on Filip's machine or CI, which is the only authority.
+These are not general advice. Each one cost real time here.
+
+**Verify against the installed source and the live system** — never against
+docs, `npm audit`'s "fix available", or a previous session's conclusion. Nearly
+every serious bug found here was found by re-reading code or running the
+product after someone had concluded things were fine.
+
+**A passing CI step must prove its post-condition.** The migrate step "passed"
+for six weeks while applying nothing. The Lighthouse artifact upload "passed"
+while uploading nothing.
+
+**A gate that fires wrongly is worse than no gate.** Two false positives in the
+image smoke check, and one in the schema-drift guard, each blocked a production
+deploy. Prove *every branch* of a guard — including the failure branches —
+before shipping it, not just the happy path.
+
+**Distinguish "the check failed" from "the thing is broken."** The drift guard
+reported "your schema changed" when the check had merely timed out. The
+difference is what makes a message actionable.
+
+**Prove a regression test fails without its fix.** Both directions.
+
+**Make the URL the key.** A media file's public path is `/` + its S3 key, so the
+edge needs no rewrite, dev needs one, and there is one string to reason about.
+
+**On Lambda, a counter that is not shared is not a limit.** Every instance has
+its own memory; every cold start resets it.
+
+**A header the app sets only reaches responses the app sends.** Anything
+CloudFront answers from S3 gets no Next.js headers — the policy has to be
+projected to the edge from the same source.
+
+**Every Payload access operation must be set explicitly** — `read`, `create`,
+`update`, `delete`, `unlock`, `readVersions`. The fallback is
+`Boolean(req.user)`, i.e. any password-only session. `?draft=true` restricts
+nothing on its own.
+
+**A comment in `.env` is not a guard; a process that refuses to start is**
+(`src/lib/dbGuard.ts`).
+
+**Pin the framework's internals you depend on.** OpenNext calls Next.js
+internals directly. When Next changed `fetchInternalImage`'s arity, every
+optimized image 500'd — and when the fix moved sharp to a version selected by a
+different npm flag, every image silently served *unoptimized* at full size.
+`tests/int/imageOptimizerBuild.int.spec.ts` and
+`scripts/smoke-image-optimizer.mjs` exist to catch both.
+
+**Nothing in CI can see the OpenNext runtime.** Lighthouse, Playwright and the
+integration tests all run against `next start` — Next's own optimizer, its own
+server. The deployed stages run OpenNext's, in separate Lambdas. Only a
+post-deploy check against the real stage covers that gap.
+
+**Prefer an AWS-native, execution-role-authenticated service over a third-party
+free tier** when it does the same job. This project lost DeepL's, MinIO's and
+LocalStack's free tiers mid-build.
+
+**Deploy through CI (Ubuntu), never `sst deploy` from Windows** — OpenNext's
+symlinks do not survive Windows packaging and the deploy "succeeds" with files
+missing.
