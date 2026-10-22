@@ -39,11 +39,24 @@ export function Header() {
   return (
     <header className="site-header">
       <nav aria-label="Primary">
-        <Link href="/" className="logo" aria-label={th('homeAria')}>
+        {/*
+          The destination hint is CONTENT, not an `aria-label`, and that is load
+          bearing. axe-core 4.14 added `label-content-name-mismatch` (WCAG 2.5.3
+          "Label in Name"), which fires when an aria-label overrides an element
+          that also has visible text and does not contain it. Here the visible
+          text renders as "BBulbau" — the decorative mark is `aria-hidden`, so it
+          leaves the accessible name but NOT the rendered text — so no aria-label
+          starting with "Bulbau" can ever satisfy the rule. Naming the link from
+          its own content sidesteps the mismatch entirely (the footer logo, which
+          never had an aria-label, has always passed for this reason) while still
+          announcing where the link goes: "Bulbau go to home page".
+        */}
+        <Link href="/" className="logo">
           <span className="logo-mark" aria-hidden="true">
             B
           </span>
           <span className="logo-name">Bulbau</span>
+          <span className="visually-hidden">{th('homeAria')}</span>
         </Link>
 
         <ul className="nav-links">

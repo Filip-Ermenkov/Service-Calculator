@@ -233,21 +233,28 @@ export default $config({
       //
       // Upstream fixed it in @opennextjs/aws 4.0.0 by branching on the Next
       // version; there is NO 3.x backport (3.9.16 / 3.10.0 / 3.10.4 all still
-      // make the 4-arg call), so moving off 3.x is the only real fix. 4.1.5 was
-      // verified locally against this repo before pinning: `open-next.output.json`
-      // is identical to 3.9.14 in every field SST reads (the three origins
-      // `default`/`imageOptimizer`/`s3`, no edge functions, the same `behaviors`
-      // and the same `additionalProps`), middleware stays bundled INTO the server
-      // function (no new origin, so src/proxy.ts keeps running), and the emitted
-      // optimizer bundle carries `globalThis.nextVersion = "16.3.6"` with the
-      // `>= 16.2.5` branch that passes all five arguments.
+      // make the 4-arg call), so moving off 3.x is the only real fix.
+      //
+      // Each bump is verified locally against this repo BEFORE pinning, by
+      // running `npx @opennextjs/aws@<v> build` and checking: (a)
+      // `open-next.output.json` still matches 3.9.14 in every field SST reads —
+      // the three origins `default`/`imageOptimizer`/`s3`, no edge functions,
+      // the same `behaviors` and `additionalProps`; (b) middleware stays bundled
+      // INTO the server function, so no new origin is needed and src/proxy.ts
+      // keeps running; (c) the emitted optimizer bundle carries the installed
+      // Next version in `globalThis.nextVersion` with the `>= 16.2.5` branch
+      // that passes all five arguments to `fetchInternalImage`.
+      // tests/int/imageOptimizerBuild.int.spec.ts pins (c) at PR time and
+      // scripts/smoke-image-optimizer.mjs proves the result on the real stage.
       //
       // Pinned exactly, not floated: this is the build that produces the Lambda
       // bundles, so it must change deliberately and be re-proved on staging.
+      // Moved 4.1.5 → 4.1.12 alongside the Next 16.3.6 → 16.4.2 security bump,
+      // so the adapter is not older than the framework it adapts.
       // REMOVE this line once SST's own default reaches >= 4.0.0 — keeping a
       // manual pin past that point is how a project silently stops getting
       // OpenNext's security and runtime fixes.
-      openNextVersion: '4.1.5',
+      openNextVersion: '4.1.12',
       // Custom domain — PRODUCTION ONLY (see `isProduction` above). All other
       // stages return `undefined` here and keep their *.cloudfront.net URL.
       //
