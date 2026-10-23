@@ -510,6 +510,8 @@ The following describes how content flows from creation to public display in all
 5. The manual correction is stored and used instead of the auto-translation going forward.
 6. If the admin later updates the English source again, the affected translations are flagged for review, and new auto-translations are generated, but the previous manual overrides are preserved until the admin explicitly updates or resets them.
 
+> **Known problem (October 2026): the admin's "Copy to locale" button does not work on Company Info or Legal Info.** It shows an error page and copies nothing. This is a fault in the CMS software the admin panel is built on, not in this site, and it is fixed by a future update of that software rather than here. It works normally on services, projects and job openings. The workaround is the normal workflow above: write in **English**, and French and German are filled in automatically when you save. To move text from one language to another by hand, copy it, switch the admin's language selector, and paste it. (Developer detail: `docs/PROGRESS.md` → "Known, accepted, not blocking".)
+
 ---
 
 ## 7. Edge Cases & Constraints

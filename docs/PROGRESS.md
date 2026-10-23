@@ -21,9 +21,8 @@ development work.
 | **Content** | Legal Notice and Privacy Policy **published** with the client's real details (BULBAU MULTISERVICE, S.A.S, RCS B303936, VAT LU37807402). 1 service, a placeholder (see 3). **0 projects, 0 careers, 0 media.** |
 | **Client access** | `office@bulbau.lu` has an admin account with 2FA enrolled |
 
-**Not verified in this pass** (AWS SSO expired): SES production access, the
-Lambda concurrency quota, and whether the CloudWatch alarms have ever fired.
-Run `aws sso login --profile sc-new` first.
+The AWS facts below were read from the live account on 2026-10-23
+(`aws sso login --profile sc-new` first).
 
 ---
 
@@ -31,17 +30,25 @@ Run `aws sso login --profile sc-new` first.
 
 Ordered so the things with external waiting periods start first.
 
-### 1. SES production access — client-independent, start now
+### 1. SES production access — requested 2026-10-23, waiting on AWS
 SES is in sandbox: mail only reaches verified identities, so a visitor's quote
-email goes nowhere. The review is about sending practices, not site content, so
-this does **not** wait on the client. ~24h turnaround. Console → SES → Account
-dashboard → Request production access (eu-central-1, transactional).
+email goes nowhere. Requested 2026-10-23 (eu-central-1, transactional). AWS
+replied with its standard request for details (use case, volume, how recipients
+opt in, bounce and complaint handling, a sample email), and the review reads
+`DENIED` until that answer is in the support case. AWS's first response can
+take up to 96 hours. What the answer can cite is already true: the account-level
+suppression list covers bounces and complaints, and `bulbau.lu` is verified with
+DKIM and a custom MAIL FROM.
 
-### 2. Lambda concurrency 10 → 1000 — client-independent, start now
-The account is still on the AWS default of 10 concurrent executions. Under any
-real traffic the web function throttles and visitors see errors. Service Quotas
-→ AWS Lambda → *Concurrent executions* → request 1000. The
-`web-lambda-throttles` alarm already watches for this.
+Once it is granted, test with an address that is **not** a verified SES
+identity. A verified address receives mail even in the sandbox, so it proves
+nothing.
+
+### 2. Lambda concurrency — already 400, 1000 requested
+The account limit in eu-central-1 is **400**, not the default of 10 this file
+used to claim: AWS raises a new account's limit on its own as it is used. A
+request for 1000 is open (2026-10-23). 400 is ample for this site, and the
+`web-lambda-throttles` alarm watches the ceiling either way.
 
 ### 3. Client content
 Projects, careers, photos, and the real services. Each service needs its
@@ -68,22 +75,29 @@ and §3.5, not open:
   in `src/i18n/messages/*.json` on purpose, so a claim cannot change without a
   developer.
 
-### 4. Monitoring proof
-Confirm the alarms exist, are not stuck in `INSUFFICIENT_DATA`, and that the
-SNS topic reaches a real inbox. An alarm nobody receives is not monitoring.
-That is five per SST stage (eu-central-1), the two uptime/CloudFront alarms
-(us-east-1), and the two SES reputation alarms. Also confirm the us-east-1 SNS
-subscription (CloudFront metrics only exist there).
+### 4. Monitoring — proven; the SES alarms are waiting for mail
+**Proven 2026-10-23** for the twelve alarms that existed (five per SST stage in
+eu-central-1, the uptime and CloudFront alarms in us-east-1): all `OK`, none in
+`INSUFFICIENT_DATA`, actions enabled. Each SNS topic has one confirmed email
+subscription. One alarm per region was forced into `ALARM` with
+`aws cloudwatch set-alarm-state`. SNS delivered both notifications (0 failures),
+and both alarms returned to `OK` within a minute. Every alarm here also notifies
+on recovery, so one incident sends two emails.
+
+The CloudFront 5xx alarm had already fired for real on 2026-10-17, and it was
+the only signal that did: the Payload copy-locale bug (see "Known, accepted")
+returned 500s that Lambda counted as zero errors and the app never logged as
+`OPS_ALERT`.
 
 The SES reputation alarms (`infra/terraform/ses-reputation.tf`: bounce ≥ 2%,
-complaint ≥ 0.05%, below AWS's 5% / 0.1% review points) are merged but **not
-applied**: set `manage_ses_reputation_alarms = true` and `terraform apply`
-(expect 2 to add). They treat missing data as `INSUFFICIENT_DATA` on purpose,
-so that state means "watching nothing", not a fault in the alarm. Then read how
-often SES publishes the metric and decide whether `INSUFFICIENT_DATA` should
-email too. Both steps are in `infra/terraform/README.md` → "Turning the SES
-reputation alarms on". They back up the answer to AWS's question in step 1 on
-how bounces and complaints are handled.
+complaint ≥ 0.05%, below AWS's 5% / 0.1% review points) were **applied on
+2026-10-23**: the plan was exactly 2 to add, and a follow-up plan shows no
+changes. Both sit in `INSUFFICIENT_DATA` because the account has sent no mail in
+weeks. That is deliberate (missing data reads as "watching nothing", never as
+green), not a fault. They notify the same eu-central-1 topic whose delivery was
+proven above. Still open, once mail flows after step 1: read how often SES
+publishes the metric and decide whether `INSUFFICIENT_DATA` should email too
+(`infra/terraform/README.md` → "Turning the SES reputation alarms on", step 4).
 
 ### 5. Backup restore rehearsal — done 2026-10-23
 Production was branched at a point an hour back without being touched itself.
@@ -98,14 +112,35 @@ documented but not rehearsed.
 morning cannot be undone. To decide: Neon Launch (up to 7 days), or a scheduled
 `pg_dump` to S3.
 
-### 6. Launch flip — last, in this order
+### 6. Data processing agreements — confirm before launch
+The published Privacy Policy says each processor "acts only on our instructions
+under a data processing agreement". `TECHSPEC.md` §7A says these must be
+reviewed and accepted, not assumed, so confirm each one before the site is
+findable:
+- **AWS** (hosting, SES, Translate, DynamoDB): AWS's GDPR DPA is part of its
+  Service Terms and applies automatically.
+- **Neon** (the database): check its DPA covers this account's plan.
+- **Cloudflare** (Turnstile): check its DPA is part of this account's terms.
+- **Google Workspace** (the `office@` mailbox): review it in the Admin console →
+  Account → Legal and compliance.
+
+This is for whoever holds each account (the developer or the client), not code.
+
+### 7. Launch flip — last, in this order
 1. content in, reviewed
 2. `npx sst secret set AllowIndexing "true" --stage production` (the Lighthouse
    SEO gate becomes hard at the same moment)
-3. HSTS `preload` (`HSTS_PRELOAD` in `src/lib/security/headers.ts`) — deliberately
+3. Google Search Console: add `bulbau.lu` as a domain property and submit
+   `https://bulbau.lu/sitemap.xml`, so Google finds the site in days rather than
+   weeks. Verification is a TXT record at the root, and
+   `infra/terraform/workspace-mail.tf` owns the whole root TXT set: a value
+   added by hand in Route 53 is replaced by the next `terraform apply`. If Search Console does
+   not accept the existing Workspace verification, add its value through
+   Terraform (a variable beside `google_site_verification`).
+4. HSTS `preload` (`HSTS_PRELOAD` in `src/lib/security/headers.ts`) — deliberately
    last, because preload is painful to reverse
 
-### 7. Housekeeping
+### 8. Housekeeping
 - `delete_branch_on_merge` is off
 - the `protect-main` ruleset has a `Repository admin` bypass, so admins can push
   straight to `main`
@@ -115,6 +150,16 @@ morning cannot be undone. To decide: Neon Launch (up to 7 days), or a scheduled
   the open. Private would lose CodeQL on the free tier; it is a decision, not an
   oversight
 - DMARC is `p=none`; move to `quarantine` once reports have been arriving
+- the Neon URLs use `sslmode=require`. `pg` v9 will give that libpq semantics,
+  which skip certificate verification. Switch the `DatabaseUrl` SST secrets and
+  the `*_DATABASE_URL_UNPOOLED` GitHub secrets to `sslmode=verify-full` before
+  `pg` reaches v9; that also silences the warning `pg` prints on every cold
+  start
+- the GitHub Actions deploy role still has a broad, region-scoped Allow
+  (`DeploymentsScopedToRegion`). Replace it with a least-privilege policy that
+  IAM Access Analyzer generates from the role's CloudTrail history
+  (`infra/aws/README.md`). It can wait until after launch: the CloudTrail
+  history already covers every kind of deploy
 
 ### Known, accepted, not blocking
 - **`braces` GHSA-vfj7-8cjw-p6xm** has no patched release. It is build-time only
@@ -127,7 +172,24 @@ morning cannot be undone. To decide: Neon Launch (up to 7 days), or a scheduled
   #91844, #55415). Not a correctness bug.
 - **`next/font/google` runs at build time**, so every deploy depends on Google's
   font CDN being reachable — it has already failed one deploy. `next/font/local`
-  would remove that, and a Google request from every visitor's first paint.
+  would remove that. Visitors make no request to Google: the fonts are served
+  from the build (checked on the live HTML, 2026-10-23).
+- **"Copy to locale" crashes on every global** (Company Info, Legal Info). This
+  is a Payload bug, not ours; it was reproduced locally on 2026-10-23.
+  `@payloadcms/ui`'s `copyDataFromLocale` reads `payload.globals[slug].config`,
+  but `payload.globals` is `{ config: [...] }`, so the lookup is always
+  `undefined`: the admin gets an error page and nothing is copied. The client
+  hit it four times on 2026-10-17. The same wrong lookup in `@payloadcms/next`
+  (`fetchLatestVersion`) makes the admin's version-history view for globals
+  ignore draft/published status. Collections (services, projects, careers) are
+  unaffected, and the button cannot be hidden on a global (`disableCopyToLocale`
+  exists only for collections). Still present in Payload 3.92.0; the fixes are
+  open upstream (payloadcms/payload#16334, #17072). **Deliberately not patched
+  here.** The workaround is the intended workflow: write in English and let
+  FR/DE be generated, as the note in `FUNCTIONALITY.md` §6 tells the client. After each Payload upgrade, check
+  `node_modules/@payloadcms/ui/dist/utilities/copyDataFromLocale.js`: once it no
+  longer reads `globals[globalSlug].config`, delete this entry and the note in
+  `FUNCTIONALITY.md` §6.
 
 ---
 

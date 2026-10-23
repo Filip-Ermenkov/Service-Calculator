@@ -8,7 +8,9 @@ resources "lives in `infra/`".
 
 > **Status (2026-10-22): applied and live.** The zone + delegation set, budgets and the eu-central-1 SNS topic are created; DNS is delegated at EuroDNS; the Neon project and the deploy role are imported (`manage_neon`, `manage_deploy_role` = `true` in the live, gitignored `terraform.tfvars`). The **SES sending identity** is applied (`manage_ses = true` — `_dmarc`, `mail.bulbau.lu` MX/SPF and the DKIM CNAMEs all resolve; the site sends from `info@bulbau.lu`). The **client mailbox DNS** is applied too (`workspace-mail.tf`, `manage_workspace_mail = true`): `bulbau.lu` now answers `MX 1 smtp.google.com`, with the Google SPF/DKIM and verification records alongside SES on `mail.`. Uptime monitoring is on (`manage_uptime_monitoring = true`, `cloudfront_distribution_id = E1O15XCT0NNBSD`). Deploy-policy edits go live with `terraform apply` (`iam.tf` sources `infra/aws/*.json`).
 >
-> **Open here:** turn on the **SES reputation alarms** (`ses-reputation.tf`, `manage_ses_reputation_alarms = true` — authored, not yet applied; see [below](#turning-the-ses-reputation-alarms-on-ses-reputationtf-opt-in)); move DMARC from `p=none` to `p=quarantine` once aggregate reports have been arriving for a while (`dmarc_policy`); and re-run `terraform plan` from a credentialed session to confirm no drift. The runbook below is for a fresh clone / disaster recovery.
+> The **SES reputation alarms** are applied too (`ses-reputation.tf`, `manage_ses_reputation_alarms = true`, 2026-10-23). Both sit in `INSUFFICIENT_DATA` until the account sends mail; steps 3–4 [below](#turning-the-ses-reputation-alarms-on-ses-reputationtf-opt-in) are still open. A full `terraform plan` on 2026-10-23 showed no drift.
+>
+> **Open here:** read the SES metric's publishing cadence once mail flows (step 4 below), and move DMARC from `p=none` to `p=quarantine` once aggregate reports have been arriving for a while (`dmarc_policy`). The runbook below is for a fresh clone / disaster recovery.
 
 ## What it manages
 
@@ -21,7 +23,7 @@ resources "lives in `infra/`".
 | **SES domain identity** + DKIM/MAIL-FROM/SPF/DMARC records | `ses.tf` | new, opt-in (`manage_ses`) | ✅ applied |
 | **Client mailbox DNS** (Google Workspace MX/SPF/DKIM/verification on the root) | `workspace-mail.tf` | new, opt-in (`manage_workspace_mail`) | ✅ applied |
 | **Route 53 uptime check + CloudFront 5xx alarm** (us-east-1) | `uptime.tf` | new, opt-in | enabled in the live tfvars (`manage_uptime_monitoring = true`) |
-| **SES reputation alarms** (account bounce ≥ 2%, complaint ≥ 0.05%, eu-central-1) | `ses-reputation.tf` | new, opt-in (`manage_ses_reputation_alarms`) | not yet applied |
+| **SES reputation alarms** (account bounce ≥ 2%, complaint ≥ 0.05%, eu-central-1) | `ses-reputation.tf` | new, opt-in (`manage_ses_reputation_alarms`) | applied 2026-10-23 |
 | ~~CloudWatch Lambda alarms~~ | ~~`observability.tf`~~ | — | ➡️ **in `sst.config.ts`** (wired by reference) |
 | **Neon project** (existing DB) | `neon.tf` | import-only, `prevent_destroy` | after import |
 | **GitHub-Actions deploy role + policy** (existing) | `iam.tf` | import-only, `prevent_destroy` | after import |
