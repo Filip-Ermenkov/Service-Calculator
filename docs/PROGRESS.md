@@ -102,14 +102,35 @@ publishes the metric and decide whether `INSUFFICIENT_DATA` should email too
 ### 5. Backup restore rehearsal
 A Neon PITR restore has never been tested. Untested backups are not backups.
 
-### 6. Launch flip — last, in this order
+### 6. Data processing agreements — confirm before launch
+The published Privacy Policy says each processor "acts only on our instructions
+under a data processing agreement". `TECHSPEC.md` §7A says these must be
+reviewed and accepted, not assumed, so confirm each one before the site is
+findable:
+- **AWS** (hosting, SES, Translate, DynamoDB): AWS's GDPR DPA is part of its
+  Service Terms and applies automatically.
+- **Neon** (the database): check its DPA covers this account's plan.
+- **Cloudflare** (Turnstile): check its DPA is part of this account's terms.
+- **Google Workspace** (the `office@` mailbox): review it in the Admin console →
+  Account → Legal and compliance.
+
+This is for whoever holds each account (the developer or the client), not code.
+
+### 7. Launch flip — last, in this order
 1. content in, reviewed
 2. `npx sst secret set AllowIndexing "true" --stage production` (the Lighthouse
    SEO gate becomes hard at the same moment)
-3. HSTS `preload` (`HSTS_PRELOAD` in `src/lib/security/headers.ts`) — deliberately
+3. Google Search Console: add `bulbau.lu` as a domain property and submit
+   `https://bulbau.lu/sitemap.xml`, so Google finds the site in days rather than
+   weeks. Verification is a TXT record at the root, and
+   `infra/terraform/workspace-mail.tf` owns the whole root TXT set: a value
+   added by hand in Route 53 is replaced by the next `terraform apply`. If Search Console does
+   not accept the existing Workspace verification, add its value through
+   Terraform (a variable beside `google_site_verification`).
+4. HSTS `preload` (`HSTS_PRELOAD` in `src/lib/security/headers.ts`) — deliberately
    last, because preload is painful to reverse
 
-### 7. Housekeeping
+### 8. Housekeeping
 - `delete_branch_on_merge` is off
 - the `protect-main` ruleset has a `Repository admin` bypass, so admins can push
   straight to `main`
@@ -124,6 +145,11 @@ A Neon PITR restore has never been tested. Untested backups are not backups.
   the `*_DATABASE_URL_UNPOOLED` GitHub secrets to `sslmode=verify-full` before
   `pg` reaches v9; that also silences the warning `pg` prints on every cold
   start
+- the GitHub Actions deploy role still has a broad, region-scoped Allow
+  (`DeploymentsScopedToRegion`). Replace it with a least-privilege policy that
+  IAM Access Analyzer generates from the role's CloudTrail history
+  (`infra/aws/README.md`). It can wait until after launch: the CloudTrail
+  history already covers every kind of deploy
 
 ### Known, accepted, not blocking
 - **`braces` GHSA-vfj7-8cjw-p6xm** has no patched release. It is build-time only
