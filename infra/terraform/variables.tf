@@ -165,3 +165,52 @@ variable "google_dkim_txt_value" {
   type        = string
   default     = ""
 }
+
+# ── Account security baseline (security-baseline.tf, opt-in) ─────────────────
+variable "manage_cloudtrail" {
+  description = "Whether Terraform creates the account's CloudTrail trail (multi-region, management events, log-file validation) and its private log bucket (security-baseline.tf). Kept FALSE by default like every other opt-in resource."
+  type        = bool
+  default     = false
+}
+
+variable "cloudtrail_retention_days" {
+  description = "How long CloudTrail log files are kept in the log bucket before the lifecycle rule deletes them."
+  type        = number
+  default     = 365
+
+  validation {
+    condition     = var.cloudtrail_retention_days >= 90
+    error_message = "Keep CloudTrail logs at least 90 days; shorter defeats the point of having more than the console's event history."
+  }
+}
+
+variable "manage_account_guardrails" {
+  description = "Whether Terraform turns on the account-wide S3 Block Public Access and an IAM Access Analyzer for external access (security-baseline.tf). Both free."
+  type        = bool
+  default     = false
+}
+
+variable "manage_guardduty" {
+  description = "Whether Terraform enables GuardDuty in the primary region and emails its medium-and-above findings through a dedicated SNS topic (security-baseline.tf). Needs its own subscription-confirmation click."
+  type        = bool
+  default     = false
+}
+
+# ── DNS hardening (dns-hardening.tf, opt-in) ─────────────────────────────────
+variable "manage_caa" {
+  description = "Whether Terraform publishes CAA records allowing only Amazon (ACM) to issue certificates for the domain, and no wildcards (dns-hardening.tf)."
+  type        = bool
+  default     = false
+}
+
+variable "manage_tls_rpt" {
+  description = "Whether Terraform publishes the TLS-RPT record (_smtp._tls) so mail servers report TLS delivery failures to the DMARC report mailbox (dns-hardening.tf)."
+  type        = bool
+  default     = false
+}
+
+variable "manage_dnssec" {
+  description = "Whether Terraform signs the zone with DNSSEC (KMS key in us-east-1, key-signing key, signing status, two us-east-1 alarms). Signing only protects once the DS record from `terraform output dnssec_ds_record` is added at the registrar, AFTER waiting 2 days; see dns-hardening.tf for the order, which matters."
+  type        = bool
+  default     = false
+}
