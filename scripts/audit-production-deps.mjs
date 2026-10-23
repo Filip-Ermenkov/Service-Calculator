@@ -34,31 +34,10 @@ import { execSync } from 'node:child_process'
  * Each entry must answer: why can this not be fixed, and why is it not
  * exploitable HERE? "Upstream hasn't patched it" alone is not a reason to ship.
  */
-const ALLOWLIST = [
-  {
-    ghsa: 'GHSA-vfj7-8cjw-p6xm',
-    package: 'braces',
-    title: 'braces vulnerable to stack exhaustion via deeply nested patterns',
-    reason:
-      'No patched version exists. braces 3.0.3 (2024-05-21) is the latest release on npm and ' +
-      'the advisory range is `*`, so there is nothing to upgrade to and no override can help. ' +
-      'It reaches the production tree only transitively, by two paths: ' +
-      '@payloadcms/next -> sass -> chokidar -> braces, and ' +
-      '@payloadcms/storage-s3 -> @payloadcms/plugin-cloud-storage -> find-node-modules -> ' +
-      'findup-sync -> micromatch -> braces.',
-    evidence:
-      'Neither path is deployed. Verified 2026-10-03 against the built artifact in ' +
-      '.open-next/server-functions: braces, micromatch, sass, chokidar, find-node-modules and ' +
-      'findup-sync are present as ZERO directories, `require("braces")` appears 0 times, and ' +
-      'the only @payloadcms packages shipped as node_modules are db-postgres and next ' +
-      '(storage-s3 is esbuild-bundled, and `find-node-modules` appears 0 times in the bundle). ' +
-      'sass compiles the admin SCSS during `next build` and is absent from the Lambda; ' +
-      'the glob patterns these tools expand are internal paths, never request input. ' +
-      'The advisory needs an attacker-supplied deeply nested brace pattern, and there is no ' +
-      'code path from a visitor request to any of them.',
-    reviewBy: '2026-12-31',
-  },
-]
+// Empty since 2026-10-23: GitHub withdrew GHSA-vfj7-8cjw-p6xm (braces), the only
+// entry, and this gate failed every build until it was removed, as designed. The
+// removed entry, with its evidence, is in git history.
+const ALLOWLIST = []
 
 function runAudit() {
   // npm audit exits non-zero whenever it finds anything, so the exit code is not
