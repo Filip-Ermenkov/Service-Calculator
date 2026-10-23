@@ -32,6 +32,27 @@ export default $config({
     // DNS and only production ever mints/validates an ACM certificate.
     const isProduction = $app.stage === 'production'
 
+    // Every CloudFront distribution this app creates — the Web one and, on
+    // production, the www → apex redirect — gets the same transport baseline:
+    //   • IPv6 on. SST already writes AAAA alias records for both hostnames, but
+    //     a distribution with IPv6 off answers them with nothing.
+    //   • HTTP/3 alongside HTTP/2.
+    //   • TLS 1.2 minimum wherever we hold the certificate. SST sets this on
+    //     the Web distribution but not on its redirect distribution, which was
+    //     left at CloudFront's default `TLSv1` and still accepted TLS 1.0 and
+    //     1.1 on www.bulbau.lu. A distribution on the default *.cloudfront.net
+    //     certificate (staging) cannot change its policy, so it is left alone.
+    // A global transform rather than per-component options because the redirect
+    // distribution is built inside SST and exposes no transform of its own.
+    // It must run before any distribution is declared below.
+    $transform(aws.cloudfront.Distribution, (args) => {
+      args.isIpv6Enabled = true
+      args.httpVersion = 'http2and3'
+      args.viewerCertificate = $output(args.viewerCertificate).apply((cert) =>
+        cert?.acmCertificateArn ? { ...cert, minimumProtocolVersion: 'TLSv1.2_2021' } : cert,
+      )
+    })
+
     // Name of the SSM parameter that will hold the Web CloudFront distribution
     // id. The running server function reads it to invalidate the CDN on content
     // changes (src/lib/cdn/invalidate.ts). Passing the id itself as a plain env
@@ -108,6 +129,10 @@ export default $config({
     // missing key with 404 instead of 403 — the honest status for a deleted or
     // mistyped image, and what crawlers and the admin UI expect.
     const media = new sst.aws.Bucket('Media', {
+      // Versioned, so a photo deleted or replaced in the admin can be restored
+      // (the lifecycle rule below bounds how long). A delete becomes a delete
+      // marker: CloudFront still answers 404, exactly as before.
+      versioning: true,
       policy: [
         {
           actions: ['s3:GetObject'],
@@ -136,6 +161,24 @@ export default $config({
       ],
     })
 
+    // How long a deleted or replaced photo stays recoverable: 30 days, then
+    // the old version is removed. Also clears delete markers left with nothing
+    // behind them, and abandoned multipart uploads. A raw resource because
+    // SST's own `lifecycle` option only expires CURRENT objects.
+    new aws.s3.BucketLifecycleConfiguration('MediaLifecycle', {
+      bucket: media.name,
+      rules: [
+        {
+          id: 'keep-old-versions-30-days',
+          status: 'Enabled',
+          filter: {},
+          noncurrentVersionExpiration: { noncurrentDays: 30 },
+          expiration: { expiredObjectDeleteMarker: true },
+          abortIncompleteMultipartUpload: { daysAfterInitiation: 7 },
+        },
+      ],
+    })
+
     // Origin access control: CloudFront signs its S3 requests (SigV4), so the
     // bucket stays fully private and only the distribution can read it. OAC is
     // the current mechanism; origin access identities are legacy.
@@ -155,6 +198,17 @@ export default $config({
       name: `bulbau-lu-${$app.stage}-media`,
       comment: 'Security headers + browser caching for /media/* (served from S3)',
       ...cloudfrontResponseHeadersConfig([{ key: 'Cache-Control', value: MEDIA_CACHE_CONTROL }]),
+    })
+
+    // The same security headers for everything else CloudFront serves without
+    // the app: `/_next/static/*` and the files in public/ come straight from
+    // S3 and used to carry none of them (no HSTS, no nosniff). On responses the
+    // app does send, the values are identical to its own, so nothing changes.
+    // No Cache-Control here: SST already sets the right one per asset.
+    const appHeaders = new aws.cloudfront.ResponseHeadersPolicy('AppResponseHeaders', {
+      name: `bulbau-lu-${$app.stage}-app`,
+      comment: 'Security headers for every response on the default behaviour',
+      ...cloudfrontResponseHeadersConfig(),
     })
 
     /** Origin id of the media bucket inside the Web distribution. */
@@ -308,6 +362,9 @@ export default $config({
       // Outputs that resolve after apply starts.
       transform: {
         cdn: (cdnArgs) => {
+          cdnArgs.defaultCacheBehavior = $util
+            .all([$output(cdnArgs.defaultCacheBehavior), appHeaders.id])
+            .apply(([behavior, responseHeadersPolicyId]) => ({ ...behavior, responseHeadersPolicyId }))
           cdnArgs.origins = $util
             .all([$output(cdnArgs.origins), media.nodes.bucket.bucketRegionalDomainName, mediaOac.id])
             .apply(([origins, domainName, originAccessControlId]) => [
@@ -351,10 +408,12 @@ export default $config({
         // would make every optimization a round trip through the edge and bake
         // a per-stage origin into the markup).
         //
-        // Nothing else can reach this loader: there is no `public/` directory,
-        // and `images.localPatterns` in next.config.ts allows `/media/**` only,
-        // so any future static image fails loudly in dev and CI (a 400 from
-        // Next) instead of silently 404-ing here.
+        // Nothing else can reach this loader. `public/` holds only the icons,
+        // the share card and security.txt, which pages link to directly and
+        // never render through `next/image`; and `images.localPatterns` in
+        // next.config.ts allows `/media/**` only, so any future static image
+        // fails loudly in dev and CI (a 400 from Next) instead of silently
+        // 404-ing here.
         imageOptimizer: (fnArgs) => {
           fnArgs.environment = $util
             .all([$output(fnArgs.environment ?? {}), media.name])

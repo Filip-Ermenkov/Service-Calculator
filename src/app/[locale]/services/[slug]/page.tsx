@@ -17,7 +17,7 @@ import {
 } from '@/lib/content'
 import { lexicalToPlainText } from '@/lib/lexical'
 import { toPricingFields, type JsonLogic } from '@/lib/pricing'
-import { SITE_URL, pageMetadata } from '@/lib/seo'
+import { BUSINESS_ID, SITE_URL, pageMetadata } from '@/lib/seo'
 
 // ISR safety-net window; the revalidate hook invalidates CloudFront on-demand so
 // edits appear at the edge within seconds (see the home page for the rationale).
@@ -84,7 +84,8 @@ export default async function ServicePage({
     '@type': 'Service',
     name: service.title,
     areaServed: 'LU',
-    provider: { '@type': 'LocalBusiness', name: 'Bulbau' },
+    // Points at the business node published on the Home page (same @id).
+    provider: { '@type': 'HomeAndConstructionBusiness', '@id': BUSINESS_ID, name: 'Bulbau' },
     url: `${SITE_URL}/${locale}/services/${service.slug}`,
   }
 

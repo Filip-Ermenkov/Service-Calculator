@@ -166,6 +166,11 @@ This is for whoever holds each account (the developer or the client), not code.
 - confirm the `bulbau-lu-security-findings` SNS subscription email, or
   GuardDuty findings reach nobody
 
+### Recurring
+- `public/.well-known/security.txt` expires on 2027-10-01.
+  `tests/int/discoveryFiles.int.spec.ts` starts failing 30 days before that, so
+  renewing it is a routine one-line PR: set `Expires` about 11 months ahead.
+
 ### Known, accepted, not blocking
 - **Every RSC prefetch 307-redirects** and loses its `_rsc` cache-buster, so
   prefetching is effectively off and each costs two Lambda invocations. Known

@@ -6,8 +6,14 @@ import { MEDIA_SIZES, MediaImage } from '@/components/site/MediaImage'
 import { ArrowRight, Bolt } from '@/components/site/icons'
 import { Link } from '@/i18n/navigation'
 import type { Locale } from '@/i18n/routing'
-import { getCompanyInfo, getServiceCardLimit, getServices, mediaProps } from '@/lib/content'
-import { SITE_URL, pageMetadata } from '@/lib/seo'
+import {
+  getCompanyInfo,
+  getLegalInfo,
+  getServiceCardLimit,
+  getServices,
+  mediaProps,
+} from '@/lib/content'
+import { businessJsonLd, pageMetadata } from '@/lib/seo'
 
 // ISR: statically generated, revalidated at most every 5 minutes as the always-
 // correct safety net. On a content change the revalidate hook refreshes the S3
@@ -43,16 +49,9 @@ export default async function HomePage({
   const cardLimit = await getServiceCardLimit()
   const services = cardLimit > 0 ? allServices.slice(0, cardLimit) : allServices
   const company = await getCompanyInfo(locale as Locale)
+  const legal = await getLegalInfo(locale as Locale)
 
-  const localBusiness = {
-    '@context': 'https://schema.org',
-    '@type': 'LocalBusiness',
-    name: 'Bulbau',
-    url: `${SITE_URL}/${locale}`,
-    areaServed: 'LU',
-    ...(company?.email ? { email: company.email } : {}),
-    ...(company?.phone ? { telephone: company.phone } : {}),
-  }
+  const localBusiness = businessJsonLd({ locale: locale as Locale, company, legal })
 
   return (
     <>
