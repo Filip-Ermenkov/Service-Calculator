@@ -41,7 +41,7 @@
     "rights": "© {year} {name} · Luxembourg"
   },
   "Home": {
-    "heroBadge": "Luxembourg · Depuis 2015",
+    "heroBadge": "Luxembourg",
     "heroTitleLine1": "Concevoir de",
     "heroTitleAccent": "Meilleurs",
     "heroTitleLine3": "Bâtiments",
@@ -53,10 +53,10 @@
     "servicesSubtitle": "Chaque service comprend un estimateur de prix en ligne. Renseignez vos paramètres et recevez une estimation instantanée — puis contactez-nous pour une offre précise.",
     "servicesEmpty": "Nos services sont en cours de préparation. Revenez bientôt ou contactez-nous directement.",
     "cardCalculate": "Calculer une estimation",
-    "statProjects": "250+",
+    "statProjects": "200+",
     "statProjectsLabel": "Projets réalisés",
-    "statYears": "10+",
-    "statYearsLabel": "Ans au Luxembourg",
+    "statYears": "15+",
+    "statYearsLabel": "Années d'expérience",
     "statCertified": "100%",
     "statCertifiedLabel": "Certifié et assuré",
     "ctaEyebrow": "Prêt à commencer ?",
@@ -195,7 +195,7 @@
     "emptyBody": "Revenez plus tard ou contactez-nous — nous sommes toujours ouverts aux belles rencontres.",
     "spontaneousEyebrow": "Vous ne voyez pas votre poste ?",
     "spontaneousTitle": "Nous sommes toujours ouverts aux talents",
-    "spontaneousBody": "Envoyez-nous votre CV et une courte présentation — nous conserverons votre profil et vous contacterons dès qu'un poste adapté s'ouvrira.",
+    "spontaneousBody": "Envoyez-nous votre CV et une courte présentation — nous le conserverons 12 mois, vous contacterons si un poste adapté s'ouvre entre-temps, puis le supprimerons.",
     "spontaneousCta": "Nous contacter"
   },
   "Legal": {

@@ -41,7 +41,7 @@
     "rights": "© {year} {name} · Luxembourg"
   },
   "Home": {
-    "heroBadge": "Luxembourg · Since 2015",
+    "heroBadge": "Luxembourg",
     "heroTitleLine1": "Engineering",
     "heroTitleAccent": "Better",
     "heroTitleLine3": "Buildings",
@@ -53,10 +53,10 @@
     "servicesSubtitle": "Each service includes an online price estimator. Fill in your parameters and receive an instant quote — then contact us for a precise offer.",
     "servicesEmpty": "Our services are being prepared. Please check back soon or contact us directly.",
     "cardCalculate": "Calculate estimate",
-    "statProjects": "250+",
+    "statProjects": "200+",
     "statProjectsLabel": "Projects completed",
-    "statYears": "10+",
-    "statYearsLabel": "Years in Luxembourg",
+    "statYears": "15+",
+    "statYearsLabel": "Years of experience",
     "statCertified": "100%",
     "statCertifiedLabel": "Certified & insured",
     "ctaEyebrow": "Ready to start?",
@@ -195,7 +195,7 @@
     "emptyBody": "Check back later or contact us — we are always open to great people.",
     "spontaneousEyebrow": "Don't see your role?",
     "spontaneousTitle": "We're Always Open to Great People",
-    "spontaneousBody": "Send us your CV and a short introduction — we'll keep your profile on file and contact you when a suitable position opens.",
+    "spontaneousBody": "Send us your CV and a short introduction — we'll keep it for 12 months, contact you if a suitable position opens in that time, and then delete it.",
     "spontaneousCta": "Contact Us"
   },
   "Legal": {

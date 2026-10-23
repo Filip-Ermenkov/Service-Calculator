@@ -41,7 +41,7 @@
     "rights": "© {year} {name} · Luxemburg"
   },
   "Home": {
-    "heroBadge": "Luxemburg · Seit 2015",
+    "heroBadge": "Luxemburg",
     "heroTitleLine1": "Bessere",
     "heroTitleAccent": "Gebäude",
     "heroTitleLine3": "bauen",
@@ -53,10 +53,10 @@
     "servicesSubtitle": "Jede Leistung enthält einen Online-Preisrechner. Geben Sie Ihre Parameter ein und erhalten Sie sofort eine Schätzung — kontaktieren Sie uns anschließend für ein genaues Angebot.",
     "servicesEmpty": "Unsere Leistungen werden gerade vorbereitet. Schauen Sie bald wieder vorbei oder kontaktieren Sie uns direkt.",
     "cardCalculate": "Schätzung berechnen",
-    "statProjects": "250+",
+    "statProjects": "200+",
     "statProjectsLabel": "Abgeschlossene Projekte",
-    "statYears": "10+",
-    "statYearsLabel": "Jahre in Luxemburg",
+    "statYears": "15+",
+    "statYearsLabel": "Jahre Erfahrung",
     "statCertified": "100%",
     "statCertifiedLabel": "Zertifiziert & versichert",
     "ctaEyebrow": "Bereit zu starten?",
@@ -195,7 +195,7 @@
     "emptyBody": "Schauen Sie später wieder vorbei oder kontaktieren Sie uns — wir sind immer offen für großartige Menschen.",
     "spontaneousEyebrow": "Ihre Stelle nicht dabei?",
     "spontaneousTitle": "Wir sind immer offen für großartige Menschen",
-    "spontaneousBody": "Senden Sie uns Ihren Lebenslauf und eine kurze Vorstellung — wir behalten Ihr Profil und melden uns, sobald eine passende Stelle frei wird.",
+    "spontaneousBody": "Senden Sie uns Ihren Lebenslauf und eine kurze Vorstellung — wir bewahren ihn 12 Monate lang auf, melden uns, wenn in dieser Zeit eine passende Stelle frei wird, und löschen ihn danach.",
     "spontaneousCta": "Kontakt"
   },
   "Legal": {

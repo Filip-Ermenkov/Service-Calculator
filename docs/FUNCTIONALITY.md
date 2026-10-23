@@ -2,13 +2,11 @@
 
 > This document describes the complete functionality of the bulbau.lu website from a non-technical perspective. It covers every page, every user-facing interaction, every admin capability, and all cross-cutting behaviours. It is intended to serve as the single source of truth before any technical decisions are made.
 >
-> **Status (2026-09-18) — read this first.** **Every feature described in this document is built and running at `https://bulbau.lu`**, which is deliberately not yet announced or indexed. Where the build deviates from the wording below, a short **Built** note follows the relevant section.
+> **Status (2026-10-23) — read this first.** **Every feature described in this document is built and running at `https://bulbau.lu`**, which is deliberately not yet announced or indexed. Where the build deviates from the wording below, a short **Built** note follows the relevant section. `docs/PROGRESS.md` has the current state and what is left.
 >
-> **Live as of 2026-09-18 (two releases that day):** (1) the site's **abuse limits now hold under load** — the caps on quote downloads, contact messages, password-reset requests and wrong authenticator codes are counted in one shared place instead of per server instance, so a burst of requests is refused exactly where the limit says (before, a fast enough burst slipped through); the counters are stored anonymised and expire within minutes. (2) The contact form's **Send button stays inactive until the page is fully interactive**, so an early click can no longer reload the page and lose the message. (3) A review closed four gaps no feature had asked for: an **unpublished Legal Notice draft could be read** through the website's raw data interface — now impossible before the admin publishes (§2.5); someone holding only the admin **password**, without the authenticator code, could read unpublished drafts through the version history — the second factor is now required there too (§5.1); **photos are capped at 4 MB** with a clear message in the admin — a larger photo used to upload "successfully" and then fail to display (§5.3–5.5) — and are cached at the edge; an unused query interface was switched off. All third-party software updates are applied and every automated security-scan finding is resolved. **Since 2026-09-16/17:** the **admin's "Forgot your password?" really sends an email** (§5.1); the admin login cannot be replayed from another website; the Careers page's "Contact Us" button goes to the Contact page. **Both the test and live databases were rebuilt from empty on 2026-09-16** — the live site's content (services, projects, company details) has to be re-entered.
+> **Done since the build:** the Legal Notice and Privacy Policy are published with the company's real registered details (§2.5), and the contact form is pointed at the company's own `office@bulbau.lu` mailbox.
 >
-> **Since then (2026-09-18, night — on the test site, live site pending approval):** photos are now delivered to visitors **directly from the storage bucket through the content-delivery network** rather than through the application server — faster, cached at the edge, and no longer subject to the server's response-size ceiling (the 4 MB upload limit stays as a sensible page-weight guard until automatic resizing arrives). Four small tidy-ups came with it: the admin panel no longer fetches its typefaces from Google at runtime (nothing leaves the site for a third party), the language-preference cookie is marked secure, the Facebook/Instagram fields in Company Info insist on a full `https://` address so a typo can no longer produce a broken link, and two admin-only interfaces re-check the authenticator step exactly like every other admin operation.
->
-> **What still stands between the site and a public launch — none of it development work:** the company's real registered legal details entered and published (a safeguard prevents publishing placeholders — §2.5); the client's `office@bulbau.lu` mailbox connected to the domain, so the contact form has somewhere to deliver; AWS "production access" for email so the emailed quote can reach any visitor's address (until then only pre-verified addresses receive it); and the "make it findable by search engines" switch, flipped last.
+> **What still stands between the site and a public launch — none of it development work:** the company's real services, projects, job openings and photos entered in the admin; AWS "production access" for email, so the emailed quote can reach any visitor's address (until then only pre-verified addresses receive it); and the "make it findable by search engines" switch, flipped last.
 
 ---
 
@@ -113,6 +111,8 @@ Every page's footer links to two pages: a **Privacy Policy** and a **Legal Notic
 **Important constraint**: the company's exact registered legal form, RCS Luxembourg number, VAT number, and registered office address are not yet finalized. The Legal Notice must not be published with placeholder or invented values in place of these — the admin fills them in when they're available, and the page stays in Draft until it is complete and accurate.
 
 > **Built.** Publishing is technically blocked until all five details are present, and — since 2026-09-18 — an unpublished draft is invisible to the public on *every* path, including the website's raw data interface (it previously returned the draft when asked for it explicitly). The admin can therefore save partial details as a draft at any time without risk.
+>
+> **Published (October 2026)** with the company's real details. No *autorisation d'établissement* (business permit) number is shown: the client provided none, so the Legal Notice has no field for one. The Privacy Policy gives fixed retention periods instead of "as long as needed": an emailed enquiry is kept for 12 months after the correspondence ends, and a CV for 12 months (§3.5).
 
 ---
 
@@ -136,6 +136,8 @@ The primary landing page. It introduces the company and provides direct access t
   - A brief description (1–3 sentences).
 - **Hover behaviour**: when a visitor hovers over a card, a visual animation plays (e.g., a subtle lift, colour overlay, or zoom effect on the image) to signal it is clickable.
 - Clicking a service card navigates to that service's dedicated page (see Section 3.3).
+
+> **Built — plus a short strip of claims from the approved design:** "200+ projects completed", "15+ years of experience" and "100% certified & insured", with a "Luxembourg" badge above the headline. These are factual claims about the company, so they are fixed in the site's text rather than admin-editable, and each one was confirmed by the client (October 2026). The design's original "Since 2015", "250+" and "10+ years" were not confirmed and were removed. Changing a claim is a developer change, on purpose.
 
 ---
 
@@ -254,7 +256,7 @@ Lists open job positions so that interested candidates can see what roles are av
 - A visible note on the page (or on each card) informing candidates that to apply, they should contact the company directly — for example by using the Contact page or by calling or emailing.
 - There is no online application form.
 
-> **Built.** The notice names the company email and phone (from Company Info); the page's "Contact Us" button opens the Contact page (§3.4).
+> **Built.** The notice names the company email and phone (from Company Info); the page's "Contact Us" button opens the Contact page (§3.4). The "Don't see your role?" invitation tells candidates their CV is kept for 12 months and then deleted, matching the Privacy Policy (§2.5); it used to promise to keep it "on file" with no limit.
 
 **Empty State**
 - If there are no active job openings, the page displays a friendly message ("There are currently no open positions. Check back later or contact us — we are always open to great people.").
