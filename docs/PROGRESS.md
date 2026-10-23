@@ -8,7 +8,7 @@ explaining why it was done that way. This file does not repeat them.
 
 ---
 
-## Where it stands — 2026-10-22
+## Where it stands — 2026-10-23
 
 Every planned feature is built and deployed. Nothing left before launch is
 development work.
@@ -18,7 +18,7 @@ development work.
 | **Production** | `https://bulbau.lu` — live, **indexing off** (`robots.txt` disallows everything) |
 | **Staging** | `https://d20kjuz86nwvyp.cloudfront.net` |
 | **Deploys** | push to `main` → `verify` → staging → *manual approval* → production |
-| **Content** | Legal Notice **published** with the client's real details (BULBAU MULTISERVICE, S.A.S, RCS B303936, VAT LU37807402). 1 service. **0 projects, 0 careers, 0 media.** |
+| **Content** | Legal Notice and Privacy Policy **published** with the client's real details (BULBAU MULTISERVICE, S.A.S, RCS B303936, VAT LU37807402). 1 service, a placeholder (see 3). **0 projects, 0 careers, 0 media.** |
 | **Client access** | `office@bulbau.lu` has an admin account with 2FA enrolled |
 
 **Not verified in this pass** (AWS SSO expired): SES production access, the
@@ -44,44 +44,47 @@ real traffic the web function throttles and visitors see errors. Service Quotas
 `web-lambda-throttles` alarm already watches for this.
 
 ### 3. Client content
-Projects, careers, photos, and the remaining services. Each service needs its
+Projects, careers, photos, and the real services. Each service needs its
 pricing parameters for the calculator. Media is JPEG/PNG/WebP, 4 MB max.
 
-Still outstanding from the client:
-- the ***autorisation d'établissement*** number — Luxembourg generally requires
-  it on commercial communications for regulated trades, and electrical work is
-  one. **There is no field for it**, so if it is required that is a schema
-  change plus a migration.
-- the Privacy Policy body (a draft exists; it needs review against the now-known
-  legal entity)
-- a **CV retention period**. The Careers page currently promises to keep
-  applications "on file" with no stated limit and no privacy policy behind it,
-  which is a GDPR storage-limitation problem. Replacement copy is drafted and
-  waiting on a number (12 months was proposed).
+Fixes to what is already live, all in the admin, none needing a deploy:
+- the Privacy Policy still shows a literal `[12]` in section 4 ("we keep it
+  for [12] months"), in EN, FR and DE. 12 months is confirmed; remove the
+  brackets in EN. Saving EN re-translates FR and DE, replacing any hand edits
+  there, so check both afterwards.
+- the one published service, "Montge" (card title "montage 2", no photos), is
+  test content. Replace it with the real services.
+- the About text says "BULBAU Multiservices S.A.S." and the Legal Notice says
+  "BULBAU MULTISERVICE". One of them is wrong.
 
-### 4. Home-page claims — needs a decision, not code
-`Since 2015`, `250+ projects completed`, `10+ years`, `100% certified & insured`
-are hard-coded in `src/i18n/messages/*.json` and are not admin-editable. Either
-the client can substantiate each one, or it goes. A false factual claim on a
-commercial site is a consumer-law exposure.
+Decided by the client, October 2026 — recorded in `FUNCTIONALITY.md` §2.5, §3.1
+and §3.5, not open:
+- no *autorisation d'établissement* number is shown: the client provided none,
+  so there is no field for one
+- CVs are kept for 12 months, stated on the Careers page and in the Privacy
+  Policy
+- the Home-page claims are `200+` projects, `15+` years of experience and `100%`
+  certified & insured; the design's `Since 2015` is gone. They stay hard-coded
+  in `src/i18n/messages/*.json` on purpose, so a claim cannot change without a
+  developer.
 
-### 5. Monitoring proof
+### 4. Monitoring proof
 Confirm the five alarms exist, are not stuck in `INSUFFICIENT_DATA`, and that
 the SNS topic reaches a real inbox. An alarm nobody receives is not monitoring.
 Also confirm the us-east-1 SNS subscription (CloudFront metrics only exist
 there).
 
-### 6. Backup restore rehearsal
+### 5. Backup restore rehearsal
 A Neon PITR restore has never been tested. Untested backups are not backups.
 
-### 7. Launch flip — last, in this order
+### 6. Launch flip — last, in this order
 1. content in, reviewed
 2. `npx sst secret set AllowIndexing "true" --stage production` (the Lighthouse
    SEO gate becomes hard at the same moment)
 3. HSTS `preload` (`HSTS_PRELOAD` in `src/lib/security/headers.ts`) — deliberately
    last, because preload is painful to reverse
 
-### 8. Housekeeping
+### 7. Housekeeping
 - `delete_branch_on_merge` is off
 - the `protect-main` ruleset has a `Repository admin` bypass, so admins can push
   straight to `main`
