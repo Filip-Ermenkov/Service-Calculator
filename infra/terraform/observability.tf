@@ -27,6 +27,12 @@
 #     us-east-1 carve-out), so those alarms cannot be created by a deploy at all
 #     — they belong to this layer, which applies with administrator credentials.
 #
+#   • eu-central-1 ACCOUNT-level metrics → ses-reputation.tf, in THIS layer.
+#     SES bounce/complaint rates belong to the account, not to a stage: one
+#     rate shared by staging and production, so the alarm must outlive both.
+#     This is the one exception to "eu-central-1 alarms live in sst.config.ts",
+#     and it follows the same lifetime rule rather than breaking it.
+#
 # MIGRATION NOTE (one-time): applying this file after the SST deploy DESTROYS the
 # three superseded hand-named alarms (bulbau-lu-web-lambda-errors,
 # -pdf-lambda-errors, -pdf-lambda-throttles). Deploy the SST stage FIRST so the

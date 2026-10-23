@@ -69,10 +69,21 @@ and §3.5, not open:
   developer.
 
 ### 4. Monitoring proof
-Confirm the five alarms exist, are not stuck in `INSUFFICIENT_DATA`, and that
-the SNS topic reaches a real inbox. An alarm nobody receives is not monitoring.
-Also confirm the us-east-1 SNS subscription (CloudFront metrics only exist
-there).
+Confirm the alarms exist, are not stuck in `INSUFFICIENT_DATA`, and that the
+SNS topic reaches a real inbox. An alarm nobody receives is not monitoring.
+That is five per SST stage (eu-central-1), the two uptime/CloudFront alarms
+(us-east-1), and the two SES reputation alarms. Also confirm the us-east-1 SNS
+subscription (CloudFront metrics only exist there).
+
+The SES reputation alarms (`infra/terraform/ses-reputation.tf`: bounce ≥ 2%,
+complaint ≥ 0.05%, below AWS's 5% / 0.1% review points) are merged but **not
+applied**: set `manage_ses_reputation_alarms = true` and `terraform apply`
+(expect 2 to add). They treat missing data as `INSUFFICIENT_DATA` on purpose,
+so that state means "watching nothing", not a fault in the alarm. Then read how
+often SES publishes the metric and decide whether `INSUFFICIENT_DATA` should
+email too. Both steps are in `infra/terraform/README.md` → "Turning the SES
+reputation alarms on". They back up the answer to AWS's question in step 1 on
+how bounces and complaints are handled.
 
 ### 5. Backup restore rehearsal
 A Neon PITR restore has never been tested. Untested backups are not backups.
