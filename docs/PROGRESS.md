@@ -161,6 +161,11 @@ This is for whoever holds each account (the developer or the client), not code.
   (`infra/aws/README.md`). It can wait until after launch: the CloudTrail
   history already covers every kind of deploy
 
+### Recurring
+- `public/.well-known/security.txt` expires on 2027-10-01.
+  `tests/int/discoveryFiles.int.spec.ts` starts failing 30 days before that, so
+  renewing it is a routine one-line PR: set `Expires` about 11 months ahead.
+
 ### Known, accepted, not blocking
 - **`braces` GHSA-vfj7-8cjw-p6xm** has no patched release. It is build-time only
   and absent from the deployed artifact; the evidence is written into

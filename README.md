@@ -194,4 +194,8 @@ reviewer — that is what pauses the deploy.
   observability, security headers, the media URL contract, TOTP
 - `infra/terraform/` — the foundational stack; `sst.config.ts` — the per-stage
   app stack (the SST CLI requires it at the root)
+- `public/` — the favicon and app icons, the share card (`og-image.png`), the
+  web manifest and `.well-known/security.txt`. Regenerate the images with
+  `node scripts/generate-brand-assets.mjs`. Nothing here goes through
+  `next/image`.
 - `prototype/` — the static, client-approved design reference
