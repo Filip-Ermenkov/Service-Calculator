@@ -1,0 +1,139 @@
+# Nightly logical backup of the PRODUCTION database to S3.
+#
+# Why: Neon's point-in-time restore reaches back only 6 hours on the Free plan,
+# so damage noticed the next morning could not be undone. This keeps a dump per
+# night for 35 days, outside Neon (infra/terraform/db-backups.tf).
+#
+# Security model (no step here can read, delete or overwrite an existing backup):
+#   • the database URL is a READ-ONLY role (pg_read_all_data), stored as the
+#     `backup` environment's BACKUP_DATABASE_URL secret
+#   • the AWS role may only PutObject under production/ and list it. It trusts
+#     only jobs in this repository's `backup` environment, which is restricted
+#     to the main branch
+#
+# A passing run must prove its post-condition (docs/PROGRESS.md, "Rules"): the
+# archive is readable, contains table data, and the uploaded object has exactly
+# the local size. Anything less fails the job, and GitHub emails the failure.
+#
+# Restore runbook: infra/terraform/README.md → "Nightly database backups".
+
+name: Database backup
+
+on:
+  schedule:
+    - cron: '30 2 * * *' # 02:30 UTC, the quietest hour for a Luxembourg site
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # OIDC for the backup role
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Back up the production database
+    runs-on: ubuntu-24.04
+    environment: backup
+    timeout-minutes: 30
+
+    steps:
+      - name: Check the configuration
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          AWS_BACKUP_ROLE_ARN: ${{ secrets.AWS_BACKUP_ROLE_ARN }}
+          BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET }}
+        run: |
+          missing=0
+          for name in BACKUP_DATABASE_URL AWS_BACKUP_ROLE_ARN BACKUP_BUCKET; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Backup not configured::$name is not set on the 'backup' GitHub Environment. See infra/terraform/README.md → Nightly database backups."
+              missing=1
+            fi
+          done
+          case "$BACKUP_DATABASE_URL" in
+            *-pooler*) echo "::error title=Pooled URL::BACKUP_DATABASE_URL must be the DIRECT (unpooled) Neon URL; pg_dump does not work through PgBouncer."; missing=1 ;;
+          esac
+          exit $missing
+
+      # pg_dump must be at least the server's major version (Neon runs 18).
+      # Ubuntu's own packages are older, so install from the PostgreSQL project.
+      - name: Install the PostgreSQL 18 client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-18
+          /usr/lib/postgresql/18/bin/pg_dump --version
+
+      - name: Dump and check the archive
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          bin=/usr/lib/postgresql/18/bin
+          stamp="$(date -u +%Y-%m-%dT%H%M%SZ)"
+          file="bulbau-production-${stamp}.dump"
+
+          # Custom format: compressed, and restorable table by table.
+          # --no-owner / --no-privileges: a restore into any database or role works.
+          "$bin/pg_dump" --format=custom --no-owner --no-privileges \
+            --file "$file" "$BACKUP_DATABASE_URL"
+
+          # Post-condition 1: the archive is readable and holds table data.
+          "$bin/pg_restore" --list "$file" > toc.txt
+          tables="$(grep -c ' TABLE DATA ' toc.txt || true)"
+          if [ "$tables" -lt 1 ]; then
+            echo "::error title=Empty dump::The archive contains no table data."
+            exit 1
+          fi
+          # A database whose migrations ledger is missing is not a database we want to keep.
+          if ! grep -q ' TABLE DATA public payload_migrations ' toc.txt; then
+            echo "::error title=Unexpected dump::payload_migrations is missing from the archive."
+            exit 1
+          fi
+
+          echo "file=$file" >> "$GITHUB_ENV"
+          echo "tables=$tables" >> "$GITHUB_ENV"
+          echo "key=production/$(date -u +%Y/%m/%d)/$file" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials (OIDC, write-only backup role)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_BACKUP_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Upload and verify
+        env:
+          BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET }}
+        run: |
+          set -euo pipefail
+          aws s3 cp "$file" "s3://${BACKUP_BUCKET}/${key}" --only-show-errors
+
+          # Post-condition 2: the object is there, with exactly the bytes we wrote.
+          local_size="$(stat -c %s "$file")"
+          remote_size="$(aws s3api list-objects-v2 --bucket "$BACKUP_BUCKET" --prefix "$key" \
+            --query 'Contents[0].Size' --output text)"
+          if [ "$remote_size" != "$local_size" ]; then
+            echo "::error title=Upload not verified::Uploaded $local_size bytes but S3 reports '$remote_size'."
+            exit 1
+          fi
+
+          {
+            echo "### Database backup"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Object | \`s3://${BACKUP_BUCKET}/${key}\` |"
+            echo "| Size | ${local_size} bytes |"
+            echo "| Tables with data | ${tables} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the local copy
+        if: always()
+        run: rm -f bulbau-production-*.dump toc.txt

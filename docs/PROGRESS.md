@@ -107,9 +107,13 @@ The branch was then deleted. The runbook and the measured numbers are in
 restore live (in place, or by switching the secrets) needs production, so it is
 documented but not rehearsed.
 
-**The restore window is 6 hours**, the Free plan's maximum. Damage noticed the next
-morning cannot be undone. To decide: Neon Launch (up to 7 days), or a scheduled
-`pg_dump` to S3.
+**The point-in-time window is only 6 hours** (the Free plan's maximum), so a
+**nightly `pg_dump` to S3, kept 35 days**, covers the rest. It runs as
+`.github/workflows/db-backup.yml` into `infra/terraform/db-backups.tf`, outside
+Neon, and its role can add dumps but never read or delete them. Still to do,
+once: the read-only database role, the GitHub `backup` environment and its
+secrets, a first manual run, and **one restore of a nightly dump** to prove it
+is usable (`infra/terraform/README.md` → "Nightly database backups").
 
 ### 6. Data processing agreements — confirm before launch
 The published Privacy Policy says each processor "acts only on our instructions

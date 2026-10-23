@@ -243,6 +243,75 @@ deleted. Production itself was only read.
 The database is 37 MB logical, so these timings say nothing about a large one. A
 real restore's wall-clock time is the redeploy plus the approval.
 
+## Nightly database backups (`db-backups.tf` + `.github/workflows/db-backup.yml`)
+
+Neon's point-in-time restore (above) reaches back only 6 hours on the Free plan. Every
+night at 02:30 UTC the workflow runs `pg_dump` against production and uploads the
+dump to a private, TLS-only bucket, where it is kept 35 days (`db_backup_retention_days`).
+
+**Nothing in the pipeline can read or delete a backup:**
+- the database URL belongs to a **read-only** role
+- the AWS role may only `PutObject` under `production/` and list that prefix
+- the AWS role trusts only jobs in this repository's `backup` environment, which is limited to `main`
+
+**A run fails unless it proves its result:**
+- the archive lists cleanly and contains table data, including `payload_migrations`
+- S3 reports exactly the uploaded size
+
+GitHub emails a failed scheduled run to whoever last edited the schedule.
+
+### One-time setup
+
+1. **Read-only database role.** In the Neon console, open the SQL editor on the production
+   branch and run the following, with a long random password (`openssl rand -base64 32 | tr -d '/+='`):
+
+   ```sql
+   CREATE ROLE backup_reader WITH LOGIN PASSWORD '<password>';
+   GRANT pg_read_all_data TO backup_reader;
+   ```
+
+   Its URL is the production **direct** (unpooled) host with this role:
+   `postgresql://backup_reader:<password>@<direct host>/<database>?sslmode=verify-full&sslrootcert=system`.
+2. **AWS side.** Set `manage_db_backups = true` in `terraform.tfvars`, then `terraform plan`
+   (only creates) and `terraform apply`.
+3. **GitHub side.** A `backup` environment restricted to `main`, holding two secrets and one
+   variable:
+
+   ```bash
+   gh api -X PUT repos/Filip-Ermenkov/Service-Calculator/environments/backup      -F "deployment_branch_policy[protected_branches]=false"      -F "deployment_branch_policy[custom_branch_policies]=true"
+   gh api -X POST repos/Filip-Ermenkov/Service-Calculator/environments/backup/deployment-branch-policies      -f name=main -f type=branch
+   gh secret set BACKUP_DATABASE_URL --env backup          # paste the URL from step 1
+   gh secret set AWS_BACKUP_ROLE_ARN --env backup --body "$(terraform output -raw db_backup_role_arn)"
+   gh variable set BACKUP_BUCKET --env backup --body "$(terraform output -raw db_backup_bucket)"
+   ```
+4. **First run:** `gh workflow run db-backup.yml`, then read the run summary (object, size,
+   tables).
+
+### Restoring a nightly dump
+
+The dump is a `pg_dump` custom-format archive made by PostgreSQL 18, so restore it into an
+18 server with an 18 `pg_restore`.
+
+- **Prove a dump is usable (do this once after the first run, then every few months).**
+  Restore into a throw-away local database and compare row counts with
+  `scripts/db-fingerprint.sql`:
+
+  ```bash
+  aws s3 ls s3://<bucket>/production/ --recursive | tail -3      # pick the newest
+  aws s3 cp s3://<bucket>/production/<yyyy/mm/dd>/<file>.dump .
+  docker run --rm -d --name restore-check -e POSTGRES_PASSWORD=check -p 5440:5432 postgres:18-alpine
+  pg_restore --no-owner --no-privileges     --dbname "postgresql://postgres:check@localhost:5440/postgres" <file>.dump
+  psql "postgresql://postgres:check@localhost:5440/postgres" -f scripts/db-fingerprint.sql
+  docker stop restore-check
+  ```
+
+- **For real.** Restore into a **new Neon branch** (create it empty, `pg_restore` into it
+  with the owner URL), check it with the fingerprint, then put it live exactly as in
+  option B of the point-in-time runbook above: point the `DatabaseUrl` secret and
+  `PRODUCTION_DATABASE_URL_UNPOOLED` at it and redeploy. Writes made after the dump are
+  lost; a point-in-time restore inside the 6-hour window loses less, so prefer it when it
+  still reaches.
+
 ## Where alarms live
 
 **The per-stage Lambda alarms are no longer here.** They are defined in `sst.config.ts` and
