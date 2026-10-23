@@ -43,7 +43,8 @@
  * silently change the installed package rather than error.
  *
  * KEEP `packages` IN STEP with the sharp version OpenNext defaults to for the
- * pinned `openNextVersion` in sst.config.ts (4.1.5 → sharp 0.35.4), and keep
+ * pinned `openNextVersion` in sst.config.ts (4.1.12 defaults to sharp 0.35.4;
+ * 0.35.5 is pinned here for GHSA-wq5f-xc86-pv6w, the librsvg CVE), and keep
  * `--cpu` in step with the optimizer Lambda's architecture.
  */
 const config = {
@@ -52,7 +53,7 @@ const config = {
   default: {},
   imageOptimization: {
     install: {
-      packages: ['sharp@0.35.4'],
+      packages: ['sharp@0.35.5'],
       os: 'linux',
       arch: 'arm64' as const,
       libc: 'glibc' as const,
