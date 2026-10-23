@@ -96,6 +96,8 @@ terraform import 'neon_project.main[0]' <neon-project-id>   # e.g. damp-recipe-8
 terraform plan   # RECONCILE neon_* vars until this shows NO changes
 ```
 
+To get data *back*, see [Restoring the production database](#restoring-the-production-database-neon-point-in-time-restore).
+
 ### Deploy IAM role (makes the committed JSON the single source of truth)
 
 ```bash
@@ -112,6 +114,129 @@ terraform plan   # a clean plan proves file == live; a 1st-plan inline-policy
 **Golden rule:** never `terraform apply` an import branch until `terraform plan`
 shows no destroy/replace of the imported resource. `prevent_destroy` is a
 backstop, not a substitute for reading the plan.
+
+## Restoring the production database (Neon point-in-time restore)
+
+Production is the `production` branch of Neon project `purple-boat-01519758`, the
+project's root and default branch; `staging` is its child. Terraform manages the
+project, never a branch, so a restore does not touch Terraform state.
+
+**The window is 6 hours.** `history_retention_seconds = 21600` is the Free plan's
+maximum (6 h, capped at 1 GB of history; Launch allows up to 7 days). Damage noticed
+later than that cannot be undone from Neon.
+
+The commands use the Neon API; the console has the same actions. Bash:
+
+```bash
+export NEON_API_KEY='...'   # neon_api_key in the gitignored terraform.tfvars — never echo it
+P=purple-boat-01519758
+neon() { local path=$1; shift; curl -sS -H "Authorization: Bearer $NEON_API_KEY" \
+  -H 'Content-Type: application/json' "https://console.neon.tech/api/v2$path" "$@"; }
+PROD=$(neon "/projects/$P/branches" | node -pe \
+  'JSON.parse(require("fs").readFileSync(0)).branches.find(b => b.name === "production").id')
+```
+
+**1. Pick the restore point** — just before the damage, in UTC (RFC 3339). The
+affected table's `updated_at`, the Payload version tables (`_services_v`,
+`_legal_info_v`, …) or the web Lambda's logs tell you when. Ask the client to stop
+editing: anything written after the restore point leaves the live database.
+
+**2. Restore into a new branch and check it** (rehearsed — see below):
+
+```bash
+neon "/projects/$P/branches" -X POST -d '{
+  "branch": { "parent_id": "'"$PROD"'", "name": "recovery", "parent_timestamp": "2026-10-23T08:30:00Z" },
+  "endpoints": [{ "type": "read_write" }]
+}'   # note branch.id and branch.parent_lsn from the response
+REC=br-...   # branch.id
+neon "/projects/$P/connection_uri?branch_id=$REC&database_name=neondb&role_name=neondb_owner&pooled=false"
+```
+
+That returns the recovery branch's direct URL, password included; the same call
+with `branch_id=$PROD` gives production's. Fingerprint both, read-only, and diff:
+
+```bash
+PGOPTIONS='-c default_transaction_read_only=on' psql "<production direct url>" -X -q -v ON_ERROR_STOP=1 -f scripts/db-fingerprint.sql > production.txt
+PGOPTIONS='-c default_transaction_read_only=on' psql "<recovery direct url>"   -X -q -v ON_ERROR_STOP=1 -f scripts/db-fingerprint.sql > recovery.txt
+diff production.txt recovery.txt
+```
+
+Only tables written after the restore point may differ, and the damage must be
+gone. If not, delete the branch and try another point.
+
+**3. Put it live — one of:**
+
+- **A. Restore `production` in place (preferred).** Hostnames stay the same, so no
+  secret changes. `source_lsn` is the recovery branch's `parent_lsn`, so production
+  lands on exactly the state you checked:
+
+  ```bash
+  neon "/projects/$P/branches/$PROD/restore" -X POST -d '{
+    "source_branch_id": "'"$PROD"'",
+    "source_lsn": "<parent_lsn>",
+    "preserve_under_name": "production_before_restore_YYYY-MM-DD"
+  }'
+  ```
+
+  `preserve_under_name` is mandatory here (restoring to its own history, and
+  `staging` is a child). The pre-restore state stays readable under that name, and
+  `staging` moves under it, so that branch cannot be deleted while `staging` exists.
+  Open connections drop for a few seconds. Then delete the recovery branch:
+  `neon "/projects/$P/branches/$REC" -X DELETE`.
+
+- **B. Point the app at the recovery branch.** For when production's current state
+  must stay live for inspection, or A is refused. With AWS credentials
+  (`aws sso login --profile sc-new`):
+
+  ```bash
+  npx sst secret set DatabaseUrl "<recovery POOLED url>" --stage production   # connection_uri with pooled=true
+  gh secret set PRODUCTION_DATABASE_URL_UNPOOLED --env production             # prompts: paste the DIRECT url
+  ```
+
+  The Lambda gets `DATABASE_URL` from the secret at deploy time (`sst.config.ts`),
+  so nothing changes until step 4. Production then lives on a child branch: Neon
+  restores in place only on root branches, so the next restore must use B again,
+  and the old `production` branch cannot be deleted while it has children.
+
+Neither A nor B has been rehearsed; both need the production branch.
+
+**4. Redeploy production.** It re-renders the static pages from the restored
+database (the build reads `PRODUCTION_DATABASE_URL_UNPOOLED`), re-runs the migrate
+step (re-applying any migration newer than the restore point) and invalidates
+CloudFront `/*` (every build has a new Next build ID). `ci.yml` has no manual
+trigger, so re-run the production job of the **latest** successful `main` run, since
+an older run would also roll back the code:
+
+```bash
+RUN=$(gh run list --workflow ci.yml --branch main --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run rerun "$RUN" --job "$(gh run view "$RUN" --json jobs --jq '.jobs[] | select(.name == "Deploy to production") | .databaseId')"
+```
+
+Then approve it in the `production` environment. The job takes about 3 minutes
+(3 min 08 s on 2026-10-23).
+
+**5. Confirm.** Fingerprint production again; the site shows the restored content;
+`terraform plan` here shows no change to `neon_project.main[0]`.
+
+### Rehearsal — 2026-10-23
+
+A branch of `production` at a past timestamp, compared with production, then
+deleted. Production itself was only read.
+
+| | |
+| --- | --- |
+| Restore point asked for | `2026-10-23T08:30:00Z`, about an hour back. Neon resolved it to LSN `0/12959B70` and reported `parent_timestamp` 08:16:15Z; production had no writes in between |
+| Branch + compute ready | **3.0 s** after the request (API answered in 0.8 s; `create_branch` 0.6 s, `start_compute` 1.4 s) |
+| First query answered | about **4.6 s** after the request |
+| Row counts | equal in **34 / 34** tables |
+| Content (`db-fingerprint.sql` md5) | identical in **32 / 34** tables |
+| `payload_migrations` | identical, 6 rows |
+| Latest `updated_at` | identical: `services` 2026-10-10 09:52:59Z, `company_info` 2026-10-20 13:08:17Z, `legal_info` 2026-10-20 11:45:40Z |
+| What differed | `users` and `users_sessions` only: an admin login at 09:06:48Z, after the restore point. Its absence is the proof the branch is the past, not a copy of today |
+| Cleanup | the branch existed 84 s, was deleted, and `GET` on it returns 404 |
+
+The database is 37 MB logical, so these timings say nothing about a large one. A
+real restore's wall-clock time is the redeploy plus the approval.
 
 ## Where alarms live
 

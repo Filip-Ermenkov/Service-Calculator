@@ -323,7 +323,7 @@ Given this is a single-administrator marketing/lead-generation site with no paym
 
 - No formal uptime SLA. Occasional brief unavailability from a cold Lambda/Neon resume after an idle period is an accepted trade-off for near-zero cost (Section 9).
 - No multi-AZ/HA requirement yet. Revisit if/when the business depends on continuous availability or compliance requires it.
-- Backups: Neon's point-in-time recovery in Phase A; RDS automated backups + snapshots in Phase B.
+- Backups: Neon's point-in-time recovery in Phase A — a **6-hour** window, the Free plan's maximum; rehearsed 2026-10-23, runbook in `infra/terraform/README.md` → "Restoring the production database". RDS automated backups + snapshots in Phase B.
 - Observability: CloudWatch logs + alarms (§8.1). The SST-side alarms are created by every deploy; the Terraform-side uptime/CloudFront alarms are enabled in the live `terraform.tfvars`, and the SES reputation alarms are written but not yet applied — proving end-to-end delivery (a synthetic `OPS_ALERT`, `set-alarm-state`, the us-east-1 SNS confirmation) is on the Phase 7 list. Expand to structured tracing if/when traffic grows.
 
 ### 8.1 Failure visibility (built 2026-09-10)

@@ -99,8 +99,18 @@ proven above. Still open, once mail flows after step 1: read how often SES
 publishes the metric and decide whether `INSUFFICIENT_DATA` should email too
 (`infra/terraform/README.md` → "Turning the SES reputation alarms on", step 4).
 
-### 5. Backup restore rehearsal
-A Neon PITR restore has never been tested. Untested backups are not backups.
+### 5. Backup restore rehearsal — done 2026-10-23
+Production was branched at a point an hour back without being touched itself.
+The branch was ready in 3 s. Every table matched production except the one write
+made after that point (an admin login), which is the proof it really was the past.
+The branch was then deleted. The runbook and the measured numbers are in
+`infra/terraform/README.md` → "Restoring the production database". Putting a
+restore live (in place, or by switching the secrets) needs production, so it is
+documented but not rehearsed.
+
+**The restore window is 6 hours**, the Free plan's maximum. Damage noticed the next
+morning cannot be undone. To decide: Neon Launch (up to 7 days), or a scheduled
+`pg_dump` to S3.
 
 ### 6. Data processing agreements — confirm before launch
 The published Privacy Policy says each processor "acts only on our instructions
