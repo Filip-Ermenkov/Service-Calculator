@@ -490,9 +490,12 @@ Foundational Security Best Practices). Until 2026-10-23 the account had none of 
    The first shows `logging: true` and a delivery within about 15 minutes. The second
    should produce an email within about 5 minutes: it is a high-severity finding type, so it
    passes the "medium and above" filter. Sample findings are labelled as samples.
-5. **Access Analyzer will list the GitHub deploy role** as reachable from outside the account.
-   That is its purpose (it trusts `token.actions.githubusercontent.com`). Archive the finding
-   with that reason; anything else it lists deserves a look.
+5. **Access Analyzer.** Three roles are trusted from outside the account by design (SSO
+   sign-in, GitHub Actions, the organization's management account). Archive rules in
+   `security-baseline.tf` name exactly those principals, so only the unexpected stays active.
+   On 2026-10-23 that left four real findings: the **public Lambda function URLs** SST uses as
+   CloudFront origins (web server and image optimizer, both stages). They are tracked in
+   `docs/PROGRESS.md` and are deliberately not archived.
 
 ## DNS hardening (`dns-hardening.tf`, opt-in)
 

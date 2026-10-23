@@ -238,3 +238,15 @@ variable "github_repository" {
   type        = string
   default     = "Filip-Ermenkov/Service-Calculator"
 }
+
+variable "sso_saml_provider_name" {
+  description = "Name of the SAML provider IAM Identity Center created in this account (IAM → Identity providers). Access Analyzer archives roles that trust it, which every SSO sign-in uses."
+  type        = string
+  default     = "AWSSSO_001577eee7fa1140_DO_NOT_DELETE"
+}
+
+variable "organization_management_account_id" {
+  description = "The AWS Organizations management account, trusted by OrganizationAccountAccessRole. Access Analyzer archives that one expected finding."
+  type        = string
+  default     = "744747681339"
+}

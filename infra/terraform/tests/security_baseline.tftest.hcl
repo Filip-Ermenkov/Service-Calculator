@@ -152,6 +152,22 @@ run "guardrails_block_public_s3_and_watch_external_access" {
     condition     = aws_accessanalyzer_analyzer.account[0].type == "ACCOUNT"
     error_message = "The Access Analyzer must be the (free) account-level external-access analyzer."
   }
+
+  assert {
+    condition = (
+      length(aws_accessanalyzer_archive_rule.expected) == 3 &&
+      alltrue([for r in aws_accessanalyzer_archive_rule.expected : anytrue([for f in r.filter : f.criteria == "resourceType" && f.eq == tolist(["AWS::IAM::Role"])])])
+    )
+    error_message = "Exactly the three by-design role trusts may be archived, and only for IAM roles, so a public Lambda URL or bucket is never archived by them."
+  }
+
+  assert {
+    condition = contains(
+      flatten([for r in aws_accessanalyzer_archive_rule.expected : [for f in r.filter : f.eq if f.criteria == "principal.AWS"]]),
+      "744747681339"
+    )
+    error_message = "The organization management account's trust must be archived by its exact account id."
+  }
 }
 
 run "guardduty_findings_reach_an_inbox" {
@@ -179,6 +195,13 @@ run "guardduty_findings_reach_an_inbox" {
   assert {
     condition     = strcontains(aws_sns_topic_policy.security_findings[0].policy, "arn:aws:events:eu-central-1:123456789012:rule/bulbau-lu-guardduty-findings")
     error_message = "Only the GuardDuty rule may publish to the topic (aws:SourceArn)."
+  }
+
+  # SNS rejects "sns:*" in a topic policy (the first live apply failed on it),
+  # and the mocked plan cannot see that, so pin it here.
+  assert {
+    condition     = !strcontains(lower(aws_sns_topic_policy.security_findings[0].policy), "\"sns:*\"")
+    error_message = "A topic policy may not use \"sns:*\"; SNS rejects it as out of service scope. List the actions."
   }
 
   assert {
