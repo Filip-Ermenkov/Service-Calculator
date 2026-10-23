@@ -99,6 +99,12 @@ variable "manage_ses" {
   default     = false
 }
 
+variable "manage_ses_reputation_alarms" {
+  description = "Whether Terraform creates the two account-level SES reputation alarms (Reputation.BounceRate >= 2%, Reputation.ComplaintRate >= 0.05%) that notify the eu-central-1 ops topic before AWS reviews or pauses the account (ses-reputation.tf). Kept FALSE by default like every other opt-in resource. Independent of manage_ses: reputation belongs to the account, not to one identity."
+  type        = bool
+  default     = false
+}
+
 # ── GitHub Actions deploy IAM role (import-only, opt-in) ─────────────────────
 variable "manage_deploy_role" {
   description = "Whether Terraform manages the (already-existing) GitHub-Actions deploy role + inline policy, making the committed JSON the single source of truth (file = live). Keep FALSE until the role has been `terraform import`ed — otherwise apply would try to CREATE a role that already exists. See iam.tf + README."

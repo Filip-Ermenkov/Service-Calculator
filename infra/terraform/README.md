@@ -8,7 +8,7 @@ resources "lives in `infra/`".
 
 > **Status (2026-10-22): applied and live.** The zone + delegation set, budgets and the eu-central-1 SNS topic are created; DNS is delegated at EuroDNS; the Neon project and the deploy role are imported (`manage_neon`, `manage_deploy_role` = `true` in the live, gitignored `terraform.tfvars`). The **SES sending identity** is applied (`manage_ses = true` — `_dmarc`, `mail.bulbau.lu` MX/SPF and the DKIM CNAMEs all resolve; the site sends from `info@bulbau.lu`). The **client mailbox DNS** is applied too (`workspace-mail.tf`, `manage_workspace_mail = true`): `bulbau.lu` now answers `MX 1 smtp.google.com`, with the Google SPF/DKIM and verification records alongside SES on `mail.`. Uptime monitoring is on (`manage_uptime_monitoring = true`, `cloudfront_distribution_id = E1O15XCT0NNBSD`). Deploy-policy edits go live with `terraform apply` (`iam.tf` sources `infra/aws/*.json`).
 >
-> **Open here:** move DMARC from `p=none` to `p=quarantine` once aggregate reports have been arriving for a while (`dmarc_policy`), and re-run `terraform plan` from a credentialed session to confirm no drift. The runbook below is for a fresh clone / disaster recovery.
+> **Open here:** turn on the **SES reputation alarms** (`ses-reputation.tf`, `manage_ses_reputation_alarms = true` — authored, not yet applied; see [below](#turning-the-ses-reputation-alarms-on-ses-reputationtf-opt-in)); move DMARC from `p=none` to `p=quarantine` once aggregate reports have been arriving for a while (`dmarc_policy`); and re-run `terraform plan` from a credentialed session to confirm no drift. The runbook below is for a fresh clone / disaster recovery.
 
 ## What it manages
 
@@ -21,6 +21,7 @@ resources "lives in `infra/`".
 | **SES domain identity** + DKIM/MAIL-FROM/SPF/DMARC records | `ses.tf` | new, opt-in (`manage_ses`) | ✅ applied |
 | **Client mailbox DNS** (Google Workspace MX/SPF/DKIM/verification on the root) | `workspace-mail.tf` | new, opt-in (`manage_workspace_mail`) | ✅ applied |
 | **Route 53 uptime check + CloudFront 5xx alarm** (us-east-1) | `uptime.tf` | new, opt-in | enabled in the live tfvars (`manage_uptime_monitoring = true`) |
+| **SES reputation alarms** (account bounce ≥ 2%, complaint ≥ 0.05%, eu-central-1) | `ses-reputation.tf` | new, opt-in (`manage_ses_reputation_alarms`) | not yet applied |
 | ~~CloudWatch Lambda alarms~~ | ~~`observability.tf`~~ | — | ➡️ **in `sst.config.ts`** (wired by reference) |
 | **Neon project** (existing DB) | `neon.tf` | import-only, `prevent_destroy` | after import |
 | **GitHub-Actions deploy role + policy** (existing) | `iam.tf` | import-only, `prevent_destroy` | after import |
@@ -123,6 +124,10 @@ monitoring nothing. An alarm that cannot tell you it stopped working is worse th
 This also matches the layer split TECHSPEC §10.3 actually implies: an alarm on a per-stage
 Lambda is a per-stage, disposable resource.
 
+Two kinds of alarm do stay here: the us-east-1 ones (`uptime.tf`, below), which a deploy
+cannot create, and the SES reputation alarms (`ses-reputation.tf`), which watch an
+**account-level** metric shared by both stages and so must outlive either of them.
+
 **Consequence for your `terraform.tfvars`:** delete the `web_function_name` and
 `pdf_function_name` lines — the variables no longer exist. (Terraform only *warns* about
 undeclared variables in a tfvars file, so a stale copy will not fail the apply.)
@@ -193,6 +198,73 @@ and lands at ~260k/month.
 **Prove delivery rather than assuming it.** Use `aws cloudwatch set-alarm-state` to force an
 alarm and confirm the email arrives — remembering that `bulbau-lu-site-unreachable` lives in
 **us-east-1**, not eu-central-1. It self-corrects on the next evaluation.
+
+## Turning the SES reputation alarms on (`ses-reputation.tf`, opt-in)
+
+Two eu-central-1 alarms on the account's SES reputation, notifying the existing
+`bulbau-lu-ops-alerts` topic — the same topic and email subscription as the SST alarms, so
+there is no new confirmation email:
+
+| Alarm | Metric | Fires at | AWS reviews at | AWS may pause at |
+| --- | --- | --- | --- | --- |
+| `bulbau-lu-ses-bounce-rate` | `AWS/SES Reputation.BounceRate` | ≥ 2% | 5% | 10% |
+| `bulbau-lu-ses-complaint-rate` | `AWS/SES Reputation.ComplaintRate` | ≥ 0.05% | 0.1% | 0.5% |
+
+AWS's alarm guide suggests 5% and 0.1%, which are the review points themselves, so an alarm
+there arrives together with AWS's notice rather than before it. The reasoning, and what the
+thresholds mean at this site's low volume, is in the header of `ses-reputation.tf`. **Cost:**
+≈ $0.20/month (the account is already past CloudWatch's 10 free alarms).
+
+1. In `terraform.tfvars`: `manage_ses_reputation_alarms = true`.
+
+2. `terraform plan` — expect exactly **2 to add, 0 to change, 0 to destroy**
+   (`aws_cloudwatch_metric_alarm.ses_bounce_rate[0]` and `.ses_complaint_rate[0]`). Then
+   `terraform apply`.
+
+3. Check they are evaluating something:
+
+   ```bash
+   aws cloudwatch describe-alarms \
+     --alarm-names bulbau-lu-ses-bounce-rate bulbau-lu-ses-complaint-rate \
+     --region eu-central-1 \
+     --query "MetricAlarms[].{Name:AlarmName,State:StateValue,Threshold:Threshold}" \
+     --output table
+   ```
+
+   `OK` means the metric exists and is below the threshold. **`INSUFFICIENT_DATA` means the
+   alarm is watching nothing** — that is deliberate (`treat_missing_data = "missing"`; the
+   alternatives would show green instead). The metrics only exist once SES has sent mail from
+   this account in eu-central-1. If they have never appeared, send one message to the SES
+   mailbox simulator (`success@simulator.amazonses.com`), which creates them without counting
+   towards either rate.
+
+4. **Find out how often SES publishes the metric.** AWS does not document it, and it decides
+   whether `INSUFFICIENT_DATA` can be pushed to the inbox:
+
+   ```bash
+   aws cloudwatch get-metric-statistics \
+     --namespace AWS/SES --metric-name Reputation.BounceRate \
+     --start-time "$(date -u -d '-3 days' +%FT%TZ)" --end-time "$(date -u +%FT%TZ)" \
+     --period 3600 --statistics SampleCount --region eu-central-1 \
+     --query "length(Datapoints)"
+   ```
+
+   About **72** (one per hour) means SES publishes continuously, so a gap really means the
+   metric stopped: add `insufficient_data_actions = [aws_sns_topic.ops_alerts.arn]` to both
+   alarms and update the matching assertion in `tests/ses_reputation_alarms.tftest.hcl`. **Far
+   fewer** means it is published only around sends, and the alarms must stay as they are —
+   otherwise every quiet hour sends an email.
+
+5. **Prove delivery:**
+
+   ```bash
+   aws cloudwatch set-alarm-state --alarm-name bulbau-lu-ses-bounce-rate \
+     --state-value ALARM --state-reason "Delivery test" --region eu-central-1
+   ```
+
+   The email should reach the ops inbox within a minute. The alarm returns to its real state at
+   its next evaluation; no `OK` email follows, because these alarms notify only on
+   `ALARM` (see the header of `ses-reputation.tf` for why).
 
 ## Not managed here (pointers, so you don't go looking)
 

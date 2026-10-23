@@ -42,6 +42,12 @@ deploy_role_name   = "gh-actions-bulbau-staging-deploy"
 # in-zone). Then set the SST EmailSender secret + request SES production access.
 manage_ses = false
 
+# SES reputation alarms (ses-reputation.tf): bounce rate >= 2% and complaint rate
+# >= 0.05%, both below the points where AWS reviews the account, notifying the
+# eu-central-1 ops topic. Account-level, so independent of manage_ses. Turn on
+# once the account sends real mail; ~$0.20/month.
+manage_ses_reputation_alarms = false
+
 # DMARC (the _dmarc record in ses.tf covers BOTH senders — SES and the Workspace
 # mailbox). Monitor first; move to "quarantine" then "reject" only once the
 # aggregate reports show every legitimate source passing aligned SPF/DKIM.
