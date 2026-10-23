@@ -214,3 +214,27 @@ variable "manage_dnssec" {
   type        = bool
   default     = false
 }
+
+# ── Nightly database backups (db-backups.tf, opt-in) ─────────────────────────
+variable "manage_db_backups" {
+  description = "Whether Terraform creates the private bucket for the nightly pg_dump backups and the write-only role the backup workflow assumes (db-backups.tf). The database-side read-only role and the GitHub `backup` environment are set up by hand; see the README runbook."
+  type        = bool
+  default     = false
+}
+
+variable "db_backup_retention_days" {
+  description = "How many days nightly database dumps are kept before the lifecycle rule deletes them."
+  type        = number
+  default     = 35
+
+  validation {
+    condition     = var.db_backup_retention_days >= 7
+    error_message = "Keep at least a week of backups; damage is often noticed days later."
+  }
+}
+
+variable "github_repository" {
+  description = "owner/name of this repository on GitHub. The backup role trusts only jobs from its `backup` environment."
+  type        = string
+  default     = "Filip-Ermenkov/Service-Calculator"
+}

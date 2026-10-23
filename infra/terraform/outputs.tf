@@ -59,3 +59,13 @@ output "dnssec_ds_record" {
   description = "The DS record to add at the registrar (EuroDNS) to complete the DNSSEC chain of trust. Add it only after signing has run for 2 days; see dns-hardening.tf. Null while manage_dnssec = false."
   value       = try(aws_route53_key_signing_key.main[0].ds_record, null)
 }
+
+output "db_backup_bucket" {
+  description = "Bucket holding the nightly database dumps. Set it as the `backup` environment's BACKUP_BUCKET variable on GitHub. Null while manage_db_backups = false."
+  value       = try(aws_s3_bucket.db_backups[0].bucket, null)
+}
+
+output "db_backup_role_arn" {
+  description = "Role the backup workflow assumes. Set it as the `backup` environment's AWS_BACKUP_ROLE_ARN secret on GitHub. Null while manage_db_backups = false."
+  value       = try(aws_iam_role.db_backup[0].arn, null)
+}

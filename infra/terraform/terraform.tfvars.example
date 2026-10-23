@@ -88,3 +88,10 @@ manage_tls_rpt = false
 # once the DS record (`terraform output dnssec_ds_record`) is added at EuroDNS,
 # and that must wait 2 days after this is applied. See dns-hardening.tf.
 manage_dnssec = false
+
+# ── Nightly database backups (db-backups.tf, opt-in) ─────────────────────────
+# Private bucket + a write-only role for .github/workflows/db-backup.yml. The
+# read-only database role and the GitHub `backup` environment are manual steps
+# (README → "Nightly database backups").
+manage_db_backups        = false
+db_backup_retention_days = 35
