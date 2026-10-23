@@ -482,6 +482,19 @@ Because content is authored in English and auto-translated, there will inevitabl
 - **Change Password**: the admin enters their current password and a new password twice. On save, the new password takes effect immediately and the admin is asked to log in again.
 - **Two-Factor Authentication**: instructions and a QR code to set up or re-link Google Authenticator if the admin changes devices.
 
+> **Lost phone (built 2026-10-03).** If an admin loses the device holding their
+> authenticator they cannot get back in on their own — that is the point of a
+> second factor. **Another admin** can reset it from that person's entry under
+> Users: a "Reset two-factor authentication" control, confirmed with the
+> *acting* admin's own password. The affected person keeps their password and is
+> asked to set up two-factor again at their next login; until they do, they can
+> reach nothing in the panel. Every reset is recorded in the operational alerts,
+> so one nobody authorised is visible.
+>
+> **Tell each admin to save the setup key, not just scan the QR.** With only one
+> admin account there is no one to perform the reset, and recovery then means
+> direct database access.
+
 ---
 
 ## 6. Content & Translation Lifecycle
