@@ -145,13 +145,51 @@ resource "aws_s3_account_public_access_block" "account" {
 
 # Continuously lists anything in the account that is reachable from OUTSIDE it
 # (a bucket, role, key or queue shared beyond the account). The account-type
-# external-access analyzer is free. Expected finding: the GitHub OIDC deploy
-# role, which trusts token.actions.githubusercontent.com by design. Archive it
-# in the console with that reason.
+# external-access analyzer is free.
 resource "aws_accessanalyzer_analyzer" "account" {
   count         = local.guardrails_enabled
   analyzer_name = "bulbau-lu-account"
   type          = "ACCOUNT"
+}
+
+# Three roles are trusted from outside the account BY DESIGN. Each is archived
+# by a rule that names exactly its trusted principal, so it stops looking like
+# news while anything else stays active:
+#   • IAM Identity Center's SAML provider: every SSO sign-in assumes a role
+#   • GitHub's OIDC provider: the deploy role and the backup role
+#   • the organization's management account: OrganizationAccountAccessRole
+# Deliberately NOT archived: the public Lambda function URLs SST creates as
+# CloudFront origins. They are a real finding (docs/PROGRESS.md).
+locals {
+  expected_external_trust = {
+    "expected-sso-sign-in" = {
+      criteria = "principal.Federated"
+      value    = "arn:aws:iam::${var.aws_account_id}:saml-provider/${var.sso_saml_provider_name}"
+    }
+    "expected-github-actions" = {
+      criteria = "principal.Federated"
+      value    = "arn:aws:iam::${var.aws_account_id}:oidc-provider/token.actions.githubusercontent.com"
+    }
+    "expected-organization-management" = {
+      criteria = "principal.AWS"
+      value    = var.organization_management_account_id
+    }
+  }
+}
+
+resource "aws_accessanalyzer_archive_rule" "expected" {
+  for_each      = var.manage_account_guardrails ? local.expected_external_trust : {}
+  analyzer_name = aws_accessanalyzer_analyzer.account[0].analyzer_name
+  rule_name     = each.key
+
+  filter {
+    criteria = "resourceType"
+    eq       = ["AWS::IAM::Role"]
+  }
+  filter {
+    criteria = each.value.criteria
+    eq       = [each.value.value]
+  }
 }
 
 # ── GuardDuty ────────────────────────────────────────────────────────────────
@@ -226,8 +264,20 @@ resource "aws_sns_topic_policy" "security_findings" {
         Sid       = "AccountOwnsTheTopic"
         Effect    = "Allow"
         Principal = { AWS = "arn:aws:iam::${var.aws_account_id}:root" }
-        Action    = "sns:*"
-        Resource  = aws_sns_topic.security_findings[0].arn
+        # The same actions as SNS's own default topic policy. A topic policy
+        # refuses "sns:*" ("Policy statement action out of service scope"),
+        # which is how the first apply of this file failed on 2026-10-23.
+        Action = [
+          "SNS:GetTopicAttributes",
+          "SNS:SetTopicAttributes",
+          "SNS:AddPermission",
+          "SNS:RemovePermission",
+          "SNS:DeleteTopic",
+          "SNS:Subscribe",
+          "SNS:ListSubscriptionsByTopic",
+          "SNS:Publish",
+        ]
+        Resource = aws_sns_topic.security_findings[0].arn
       },
       {
         Sid       = "EventBridgePublishesFindings"

@@ -164,11 +164,20 @@ This is for whoever holds each account (the developer or the client), not code.
   Policy generation needs a **trail**, and the account had none until
   `security-baseline.tf`. Let it record a few weeks of deploys (both stages,
   one custom-domain change) first; this is post-launch work
-- **DNSSEC**: two days after `manage_dnssec` is applied, add the DS record
-  (`terraform output dnssec_ds_record`) at EuroDNS. The order matters; see
-  `infra/terraform/README.md` → "DNS hardening"
+- **DNSSEC**: signing has been live since 2026-10-23 18:37 UTC. **On or after 2026-10-25
+  at 19:00 UTC**, add the DS record (`terraform output dnssec_ds_record`) at
+  EuroDNS. The order matters; see `infra/terraform/README.md` → "DNS hardening"
 - confirm the `bulbau-lu-security-findings` SNS subscription email, or
   GuardDuty findings reach nobody
+- **The Lambda function URLs are public.** SST's CloudFront-to-Lambda origins (the web
+  server and the image optimizer, both stages) are function URLs with auth `NONE`,
+  so anyone who learns one can skip CloudFront. That bypasses the edge cache and the
+  TLS policy, and it lets a caller send their own `CloudFront-Viewer-Address`,
+  which the rate limiter trusts. IAM Access Analyzer reports them (AWS's
+  Foundational Security Best Practices control Lambda.1). SST's `protection`
+  option for the Nextjs component (origin access control, with edge signing for
+  POST bodies) closes it. It changes the request path for the admin and every
+  form, so it needs its own slice, proven on staging first
 
 ### Recurring
 - `public/.well-known/security.txt` expires on 2027-10-01.
