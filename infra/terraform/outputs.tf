@@ -54,3 +54,8 @@ output "mail_dns_records" {
     google_dkim = local.google_dkim_enabled == 1 ? aws_route53_record.google_dkim[0].name : ""
   }
 }
+
+output "dnssec_ds_record" {
+  description = "The DS record to add at the registrar (EuroDNS) to complete the DNSSEC chain of trust. Add it only after signing has run for 2 days; see dns-hardening.tf. Null while manage_dnssec = false."
+  value       = try(aws_route53_key_signing_key.main[0].ds_record, null)
+}

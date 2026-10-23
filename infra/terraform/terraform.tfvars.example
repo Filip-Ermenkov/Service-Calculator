@@ -67,3 +67,24 @@ manage_workspace_mail    = false
 google_site_verification = ""   # "google-site-verification=…" from Admin console → Account → Domains → Manage domains → Verify domain
 google_dkim_selector     = "google"
 google_dkim_txt_value    = ""   # "v=DKIM1; k=rsa; p=MIIB…" from Admin console → Apps → Google Workspace → Gmail → Authenticate email
+
+# ── Account security baseline (security-baseline.tf, opt-in) ─────────────────
+# CloudTrail: multi-region trail with log-file validation into a private bucket,
+# kept cloudtrail_retention_days. Management events are free; storage is cents.
+manage_cloudtrail         = false
+cloudtrail_retention_days = 365
+# Account-wide S3 Block Public Access + IAM Access Analyzer (external access). Free.
+manage_account_guardrails = false
+# GuardDuty, with medium-and-above findings emailed via a dedicated topic (one
+# more confirmation click). Volume-priced: a few euros a month or less here.
+manage_guardduty = false
+
+# ── DNS hardening (dns-hardening.tf, opt-in) ─────────────────────────────────
+# CAA: only Amazon (ACM) may issue certificates for the domain; no wildcards.
+manage_caa = false
+# TLS-RPT: mail servers report TLS delivery failures to the DMARC mailbox.
+manage_tls_rpt = false
+# DNSSEC: signs the zone (KMS key in us-east-1, ~$1/month). Signing only counts
+# once the DS record (`terraform output dnssec_ds_record`) is added at EuroDNS,
+# and that must wait 2 days after this is applied. See dns-hardening.tf.
+manage_dnssec = false

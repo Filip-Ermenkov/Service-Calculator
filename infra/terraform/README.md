@@ -24,6 +24,11 @@ resources "lives in `infra/`".
 | **Client mailbox DNS** (Google Workspace MX/SPF/DKIM/verification on the root) | `workspace-mail.tf` | new, opt-in (`manage_workspace_mail`) | ✅ applied |
 | **Route 53 uptime check + CloudFront 5xx alarm** (us-east-1) | `uptime.tf` | new, opt-in | enabled in the live tfvars (`manage_uptime_monitoring = true`) |
 | **SES reputation alarms** (account bounce ≥ 2%, complaint ≥ 0.05%, eu-central-1) | `ses-reputation.tf` | new, opt-in (`manage_ses_reputation_alarms`) | applied 2026-10-23 |
+| **CloudTrail** trail (multi-region, log-file validation) + private log bucket | `security-baseline.tf` | new, opt-in (`manage_cloudtrail`) | see below |
+| **Account guardrails**: S3 Block Public Access (account-wide) + IAM Access Analyzer | `security-baseline.tf` | new, opt-in (`manage_account_guardrails`) | see below |
+| **GuardDuty** + findings → `bulbau-lu-security-findings` topic → email | `security-baseline.tf` | new, opt-in (`manage_guardduty`) | see below |
+| **CAA** + **TLS-RPT** records | `dns-hardening.tf` | new, opt-in (`manage_caa`, `manage_tls_rpt`) | see below |
+| **DNSSEC** signing (KMS key in us-east-1, KSK, two us-east-1 alarms) | `dns-hardening.tf` | new, opt-in (`manage_dnssec`), `prevent_destroy` on the key | see below |
 | ~~CloudWatch Lambda alarms~~ | ~~`observability.tf`~~ | — | ➡️ **in `sst.config.ts`** (wired by reference) |
 | **Neon project** (existing DB) | `neon.tf` | import-only, `prevent_destroy` | after import |
 | **GitHub-Actions deploy role + policy** (existing) | `iam.tf` | import-only, `prevent_destroy` | after import |
@@ -393,9 +398,56 @@ thresholds mean at this site's low volume, is in the header of `ses-reputation.t
    its next evaluation; no `OK` email follows, because these alarms notify only on
    `ALARM` (see the header of `ses-reputation.tf` for why).
 
+## Turning the security baseline on (`security-baseline.tf`, opt-in)
+
+Account-level controls every AWS security baseline starts with (CIS AWS Foundations, AWS
+Foundational Security Best Practices). Until 2026-10-23 the account had none of them.
+
+1. In `terraform.tfvars`: `manage_cloudtrail = true`, `manage_account_guardrails = true`,
+   `manage_guardduty = true`.
+2. `terraform plan`. Expect only creates: the trail and its bucket (bucket, public-access
+   block, ownership controls, lifecycle, policy), the account S3 public-access block, the
+   analyzer, the detector, the security-findings topic, its subscription and policy, and the
+   EventBridge rule and target. Then `terraform apply`.
+3. **Confirm the new subscription.** AWS emails a link for `bulbau-lu-security-findings`;
+   until it is clicked, findings go nowhere.
+4. **Prove the trail and GuardDuty both work:**
+
+   ```bash
+   aws cloudtrail get-trail-status --name bulbau-lu-trail --region eu-central-1      --query "{logging:IsLogging,lastDelivery:LatestDeliveryTime,lastError:LatestDeliveryError}"
+   aws guardduty create-sample-findings --region eu-central-1      --detector-id "$(aws guardduty list-detectors --region eu-central-1 --query 'DetectorIds[0]' --output text)"      --finding-types "CryptoCurrency:EC2/BitcoinTool.B!DNS"
+   ```
+
+   The first shows `logging: true` and a delivery within about 15 minutes. The second
+   should produce an email within about 5 minutes: it is a high-severity finding type, so it
+   passes the "medium and above" filter. Sample findings are labelled as samples.
+5. **Access Analyzer will list the GitHub deploy role** as reachable from outside the account.
+   That is its purpose (it trusts `token.actions.githubusercontent.com`). Archive the finding
+   with that reason; anything else it lists deserves a look.
+
+## DNS hardening (`dns-hardening.tf`, opt-in)
+
+- **CAA** (`manage_caa`): only `amazon.com` (ACM) may issue, `issuewild ";"` forbids
+  wildcards, `iodef` reports violations to the DMARC mailbox. If anything ever needs a
+  certificate from another CA, add its `issue` line **first**.
+- **TLS-RPT** (`manage_tls_rpt`): `_smtp._tls` asks mail servers to report TLS failures
+  delivering to us, to the DMARC mailbox.
+- **DNSSEC** (`manage_dnssec`): **the order matters; a wrong order takes the domain offline.**
+  1. `terraform apply` with `manage_dnssec = true`. The zone starts signing.
+  2. Check signing: `aws route53 get-dnssec --hosted-zone-id <zone_id>` shows `SIGNING` and
+     the key `ACTIVE`.
+  3. **Wait 2 days.** That is the NS TTL, after which every resolver has seen the signed zone.
+  4. Add the DS record from `terraform output dnssec_ds_record` at **EuroDNS** (the registrar).
+  5. Verify the chain with an external checker (e.g. DNSViz) and
+     `curl -s "https://dns.google/resolve?name=bulbau.lu&type=A"`, which should show `"AD":true`.
+
+  **To turn it off:** remove the DS at EuroDNS **first**, wait 2 days, then set
+  `manage_dnssec = false`. The KMS key has `prevent_destroy`, so Terraform refuses to delete
+  it by accident; remove that guard deliberately only after the DS is gone.
+
 ## Not managed here (pointers, so you don't go looking)
 
 - **Everything per-stage and disposable** is in `sst.config.ts`: the Lambda functions, CloudFront, S3, the **DynamoDB rate-limit table** (`RateLimits` — TTL-expired counters, nothing worth keeping, so PITR is off), the **media CDN pieces** (the media bucket's own policy — CloudFront service principal, `GetObject` + `ListBucket`, `aws:SourceArn`-pinned to this account's distributions — the origin access control, the response-headers policy that mirrors the site's security headers to `/media/*`, and that `/media/*` behaviour on the Web distribution), the app's Route 53 *records* (zone looked up by id), the SSM parameter carrying the CloudFront distribution id, the per-stage alarms + `OPS_ALERT` metric filter, and every runtime IAM permission (`translate:TranslateText`, `ssm:GetParameter`, `cloudfront:CreateInvalidation`, `ses:SendEmail`, `dynamodb:GetItem`/`UpdateItem`), granted to the Web function's execution role via `permissions:`/`link:`.
 - **SST secrets** (`DatabaseUrl`, `PayloadSecret`, `TotpEncryptionKey`, `SiteUrl`, `EmailSender`, `TurnstileSecretKey`/`TurnstileSiteKey`, `AllowIndexing`) live in SSM under the `sst-*` prefix — set with `npx sst secret set`, see the root README. Rate limiting, translation, CDN invalidation and SES sending need no secret (execution-role auth).
 - **Cloudflare Turnstile** is a Cloudflare-side widget; no AWS resource.
-- **The Google Workspace mailbox DNS** is the one remaining foundational item that *belongs* here and is not yet authored (see the status note above).
+- **Anything at the registrar** (EuroDNS): the NS delegation, the DS record for DNSSEC, and the domain's renewal.

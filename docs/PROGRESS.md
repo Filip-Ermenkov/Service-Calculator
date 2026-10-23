@@ -44,11 +44,10 @@ Once it is granted, test with an address that is **not** a verified SES
 identity. A verified address receives mail even in the sandbox, so it proves
 nothing.
 
-### 2. Lambda concurrency — already 400, 1000 requested
-The account limit in eu-central-1 is **400**, not the default of 10 this file
-used to claim: AWS raises a new account's limit on its own as it is used. A
-request for 1000 is open (2026-10-23). 400 is ample for this site, and the
-`web-lambda-throttles` alarm watches the ceiling either way.
+### 2. Lambda concurrency — done, 1000 (2026-10-23)
+The account limit in eu-central-1 is **1000** (AWS approved the request on
+2026-10-23; it had already been raised from the default 10 to 400 on its own).
+The `web-lambda-throttles` alarm watches the ceiling.
 
 ### 3. Client content
 Projects, careers, photos, and the real services. Each service needs its
@@ -157,9 +156,15 @@ This is for whoever holds each account (the developer or the client), not code.
   start
 - the GitHub Actions deploy role still has a broad, region-scoped Allow
   (`DeploymentsScopedToRegion`). Replace it with a least-privilege policy that
-  IAM Access Analyzer generates from the role's CloudTrail history
-  (`infra/aws/README.md`). It can wait until after launch: the CloudTrail
-  history already covers every kind of deploy
+  IAM Access Analyzer generates from CloudTrail (`infra/aws/README.md`).
+  Policy generation needs a **trail**, and the account had none until
+  `security-baseline.tf`. Let it record a few weeks of deploys (both stages,
+  one custom-domain change) first; this is post-launch work
+- **DNSSEC**: two days after `manage_dnssec` is applied, add the DS record
+  (`terraform output dnssec_ds_record`) at EuroDNS. The order matters; see
+  `infra/terraform/README.md` → "DNS hardening"
+- confirm the `bulbau-lu-security-findings` SNS subscription email, or
+  GuardDuty findings reach nobody
 
 ### Recurring
 - `public/.well-known/security.txt` expires on 2027-10-01.
