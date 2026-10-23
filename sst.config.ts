@@ -543,9 +543,9 @@ export default $config({
     })
     // Throttles on the WEB function were previously unmonitored — an omission,
     // since this is the function that actually faces public traffic and the
-    // account still runs on the DEFAULT concurrency limit of 10 (the launch-list
-    // quota increase in docs/PROGRESS.md). Under a traffic spike this
-    // is the first thing that breaks, and visitors just see errors.
+    // account-wide concurrency limit is shared by every function here (400 in
+    // eu-central-1 as of 2026-10-23; see docs/PROGRESS.md). Under a traffic
+    // spike this is the first thing that breaks, and visitors just see errors.
     opsAlarm('web-lambda-throttles', {
       description:
         'Web Lambda was throttled — the account concurrency ceiling is being hit; visitors are seeing failures.',
