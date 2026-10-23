@@ -162,10 +162,6 @@ This is for whoever holds each account (the developer or the client), not code.
   history already covers every kind of deploy
 
 ### Known, accepted, not blocking
-- **`braces` GHSA-vfj7-8cjw-p6xm** has no patched release. It is build-time only
-  and absent from the deployed artifact; the evidence is written into
-  `scripts/audit-production-deps.mjs`, which fails if the exception goes stale
-  or passes its review date (2026-12-31).
 - **Every RSC prefetch 307-redirects** and loses its `_rsc` cache-buster, so
   prefetching is effectively off and each costs two Lambda invocations. Known
   upstream Next.js behaviour with i18n middleware rewrites (vercel/next.js
