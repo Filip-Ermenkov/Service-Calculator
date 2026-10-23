@@ -75,7 +75,7 @@ and §3.5, not open:
   in `src/i18n/messages/*.json` on purpose, so a claim cannot change without a
   developer.
 
-### 4. Monitoring — proven; the SES alarms still need applying
+### 4. Monitoring — proven; the SES alarms are waiting for mail
 **Proven 2026-10-23** for the twelve alarms that existed (five per SST stage in
 eu-central-1, the uptime and CloudFront alarms in us-east-1): all `OK`, none in
 `INSUFFICIENT_DATA`, actions enabled. Each SNS topic has one confirmed email
@@ -90,14 +90,14 @@ returned 500s that Lambda counted as zero errors and the app never logged as
 `OPS_ALERT`.
 
 The SES reputation alarms (`infra/terraform/ses-reputation.tf`: bounce ≥ 2%,
-complaint ≥ 0.05%, below AWS's 5% / 0.1% review points) are merged but **not
-applied**: set `manage_ses_reputation_alarms = true` and `terraform apply`
-(expect 2 to add). They treat missing data as `INSUFFICIENT_DATA` on purpose,
-so that state means "watching nothing", not a fault in the alarm. Then read how
-often SES publishes the metric and decide whether `INSUFFICIENT_DATA` should
-email too. Both steps are in `infra/terraform/README.md` → "Turning the SES
-reputation alarms on". They back up the answer to AWS's question in step 1 on
-how bounces and complaints are handled.
+complaint ≥ 0.05%, below AWS's 5% / 0.1% review points) were **applied on
+2026-10-23**: the plan was exactly 2 to add, and a follow-up plan shows no
+changes. Both sit in `INSUFFICIENT_DATA` because the account has sent no mail in
+weeks. That is deliberate (missing data reads as "watching nothing", never as
+green), not a fault. They notify the same eu-central-1 topic whose delivery was
+proven above. Still open, once mail flows after step 1: read how often SES
+publishes the metric and decide whether `INSUFFICIENT_DATA` should email too
+(`infra/terraform/README.md` → "Turning the SES reputation alarms on", step 4).
 
 ### 5. Backup restore rehearsal
 A Neon PITR restore has never been tested. Untested backups are not backups.
