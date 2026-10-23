@@ -83,6 +83,10 @@ subscription. One alarm per region was forced into `ALARM` with
 and both alarms returned to `OK` within a minute. Every alarm here also notifies
 on recovery, so one incident sends two emails.
 
+GuardDuty findings go to their own topic, `bulbau-lu-security-findings`. That
+path was proven on 2026-10-23 with a sample finding: the rule matched and
+invoked once, and SNS delivered one email, with no failures anywhere.
+
 The CloudFront 5xx alarm had already fired for real on 2026-10-17, and it was
 the only signal that did: the Payload copy-locale bug (see "Known, accepted")
 returned 500s that Lambda counted as zero errors and the app never logged as
@@ -110,10 +114,17 @@ documented but not rehearsed.
 **The point-in-time window is only 6 hours** (the Free plan's maximum), so a
 **nightly `pg_dump` to S3, kept 35 days**, covers the rest. It runs as
 `.github/workflows/db-backup.yml` into `infra/terraform/db-backups.tf`, outside
-Neon, and its role can add dumps but never read or delete them. Still to do,
-once: the read-only database role, the GitHub `backup` environment and its
-secrets, a first manual run, and **one restore of a nightly dump** to prove it
-is usable (`infra/terraform/README.md` → "Nightly database backups").
+Neon, and its role can add dumps but never read or delete them. **Set up and
+proven 2026-10-24:**
+- the first run produced a 320 KB dump (encrypted at rest)
+- the dump restored into a throw-away PostgreSQL 18 in about a second, with
+  `pg_restore --exit-on-error`
+- `scripts/db-fingerprint.sql` on the restored copy is **identical** to
+  production's, read-only: all 34 tables (rows and content digest), the
+  migration ledger, and the latest edits
+
+Repeat that restore check every few months (`infra/terraform/README.md` →
+"Nightly database backups").
 
 ### 6. Data processing agreements — confirm before launch
 The published Privacy Policy says each processor "acts only on our instructions
@@ -167,8 +178,6 @@ This is for whoever holds each account (the developer or the client), not code.
 - **DNSSEC**: signing has been live since 2026-10-23 18:37 UTC. **On or after 2026-10-25
   at 19:00 UTC**, add the DS record (`terraform output dnssec_ds_record`) at
   EuroDNS. The order matters; see `infra/terraform/README.md` → "DNS hardening"
-- confirm the `bulbau-lu-security-findings` SNS subscription email, or
-  GuardDuty findings reach nobody
 - **The Lambda function URLs are public.** SST's CloudFront-to-Lambda origins (the web
   server and the image optimizer, both stages) are function URLs with auth `NONE`,
   so anyone who learns one can skip CloudFront. That bypasses the edge cache and the
