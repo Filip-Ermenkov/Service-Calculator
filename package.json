@@ -97,6 +97,8 @@
     "qs": "^6.16.0",
     "source-map-js": "^1.2.2",
     "proxy-addr": "^2.0.8",
+    "happy-dom": "^21.0.4",
+    "graphql-scalars": "^2.0.1",
     "@esbuild-kit/core-utils": {
       "esbuild": "^0.25.0"
     },
