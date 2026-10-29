@@ -202,7 +202,7 @@ This is for whoever holds each account (the developer or the client), not code.
   (`fetchLatestVersion`) makes the admin's version-history view for globals
   ignore draft/published status. Collections (services, projects, careers) are
   unaffected, and the button cannot be hidden on a global (`disableCopyToLocale`
-  exists only for collections). Still present in Payload 3.92.0; the fixes are
+  exists only for collections). Still present in Payload 3.92.1; the fixes are
   open upstream (payloadcms/payload#16334, #17072). **Deliberately not patched
   here.** The workaround is the intended workflow: write in English and let
   FR/DE be generated, as the note in `FUNCTIONALITY.md` §6 tells the client. After each Payload upgrade, check
