@@ -96,6 +96,38 @@
       }
     },
     {
+      "Sid": "ManageLambdaEdgeUsEast1",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:DeleteFunction",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:PublishVersion",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:EnableReplication*",
+        "lambda:DisableReplication*",
+        "lambda:Get*",
+        "lambda:List*"
+      ],
+      "Resource": [
+        "arn:aws:lambda:us-east-1:847321857537:function:bulbau-lu-*",
+        "arn:aws:lambda:us-east-1:847321857537:function:bulbau-lu-*:*"
+      ]
+    },
+    {
+      "Sid": "CreateLambdaEdgeServiceLinkedRoles",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "arn:aws:iam::847321857537:role/aws-service-role/*",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": ["replicator.lambda.amazonaws.com", "logger.cloudfront.amazonaws.com"]
+        }
+      }
+    },
+    {
       "Sid": "ManageRoute53RecordsInAppZone",
       "Effect": "Allow",
       "Action": [

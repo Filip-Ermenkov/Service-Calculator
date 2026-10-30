@@ -93,9 +93,10 @@ complaint ≥ 0.05%, below AWS's 5% / 0.1% review points) were **applied on
 changes. Both sit in `INSUFFICIENT_DATA` because the account has sent no mail in
 weeks. That is deliberate (missing data reads as "watching nothing", never as
 green), not a fault. They notify the same eu-central-1 topic whose delivery was
-proven above. Still open, once mail flows after step 1: read how often SES
-publishes the metric and decide whether `INSUFFICIENT_DATA` should email too
-(`infra/terraform/README.md` → "Turning the SES reputation alarms on", step 4).
+proven above. **Settled 2026-10-30:** SES publishes the rates only around sends
+(two data points in three days, each at a send), so `INSUFFICIENT_DATA` stays
+silent; emailing it would send a message after every quiet hour. After the first
+real sends both alarms went to `OK`, which proves they watch the live metric.
 
 ### 5. Backup restore rehearsal — done 2026-10-23
 Production was branched at a point an hour back without being touched itself.
@@ -173,15 +174,12 @@ This is for whoever holds each account (the developer or the client), not code.
 - **DNSSEC**: signing has been live since 2026-10-23 18:37 UTC. **On or after 2026-10-25
   at 19:00 UTC**, add the DS record (`terraform output dnssec_ds_record`) at
   EuroDNS. The order matters; see `infra/terraform/README.md` → "DNS hardening"
-- **The Lambda function URLs are public.** SST's CloudFront-to-Lambda origins (the web
-  server and the image optimizer, both stages) are function URLs with auth `NONE`,
-  so anyone who learns one can skip CloudFront. That bypasses the edge cache and the
-  TLS policy, and it lets a caller send their own `CloudFront-Viewer-Address`,
-  which the rate limiter trusts. IAM Access Analyzer reports them (AWS's
-  Foundational Security Best Practices control Lambda.1). SST's `protection`
-  option for the Nextjs component (origin access control, with edge signing for
-  POST bodies) closes it. It changes the request path for the admin and every
-  form, so it needs its own slice, proven on staging first
+- **The Lambda function URLs are being locked to CloudFront** (`protection:
+  'oac-with-edge-signing'` in `sst.config.ts`). Until it is deployed, SST's default
+  leaves the web server and image optimizer URLs public, and a caller who learns
+  one can skip CloudFront, including the `CloudFront-Viewer-Address` stripping
+  the rate limiter relies on. Done when a direct call to each function URL returns
+  403 on both stages and IAM Access Analyzer shows the four Lambda findings resolved
 
 ### Recurring
 - `public/.well-known/security.txt` expires on 2027-10-01.

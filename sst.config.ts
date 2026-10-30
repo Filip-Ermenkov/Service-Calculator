@@ -351,6 +351,25 @@ export default $config({
       // spike notes). Costs a small, fixed number of extra invocations every
       // few minutes; free-tier covers it at this traffic level.
       warm: 1,
+      // Only CloudFront may call the server and image-optimizer functions.
+      // SST's default leaves their function URLs public (auth NONE, principal
+      // `*`), and IAM Access Analyzer reported all four (web server + image
+      // optimizer, both stages). A caller who learns a URL skips everything
+      // CloudFront does: the edge cache, the TLS policy, the response-headers
+      // policy, and CloudFront's stripping of a viewer-supplied
+      // `CloudFront-Viewer-Address`, which src/lib/rateLimit.ts trusts as the
+      // client IP. So a direct caller could pick their own rate-limit key.
+      //
+      // With protection on, both URLs require IAM auth and CloudFront signs its
+      // origin requests (origin access control). `oac-with-edge-signing` adds a
+      // small Lambda@Edge function on origin requests (cache misses only) that
+      // hashes the request body: OAC to a function URL needs that hash for
+      // every POST/PUT, and the admin, the forms and Payload's REST API all
+      // send them. Its limit is a 1 MB body, returned as 413 above that. Media
+      // never comes through here, since uploads go to S3 on presigned URLs.
+      // The edge function lives in us-east-1; the deploy role's
+      // ManageLambdaEdgeUsEast1 statement (infra/aws) allows exactly that.
+      protection: 'oac-with-edge-signing',
       // Serve `/media/*` from the media bucket at the edge. The Nextjs component
       // builds ONE default behaviour (a CloudFront Function + KV store routes
       // assets vs. server); this adds a second, path-matched behaviour that goes
