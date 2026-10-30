@@ -12,7 +12,7 @@ resources "lives in `infra/`".
 >
 > **Applied 2026-10-23/24:** the security baseline (`manage_cloudtrail`, `manage_account_guardrails`, `manage_guardduty`, `manage_caa`, `manage_tls_rpt`, `manage_dnssec`) and the nightly backups (`manage_db_backups`). All are `true` in the live tfvars, and a follow-up plan shows no changes. CloudTrail delivers from every region; GuardDuty email delivery and a full backup restore are both proven. DNSSEC is signing; **the DS record goes to EuroDNS on or after 2026-10-25 19:00 UTC**.
 >
-> **Open here:** the DS record above; read the SES metric's publishing cadence once mail flows (step 4 below); move DMARC from `p=none` to `p=quarantine` once aggregate reports have been arriving for a while (`dmarc_policy`). The runbook below is for a fresh clone / disaster recovery.
+> **Open here:** the DS record above; move DMARC from `p=none` to `p=quarantine` once aggregate reports have been arriving for a while (`dmarc_policy`). The runbook below is for a fresh clone / disaster recovery.
 
 ## What it manages
 
@@ -458,6 +458,9 @@ thresholds mean at this site's low volume, is in the header of `ses-reputation.t
    fewer** means it is published only around sends, and the alarms must stay as they are —
    otherwise every quiet hour sends an email.
 
+   **Read 2026-10-30: 2** data points in 3 days, each at a send. Published only around sends,
+   so the alarms stay as they are.
+
 5. **Prove delivery:**
 
    ```bash
@@ -496,8 +499,9 @@ Foundational Security Best Practices). Until 2026-10-23 the account had none of 
    sign-in, GitHub Actions, the organization's management account). Archive rules in
    `security-baseline.tf` name exactly those principals, so only the unexpected stays active.
    On 2026-10-23 that left four real findings: the **public Lambda function URLs** SST uses as
-   CloudFront origins (web server and image optimizer, both stages). They are tracked in
-   `docs/PROGRESS.md` and are deliberately not archived.
+   CloudFront origins (web server and image optimizer, both stages). They are deliberately
+   not archived. `protection: 'oac-with-edge-signing'` in `sst.config.ts` closes them, and
+   Access Analyzer marks them resolved once the URLs are IAM-only.
 
 ## DNS hardening (`dns-hardening.tf`, opt-in)
 
