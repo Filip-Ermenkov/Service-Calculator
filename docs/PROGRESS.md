@@ -198,6 +198,17 @@ This is for whoever holds each account (the developer or the client), not code.
   `node_modules/@payloadcms/ui/dist/utilities/copyDataFromLocale.js`: once it no
   longer reads `globals[globalSlug].config`, delete this entry and the note in
   `FUNCTIONALITY.md` §6.
+- **Dependabot alert 50: `deepmerge` ≤ 4.3.1** (GHSA-gcqx-w48m-w2h4, low, no
+  patched release). Only Payload uses it, and its one call on request data
+  (`fields/hooks/beforeChange/promise.js`) merges an incoming save into the
+  stored document to build the object field validators receive. Every create
+  and update, on every collection and global, requires a fully 2FA-verified
+  admin, and a crafted `__proto__` key changes only that one object's
+  prototype, not `Object.prototype`. The worst case is an admin confusing the
+  validation of their own save. **Left open, not dismissed:** the path is
+  reachable, and the dismissal rule (`TECHSPEC.md` §7) needs it unreachable.
+  Once `deepmerge` ships a fix, pin it through `overrides`, or delete this
+  entry when Payload drops the package.
 
 ---
 
