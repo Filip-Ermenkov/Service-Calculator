@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import { Inter, Barlow_Condensed } from 'next/font/google'
 import { NextIntlClientProvider, hasLocale } from 'next-intl'
 import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server'
 import { notFound } from 'next/navigation'
@@ -8,24 +7,12 @@ import { notFound } from 'next/navigation'
 import { Footer } from '@/components/site/Footer'
 import { Header } from '@/components/site/Header'
 import { routing } from '@/i18n/routing'
+// Self-hosted (no layout shift, no third-party webfont request), from local
+// files so the build never reaches Google either; see src/lib/fonts.ts.
+import { barlow, inter } from '@/lib/fonts'
 import { DEFAULT_SHARE_IMAGE, IS_INDEXABLE, SITE_URL } from '@/lib/seo'
 
 import './globals.css'
-
-// Self-hosted via next/font (no layout shift, no third-party webfont request).
-// Exposed as CSS variables consumed by globals.css (--font-inter/--font-barlow).
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '900'],
-  variable: '--font-inter',
-  display: 'swap',
-})
-const barlow = Barlow_Condensed({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800', '900'],
-  variable: '--font-barlow',
-  display: 'swap',
-})
 
 // Render every locale at build time (next-intl static-rendering requirement).
 export function generateStaticParams() {

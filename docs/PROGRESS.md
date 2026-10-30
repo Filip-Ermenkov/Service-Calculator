@@ -8,7 +8,7 @@ explaining why it was done that way. This file does not repeat them.
 
 ---
 
-## Where it stands — 2026-10-23
+## Where it stands — 2026-10-30
 
 Every planned feature is built and deployed. Nothing left before launch is
 development work.
@@ -30,19 +30,14 @@ The AWS facts below were read from the live account on 2026-10-23
 
 Ordered so the things with external waiting periods start first.
 
-### 1. SES production access — requested 2026-10-23, waiting on AWS
-SES is in sandbox: mail only reaches verified identities, so a visitor's quote
-email goes nowhere. Requested 2026-10-23 (eu-central-1, transactional). AWS
-replied with its standard request for details (use case, volume, how recipients
-opt in, bounce and complaint handling, a sample email), and the review reads
-`DENIED` until that answer is in the support case. AWS's first response can
-take up to 96 hours. What the answer can cite is already true: the account-level
-suppression list covers bounces and complaints, and `bulbau.lu` is verified with
-DKIM and a custom MAIL FROM.
-
-Once it is granted, test with an address that is **not** a verified SES
-identity. A verified address receives mail even in the sandbox, so it proves
-nothing.
+### 1. SES production access — done (granted 2026-10-29)
+Out of the sandbox in eu-central-1: 50,000 messages a day, 14 a second, and the
+account is healthy. Production sends from `info@bulbau.lu` (the `EmailSender`
+secret). **Proven end to end on 2026-10-30**: a quote emailed from the live site
+to an address that is not an SES identity arrived with SPF, DKIM and DMARC all
+`PASS`. The sandbox-only `f.ermenkov@gmail.com` identity has been removed, so
+the account can no longer send as that address. The SES reputation alarms (step
+4) now have mail to measure.
 
 ### 2. Lambda concurrency — done, 1000 (2026-10-23)
 The account limit in eu-central-1 is **1000** (AWS approved the request on
@@ -198,10 +193,6 @@ This is for whoever holds each account (the developer or the client), not code.
   prefetching is effectively off and each costs two Lambda invocations. Known
   upstream Next.js behaviour with i18n middleware rewrites (vercel/next.js
   #91844, #55415). Not a correctness bug.
-- **`next/font/google` runs at build time**, so every deploy depends on Google's
-  font CDN being reachable — it has already failed one deploy. `next/font/local`
-  would remove that. Visitors make no request to Google: the fonts are served
-  from the build (checked on the live HTML, 2026-10-23).
 - **"Copy to locale" crashes on every global** (Company Info, Legal Info). This
   is a Payload bug, not ours; it was reproduced locally on 2026-10-23.
   `@payloadcms/ui`'s `copyDataFromLocale` reads `payload.globals[slug].config`,
