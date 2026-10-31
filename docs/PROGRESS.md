@@ -8,7 +8,7 @@ explaining why it was done that way. This file does not repeat them.
 
 ---
 
-## Where it stands — 2026-10-30
+## Where it stands — 2026-10-31
 
 Every planned feature is built and deployed. Nothing left before launch is
 development work.
@@ -151,9 +151,6 @@ This is for whoever holds each account (the developer or the client), not code.
    last, because preload is painful to reverse
 
 ### 8. Housekeeping
-- `delete_branch_on_merge` is off
-- the `protect-main` ruleset has a `Repository admin` bypass, so admins can push
-  straight to `main`
 - rotate the staging Neon password (it sits commented out in the local `.env`)
   and the Neon API key
 - the repo is **public** — a commercial client site with its infra topology in
@@ -174,12 +171,6 @@ This is for whoever holds each account (the developer or the client), not code.
 - **DNSSEC**: signing has been live since 2026-10-23 18:37 UTC. **On or after 2026-10-25
   at 19:00 UTC**, add the DS record (`terraform output dnssec_ds_record`) at
   EuroDNS. The order matters; see `infra/terraform/README.md` → "DNS hardening"
-- **The Lambda function URLs are being locked to CloudFront** (`protection:
-  'oac-with-edge-signing'` in `sst.config.ts`). Until it is deployed, SST's default
-  leaves the web server and image optimizer URLs public, and a caller who learns
-  one can skip CloudFront, including the `CloudFront-Viewer-Address` stripping
-  the rate limiter relies on. Done when a direct call to each function URL returns
-  403 on both stages and IAM Access Analyzer shows the four Lambda findings resolved
 
 ### Recurring
 - `public/.well-known/security.txt` expires on 2027-10-01.
@@ -207,6 +198,17 @@ This is for whoever holds each account (the developer or the client), not code.
   `node_modules/@payloadcms/ui/dist/utilities/copyDataFromLocale.js`: once it no
   longer reads `globals[globalSlug].config`, delete this entry and the note in
   `FUNCTIONALITY.md` §6.
+- **Dependabot alert 50: `deepmerge` ≤ 4.3.1** (GHSA-gcqx-w48m-w2h4, low, no
+  patched release). Only Payload uses it, and its one call on request data
+  (`fields/hooks/beforeChange/promise.js`) merges an incoming save into the
+  stored document to build the object field validators receive. Every create
+  and update, on every collection and global, requires a fully 2FA-verified
+  admin, and a crafted `__proto__` key changes only that one object's
+  prototype, not `Object.prototype`. The worst case is an admin confusing the
+  validation of their own save. **Left open, not dismissed:** the path is
+  reachable, and the dismissal rule (`TECHSPEC.md` §7) needs it unreachable.
+  Once `deepmerge` ships a fix, pin it through `overrides`, or delete this
+  entry when Payload drops the package.
 
 ---
 

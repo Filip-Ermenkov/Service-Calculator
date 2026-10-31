@@ -499,9 +499,11 @@ Foundational Security Best Practices). Until 2026-10-23 the account had none of 
    sign-in, GitHub Actions, the organization's management account). Archive rules in
    `security-baseline.tf` name exactly those principals, so only the unexpected stays active.
    On 2026-10-23 that left four real findings: the **public Lambda function URLs** SST uses as
-   CloudFront origins (web server and image optimizer, both stages). They are deliberately
-   not archived. `protection: 'oac-with-edge-signing'` in `sst.config.ts` closes them, and
-   Access Analyzer marks them resolved once the URLs are IAM-only.
+   CloudFront origins (web server and image optimizer, both stages). They were deliberately
+   not archived. `protection: 'oac-with-edge-signing'` in `sst.config.ts` closed them on
+   2026-10-30, together with two hand-removed statements the deploy did not own
+   (`docs/TECHSPEC.md` §7). Since then the analyzer has no active findings, so any new one
+   is worth reading.
 
 ## DNS hardening (`dns-hardening.tf`, opt-in)
 
