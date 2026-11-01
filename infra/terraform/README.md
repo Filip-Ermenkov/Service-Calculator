@@ -10,9 +10,9 @@ resources "lives in `infra/`".
 >
 > The **SES reputation alarms** are applied too (`ses-reputation.tf`, `manage_ses_reputation_alarms = true`, 2026-10-23). Both sit in `INSUFFICIENT_DATA` until the account sends mail; steps 3–4 [below](#turning-the-ses-reputation-alarms-on-ses-reputationtf-opt-in) are still open. A full `terraform plan` on 2026-10-23 showed no drift.
 >
-> **Applied 2026-10-23/24:** the security baseline (`manage_cloudtrail`, `manage_account_guardrails`, `manage_guardduty`, `manage_caa`, `manage_tls_rpt`, `manage_dnssec`) and the nightly backups (`manage_db_backups`). All are `true` in the live tfvars, and a follow-up plan shows no changes. CloudTrail delivers from every region; GuardDuty email delivery and a full backup restore are both proven. DNSSEC is signing; **the DS record goes to EuroDNS on or after 2026-10-25 19:00 UTC**.
+> **Applied 2026-10-23/24:** the security baseline (`manage_cloudtrail`, `manage_account_guardrails`, `manage_guardduty`, `manage_caa`, `manage_tls_rpt`, `manage_dnssec`) and the nightly backups (`manage_db_backups`). All are `true` in the live tfvars, and a follow-up plan shows no changes. CloudTrail delivers from every region; GuardDuty email delivery and a full backup restore are both proven. DNSSEC is signing, and the DS record has been at EuroDNS since 2026-11-01 (validating resolvers return `AD=true`).
 >
-> **Open here:** the DS record above; move DMARC from `p=none` to `p=quarantine` once aggregate reports have been arriving for a while (`dmarc_policy`). The runbook below is for a fresh clone / disaster recovery.
+> **DMARC** moved from `p=none` to `p=quarantine` on 2026-11-01 (`dmarc_policy`; a one-record apply, and a follow-up plan shows no changes). `reject` follows after a few weeks of clean reports. The runbook below is for a fresh clone / disaster recovery.
 
 ## What it manages
 

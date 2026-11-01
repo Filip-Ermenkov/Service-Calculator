@@ -8,7 +8,7 @@ explaining why it was done that way. This file does not repeat them.
 
 ---
 
-## Where it stands — 2026-10-31
+## Where it stands — 2026-11-01
 
 Every planned feature is built and deployed. Nothing left before launch is
 development work.
@@ -122,19 +122,28 @@ proven 2026-10-24:**
 Repeat that restore check every few months (`infra/terraform/README.md` →
 "Nightly database backups").
 
-### 6. Data processing agreements — confirm before launch
+### 6. Data processing agreements — checked 2026-11-01, one decision open
 The published Privacy Policy says each processor "acts only on our instructions
-under a data processing agreement". `TECHSPEC.md` §7A says these must be
-reviewed and accepted, not assumed, so confirm each one before the site is
-findable:
-- **AWS** (hosting, SES, Translate, DynamoDB): AWS's GDPR DPA is part of its
-  Service Terms and applies automatically.
-- **Neon** (the database): check its DPA covers this account's plan.
-- **Cloudflare** (Turnstile): check its DPA is part of this account's terms.
-- **Google Workspace** (the `office@` mailbox): review it in the Admin console →
-  Account → Legal and compliance.
-
-This is for whoever holds each account (the developer or the client), not code.
+under a data processing agreement". `TECHSPEC.md` §7A requires each one to be
+reviewed, not assumed. Read from each provider's current terms on 2026-11-01:
+- **AWS** (hosting, SES, Translate, DynamoDB): the AWS Service Terms (§1.14.1)
+  incorporate the GDPR DPA automatically.
+- **Cloudflare** (Turnstile): the Self-Serve Subscription Agreement (§6.1)
+  incorporates the Customer DPA (v6.4, 2026-04-03) by reference, and it covers
+  free services.
+- **Neon** (the database): Neon's terms (2026-10-14) are the Databricks Master
+  Cloud Services Agreement plus a Neon schedule. The agreement incorporates the
+  Databricks DPA (§1.1.4.1), and the schedule amends it. Neither names the Free
+  plan; ask Neon support for written confirmation if that ever matters.
+- **Google Workspace** (the `office@` mailbox): the Cloud Data Processing
+  Addendum was accepted in the Admin console on 2026-11-01.
+- **GitHub** is not on the Privacy Policy's list, but the nightly backup runs on
+  GitHub Actions, so the production dump passes through it. GitHub's DPA covers
+  only its Enterprise, Team and Copilot plans, and Actions falls under separate
+  product terms, so these runs have no DPA. The dump holds no visitor data: only
+  the two admin accounts (email, password hash, encrypted TOTP secret) and site
+  content. **Open decision:** accept and record this, or move the backup job
+  into AWS, where the AWS DPA applies.
 
 ### 7. Launch flip — last, in this order
 1. content in, reviewed
@@ -151,26 +160,28 @@ This is for whoever holds each account (the developer or the client), not code.
    last, because preload is painful to reverse
 
 ### 8. Housekeeping
-- rotate the staging Neon password (it sits commented out in the local `.env`)
-  and the Neon API key
 - the repo is **public** — a commercial client site with its infra topology in
   the open. Private would lose CodeQL on the free tier; it is a decision, not an
   oversight
-- DMARC is `p=none`; move to `quarantine` once reports have been arriving
-- the Neon URLs use `sslmode=require`. `pg` v9 will give that libpq semantics,
-  which skip certificate verification. Switch the `DatabaseUrl` SST secrets and
-  the `*_DATABASE_URL_UNPOOLED` GitHub secrets to `sslmode=verify-full` before
-  `pg` reaches v9; that also silences the warning `pg` prints on every cold
-  start
+- **DMARC is `p=quarantine`** since 2026-11-01. Google's reports for 10-29 and
+  10-30 showed only SES, aligned and passing, and a test message from `office@`
+  passed SPF, DKIM and DMARC. Move to `reject` (`dmarc_policy` in the live
+  tfvars) after a few weeks of clean reports at `dmarc@`. More Workspace
+  addresses (`privacy@`, `legal@`) need nothing; a new *service* that sends as
+  `@bulbau.lu` needs its SPF/DKIM set up before first use, or its mail lands in
+  spam
+- **The account's root user still has credentials, without MFA.** Delete them
+  centrally instead of adding MFA: sign in to the management account
+  (744747681339) through Identity Center, **not** as its root user (privileged
+  root actions use `sts:AssumeRoot`, which refuses root callers with "RootSession
+  may not be assumed by root accounts"), then IAM → Root access management →
+  847321857537 → Delete root user credentials
 - the GitHub Actions deploy role still has a broad, region-scoped Allow
   (`DeploymentsScopedToRegion`). Replace it with a least-privilege policy that
   IAM Access Analyzer generates from CloudTrail (`infra/aws/README.md`).
   Policy generation needs a **trail**, and the account had none until
   `security-baseline.tf`. Let it record a few weeks of deploys (both stages,
   one custom-domain change) first; this is post-launch work
-- **DNSSEC**: signing has been live since 2026-10-23 18:37 UTC. **On or after 2026-10-25
-  at 19:00 UTC**, add the DS record (`terraform output dnssec_ds_record`) at
-  EuroDNS. The order matters; see `infra/terraform/README.md` → "DNS hardening"
 
 ### Recurring
 - `public/.well-known/security.txt` expires on 2027-10-01.
