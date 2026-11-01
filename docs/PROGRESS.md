@@ -220,6 +220,14 @@ reviewed, not assumed. Read from each provider's current terms on 2026-11-01:
   reachable, and the dismissal rule (`TECHSPEC.md` §7) needs it unreachable.
   Once `deepmerge` ships a fix, pin it through `overrides`, or delete this
   entry when Payload drops the package.
+- **Dependabot alert 51: `minimatch` < 11.0.1** (GHSA-g3hv-75wg-m249, medium,
+  a denial of service through crafted glob patterns). Dev-only: the production
+  tree has no `minimatch` at all. ESLint's tooling pulls seven copies of 3.1.5
+  and typescript-eslint one of 10.2.6. The fix exists only in 11.x, which the
+  ESLint 9 plugins cannot load: they `require()` 3.x's callable default export,
+  so an `overrides` pin would break lint. The patterns it parses are this repo's
+  own config globs, never outside input. Left open; it clears once ESLint and
+  its plugins move to a patched `minimatch`.
 
 ---
 
