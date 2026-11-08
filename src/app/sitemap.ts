@@ -12,8 +12,9 @@ const STATIC_PATHS = ['', '/projects', '/about', '/careers', '/contact', '/legal
 /**
  * Localized XML sitemap (TECHSPEC §6.11). One entry per locale-prefixed URL,
  * each carrying `hreflang` alternates for the other locales. Service detail
- * pages are included from the CMS (resilient — an empty/unreachable DB yields
- * just the static pages rather than failing the build).
+ * pages are included from the CMS. An unreachable database THROWS (see
+ * src/lib/content.ts): at runtime the last good sitemap keeps being served, and
+ * at build time the build fails rather than publishing a sitemap with no services.
  *
  * `lastModified` is set ONLY where a real modification time exists (a service's
  * `updatedAt`). The static pages carry none: Google ignores lastmod that is not
