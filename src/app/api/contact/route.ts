@@ -26,7 +26,7 @@ import { NextResponse } from 'next/server'
 import { getTranslations } from 'next-intl/server'
 
 import { routing, type Locale } from '@/i18n/routing'
-import { getCompanyInfo } from '@/lib/content'
+import { ContentUnavailableError, getCompanyInfo } from '@/lib/content'
 import { renderContactEmail, type ContactSubmission } from '@/lib/email/contactEmail'
 import { isValidEmail, sendEmail } from '@/lib/email/ses'
 import { checkRateLimit, getClientIp, type RateLimitPolicy } from '@/lib/rateLimit'
@@ -133,7 +133,17 @@ export async function POST(request: Request) {
   }
 
   // 6) Relay to the company inbox.
-  const company = await getCompanyInfo(locale)
+  // A failed read has already logged its OPS_ALERT; the visitor gets the same
+  // "contact us another way" answer as an unconfigured inbox, not a 500.
+  let company: Awaited<ReturnType<typeof getCompanyInfo>>
+  try {
+    company = await getCompanyInfo(locale)
+  } catch (err) {
+    if (err instanceof ContentUnavailableError) {
+      return NextResponse.json({ error: 'contact_unavailable' }, { status: 503 })
+    }
+    throw err
+  }
   const destination = company?.email ?? null
   if (!destination) {
     // No configured destination address — nothing we can do with the message.

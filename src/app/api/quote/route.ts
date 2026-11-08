@@ -26,7 +26,7 @@ import { NextResponse } from 'next/server'
 import { getTranslations } from 'next-intl/server'
 
 import { routing, type Locale } from '@/i18n/routing'
-import { getCompanyInfo, getServiceBySlug } from '@/lib/content'
+import { ContentUnavailableError, getCompanyInfo, getServiceBySlug } from '@/lib/content'
 import { renderQuoteEmail, type QuoteEmailContent } from '@/lib/email/quoteEmail'
 import { isValidEmail, sendEmail } from '@/lib/email/ses'
 import { buildQuoteModel, type QuoteText } from '@/lib/pdf/quote'
@@ -272,6 +272,15 @@ export async function POST(request: Request) {
       },
     })
   } catch (err) {
+    // The service or company details could not be read. That is already
+    // reported (OPS_ALERT) and is not a PDF fault, so it gets its own answer:
+    // a 503 the visitor can retry, rather than a 404 that says the service is gone.
+    if (err instanceof ContentUnavailableError) {
+      return NextResponse.json(
+        { error: 'service_unavailable' },
+        { status: 503, headers: { 'Retry-After': '30', 'Cache-Control': 'no-store' } },
+      )
+    }
     console.error('[api/quote] quote generation failed:', err)
     return NextResponse.json({ error: 'pdf_generation_failed' }, { status: 502 })
   }

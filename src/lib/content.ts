@@ -1,7 +1,7 @@
 import { getPayload, type Payload } from 'payload'
 
 import configPromise from '@/payload.config'
-import { logOpsEvent } from '@/lib/observability/opsLog'
+import { logOpsEvent, type OpsContext } from '@/lib/observability/opsLog'
 import type { Locale } from '@/i18n/routing'
 import type {
   CareerListing,
@@ -25,17 +25,62 @@ import type {
  * `localization.fallback: true`, an untranslated FR/DE field falls back to its
  * EN source, so the site is coherent before the Phase 5 translation pipeline.
  *
- * Every fetcher is resilient: a DB/CMS failure logs and returns an empty/`null`
- * result instead of throwing, so a transient content-layer problem degrades to
- * an empty section rather than crashing the whole page (and so a build with no
- * database reachable still succeeds, rendering empty states).
+ * Every fetcher FAILS LOUDLY. A database or CMS failure logs one `OPS_ALERT`
+ * (src/lib/observability/opsLog.ts, which the `app-ops-alerts` alarm watches)
+ * and then throws `ContentUnavailableError`. It never returns an empty result
+ * in place of an error, because on this site an empty result gets cached:
+ *
+ *  - At runtime, a page is regenerated in the background (ISR). Next.js keeps
+ *    serving the last good version only when that render THROWS: "If an error
+ *    is thrown while attempting to revalidate data, the last successfully
+ *    generated data will continue to be served from the cache"
+ *    (nextjs.org/docs/app/guides/incremental-static-regeneration). Until
+ *    2026-11 these functions returned `[]`/`null` instead, so a Neon blip
+ *    replaced good pages with empty ones and a service page with a cached 404
+ *    (`null` → `notFound()`), at the edge for up to the revalidate window.
+ *  - At build time, a throw fails `next build`, so a deploy whose database is
+ *    unreachable stops instead of shipping an empty site with a green job.
+ *
+ * `null`/`[]` therefore mean exactly one thing: the query RAN and found
+ * nothing (an unknown or draft slug, no projects yet). Route handlers that must
+ * answer even when content is down catch `ContentUnavailableError` themselves
+ * (/api/contact, /api/quote).
  */
+
+/** A content read failed; the query did not run to completion. See the header. */
+export class ContentUnavailableError extends Error {
+  readonly scope: string
+
+  constructor(scope: string, options?: { cause?: unknown }) {
+    super(`Content unavailable (${scope})`, options)
+    this.name = 'ContentUnavailableError'
+    this.scope = scope
+  }
+}
+
+/** Report a failed read once (OPS_ALERT), then throw. Never returns. */
+function contentUnavailable(
+  scope: string,
+  err: unknown,
+  context?: OpsContext,
+): never {
+  logOpsEvent(scope, err, 'error', context)
+  throw new ContentUnavailableError(scope, { cause: err })
+}
 
 let clientPromise: Promise<Payload> | null = null
 
 export async function getPayloadClient(): Promise<Payload> {
   if (!clientPromise) {
-    clientPromise = getPayload({ config: configPromise })
+    const pending = getPayload({ config: configPromise })
+    clientPromise = pending
+    // Never keep a FAILED init. Payload connects to the database while it
+    // initialises, so a cold start during a Neon outage rejects here; keeping
+    // that rejected promise would fail every later request on this Lambda
+    // instance until it is recycled, long after the database came back.
+    pending.catch(() => {
+      if (clientPromise === pending) clientPromise = null
+    })
   }
   return clientPromise
 }
@@ -67,15 +112,14 @@ export async function getServices(locale: Locale): Promise<Service[]> {
     })
     return res.docs
   } catch (err) {
-    logOpsEvent('content.getServices', err, 'error', { locale })
-    return []
+    contentUnavailable('content.getServices', err, { locale })
   }
 }
 
 /**
  * How many service cards the Home page should show, from the drag order
  * (home-settings global; set on the Services admin screen). 0 = show all.
- * Resilient → 0 (all) on any failure or before the global's first save.
+ * 0 before the global's first save. Throws on a failed read (see the header).
  */
 export async function getServiceCardLimit(): Promise<number> {
   try {
@@ -88,8 +132,7 @@ export async function getServiceCardLimit(): Promise<number> {
     const n = typeof s?.serviceCardLimit === 'number' ? s.serviceCardLimit : 0
     return n > 0 ? n : 0
   } catch (err) {
-    logOpsEvent('content.getServiceCardLimit', err)
-    return 0
+    contentUnavailable('content.getServiceCardLimit', err)
   }
 }
 
@@ -110,12 +153,11 @@ export async function getServiceBySlug(
     })
     return res.docs[0] ?? null
   } catch (err) {
-    logOpsEvent('content.getServiceBySlug', err, 'error', { slug, locale })
-    return null
+    contentUnavailable('content.getServiceBySlug', err, { slug, locale })
   }
 }
 
-/** Published service slugs for generateStaticParams/sitemap (resilient → []). */
+/** Published service slugs for generateStaticParams (throws on a failed read). */
 export async function getPublishedServiceSlugs(): Promise<string[]> {
   try {
     const payload = await getPayloadClient()
@@ -131,8 +173,7 @@ export async function getPublishedServiceSlugs(): Promise<string[]> {
       .map((d) => d.slug)
       .filter((s): s is string => typeof s === 'string' && s.length > 0)
   } catch (err) {
-    logOpsEvent('content.getPublishedServiceSlugs', err)
-    return []
+    contentUnavailable('content.getPublishedServiceSlugs', err)
   }
 }
 
@@ -140,7 +181,7 @@ export async function getPublishedServiceSlugs(): Promise<string[]> {
  * Published services for the sitemap: slug + last modification, so `lastmod`
  * reflects a real edit (Google only honours lastmod when it is consistently
  * truthful; stamping "now" on every regeneration is the same as omitting it,
- * except it also looks like a lie). Resilient → [].
+ * except it also looks like a lie). Throws on a failed read.
  */
 export async function getPublishedServicesForSitemap(): Promise<
   { slug: string; updatedAt: string }[]
@@ -161,8 +202,7 @@ export async function getPublishedServicesForSitemap(): Promise<
         : [],
     )
   } catch (err) {
-    logOpsEvent('content.getPublishedServicesForSitemap', err)
-    return []
+    contentUnavailable('content.getPublishedServicesForSitemap', err)
   }
 }
 
@@ -184,8 +224,7 @@ export async function getProjects(locale: Locale): Promise<Project[]> {
     })
     return res.docs
   } catch (err) {
-    logOpsEvent('content.getProjects', err, 'error', { locale })
-    return []
+    contentUnavailable('content.getProjects', err, { locale })
   }
 }
 
@@ -203,8 +242,7 @@ export async function getCareers(locale: Locale): Promise<CareerListing[]> {
     })
     return res.docs
   } catch (err) {
-    logOpsEvent('content.getCareers', err, 'error', { locale })
-    return []
+    contentUnavailable('content.getCareers', err, { locale })
   }
 }
 
@@ -218,8 +256,7 @@ export async function getCompanyInfo(locale: Locale): Promise<CompanyInfo | null
       overrideAccess: false,
     })
   } catch (err) {
-    logOpsEvent('content.getCompanyInfo', err, 'error', { locale })
-    return null
+    contentUnavailable('content.getCompanyInfo', err, { locale })
   }
 }
 
@@ -233,7 +270,6 @@ export async function getLegalInfo(locale: Locale): Promise<LegalInfo | null> {
       overrideAccess: false,
     })
   } catch (err) {
-    logOpsEvent('content.getLegalInfo', err, 'error', { locale })
-    return null
+    contentUnavailable('content.getLegalInfo', err, { locale })
   }
 }
